@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from i3pw import PenalizedIPW, make_dataset, no_correction, penalized_ipw
-from i3pw.methods import cross_validate, lasso_ipw
+from i3pw import PenalizedIPW, make_dataset, monte_carlo, no_correction, penalized_ipw
+from i3pw.methods import _trim_weights, cross_validate, lasso_ipw
 
 
 @pytest.fixture(scope="module")
@@ -77,3 +77,56 @@ def test_lasso_ipw_runs(dataset):
     res = lasso_ipw(dataset, cv=3)
     assert res.weighted_prevalence.shape == (2,)
     assert np.all(np.isfinite(res.percent_diff))
+
+
+def test_weights_schemes(dataset):
+    Xtr, _, s = dataset.split("train")
+    pop = dataset.population_prevalence
+    est = PenalizedIPW(lam=0.001, gamma=0.0, max_iter=500).fit(Xtr, s, pop)
+    odds = est.weights(Xtr, s, scheme="odds")
+    inv = est.weights(Xtr, s, scheme="inverse")
+    # inverse: unselected units are excluded (weight 0); selected get 1/P > 0.
+    assert np.all(inv[s == 0] == 0)
+    assert np.all(inv[s == 1] > 0)
+    # odds: unselected get exactly weight 1.
+    assert np.all(odds[s == 0] == 1)
+    with pytest.raises(ValueError):
+        est.weights(Xtr, s, scheme="nope")
+
+
+def test_inverse_weighting_uses_sample_only(dataset):
+    # The Horvitz-Thompson estimate must be computable from the sample alone:
+    # zero-weight (unselected) units cannot affect it.
+    res = penalized_ipw(dataset, lambdas=(0.001,), gammas=(0.0,), K=3,
+                        weighting="inverse", combine="mean",
+                        learning_rate=0.05, max_iter=1500, decay_interval=1000)
+    w = res["mean"].extra["weight"]
+    _, _, s_test = dataset.split("test")
+    assert np.all(w[s_test == 0] == 0)
+    assert np.all(np.isfinite(res["mean"].percent_diff))
+
+
+def test_trim_weights_caps_extremes():
+    w = np.array([1.0, 2.0, 3.0, 100.0])
+    trimmed = _trim_weights(w, 0.75)
+    assert trimmed.max() < 100.0
+    assert np.array_equal(_trim_weights(w, None), w)  # None is a no-op
+    with pytest.raises(ValueError):
+        _trim_weights(w, 1.5)
+
+
+def test_monte_carlo_summary(dataset):
+    # A few reps on a tiny population; penalized IPW (odds) should on average
+    # beat no correction, and the summary shapes must be right.
+    sims = dict(population_size=1500, n_features=8, n_outcomes=2,
+                predictors_per_outcome=4,
+                target_population_prevalence=(0.4, 0.1),
+                target_sample_prevalence=(0.2, 0.02), sample_size=400)
+    summaries = monte_carlo(
+        n_reps=3, base_seed=10, sim_kwargs=sims, include_lasso=False,
+        penalized_kwargs=dict(lambdas=(0.01,), gammas=(0.0, 1.0), K=3,
+                              learning_rate=0.05, max_iter=1500, decay_interval=1000),
+    )
+    assert set(summaries) == {"no_correction", "penalized_ipw"}
+    assert summaries["penalized_ipw"].mean_pct_error.shape == (2,)
+    assert summaries["penalized_ipw"].overall() < summaries["no_correction"].overall()

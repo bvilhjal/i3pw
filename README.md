@@ -123,6 +123,49 @@ When several outcome models share one sample, their per-outcome weights are
 combined with one of four rules (`combine=` in `penalized_ipw`): `"mean"`,
 `"product"`, `"harmonic"`, `"absdiff"` (inverse-abs-difference weighting).
 
+Two weighting schemes are available (`weighting=` in `lasso_ipw` / `penalized_ipw`,
+or `scheme=` in `PenalizedIPW.weights`):
+
+- `"odds"` — the R construction: selected units get `(1 - P) / P`, unselected units
+  get weight 1, and the weighted mean runs over the whole test set.
+- `"inverse"` — the textbook Horvitz–Thompson / Hájek estimator: selected units get
+  `1 / P`, unselected units get weight 0, so only the **sample** is used.
+
+Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
+
+## Does the correction actually work? A caveat worth reading
+
+Run `python examples/monte_carlo.py` — it repeats the whole pipeline over 20 random
+populations and reports mean absolute % error (± SD) for each method under both
+weighting schemes:
+
+```
+weighting = 'odds'     (oracle — reads unselected outcomes)
+method                     Y1 %err         Y2 %err
+no_correction        46.76±4.83      87.49±6.69
+lasso_ipw            14.25±2.98      29.37±4.46
+penalized_ipw        14.12±2.73      27.57±4.76
+
+weighting = 'inverse'  (deployable — sample only)
+method                     Y1 %err         Y2 %err
+no_correction        46.76±4.83      87.49±6.69
+lasso_ipw            44.28±5.07      87.28±6.62
+penalized_ipw        45.61±4.86      87.41±6.67
+```
+
+Under the **`odds`** scheme the methods look excellent — but that weighted mean
+includes unselected units, contributing their outcomes, which you would never
+observe in a real study. Under the **`inverse`** scheme (the deployable estimator
+that uses only the sampled units) the correction almost vanishes.
+
+This is not a bug; it is the fundamental limitation of IPW here. Selection in this
+DGM is driven directly by the *outcomes*, and the covariates `X` are only a weak
+proxy for them. Inverse-probability weighting on `X` can only remove the part of the
+selection that `X` explains — it cannot recover prevalence when units are selected on
+the outcome itself (a missing-not-at-random problem). The headline numbers reported
+by the original R scripts rely on the `odds` construction, so they flatter the method.
+Treat `odds` as an oracle diagnostic and `inverse` as the honest estimate.
+
 ## Notable differences from the R code
 
 These are deliberate corrections/improvements, documented so results are
@@ -151,10 +194,11 @@ src/i3pw/
 ├── _kernels.py    # numba-compiled objective, gradient, gradient descent
 ├── methods.py     # no_correction, lasso_ipw, penalized_ipw, cross_validate
 ├── weights.py     # per-outcome weight combination rules
+├── evaluation.py  # Monte Carlo comparison across many replications
 ├── metrics.py     # weighted prevalence, % difference, weighted MSE
 └── _links.py      # stable sigmoid / logit
-tests/             # pytest suite (gradient checks, DGM, methods)
-examples/          # benchmark.py
+tests/             # pytest suite (gradient checks, DGM, methods, Monte Carlo)
+examples/          # benchmark.py, monte_carlo.py
 ```
 
 ## Tests
