@@ -119,7 +119,9 @@ class PenalizedIPW:
         return res.x
 
     # -- public API --------------------------------------------------------
-    def fit(self, X: np.ndarray, sample_indicator: np.ndarray, population_prevalence) -> "PenalizedIPW":
+    def fit(
+        self, X: np.ndarray, sample_indicator: np.ndarray, population_prevalence
+    ) -> PenalizedIPW:
         """Fit one inclusion model per outcome.
 
         ``population_prevalence`` is an array of length ``Q`` (one known

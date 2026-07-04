@@ -32,6 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+dev = ["pytest>=7", "ruff>=0.5"]
 
 [project.urls]
 Homepage = "https://github.com/bvilhjal/i3pw"
@@ -42,3 +43,11 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E741"]  # ambiguous variable names (e.g. l1_mask math) are fine here
