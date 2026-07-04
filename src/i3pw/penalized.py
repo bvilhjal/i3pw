@@ -174,13 +174,30 @@ class PenalizedIPW:
         Xd = self._design(X)
         return clip_prob(sigmoid(Xd @ self.coef_.T), self.eps)
 
-    def weights(self, X: np.ndarray, sample_indicator: np.ndarray) -> np.ndarray:
+    def weights(
+        self, X: np.ndarray, sample_indicator: np.ndarray, scheme: str = "odds"
+    ) -> np.ndarray:
         """Per-outcome IPW weights, shape ``(n, Q)``.
 
-        Selected units (``sample_indicator == 1``) receive the inverse-odds
-        weight ``(1 - P) / P``; unselected units receive weight 1, matching the
-        construction used throughout the R scripts.
+        Parameters
+        ----------
+        scheme:
+            ``"odds"`` (default) reproduces the R construction: selected units
+            (``sample_indicator == 1``) get the inverse-odds weight
+            ``(1 - P) / P`` and unselected units get weight 1. A weighted mean
+            over *all* units (selected + unselected) then estimates the
+            population prevalence — but it reads the outcomes of unselected
+            units, which is only possible in a simulation.
+
+            ``"inverse"`` is the textbook Horvitz–Thompson / Hájek estimator:
+            selected units get ``1 / P`` and unselected units get weight 0, so a
+            weighted mean uses the *sample only* — the realistic case, where
+            unselected outcomes are unobserved.
         """
+        if scheme not in ("odds", "inverse"):
+            raise ValueError("scheme must be 'odds' or 'inverse'.")
         P = self.predict_inclusion(X)
         s = np.asarray(sample_indicator, dtype=float)[:, None]
-        return np.where(s == 1, (1.0 - P) / P, 1.0)
+        if scheme == "odds":
+            return np.where(s == 1, (1.0 - P) / P, 1.0)
+        return np.where(s == 1, 1.0 / P, 0.0)

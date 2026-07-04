@@ -54,6 +54,19 @@ def _test_arrays(dataset: Dataset):
     return X_test, Y_test, s_test
 
 
+def _trim_weights(w: np.ndarray, trim: float | None) -> np.ndarray:
+    """Clip weights at their ``trim`` upper quantile (no-op when ``trim`` is None)."""
+    if trim is None:
+        return w
+    if not 0.0 < trim <= 1.0:
+        raise ValueError("trim must be in (0, 1].")
+    positive = w[w > 0]
+    if positive.size == 0:
+        return w
+    cap = np.quantile(positive, trim)
+    return np.minimum(w, cap)
+
+
 def no_correction(dataset: Dataset) -> MethodResult:
     """Naive prevalence: the outcome mean among sampled units in the test fold."""
     _, Y_test, s_test = _test_arrays(dataset)
@@ -71,6 +84,8 @@ def lasso_ipw(
     cv: int = 5,
     Cs=None,
     max_iter: int = 1000,
+    weighting: str = "odds",
+    trim: float | None = None,
 ) -> MethodResult:
     """LASSO logistic IPW with a single inclusion model shared across outcomes.
 
@@ -120,7 +135,13 @@ def lasso_ipw(
         model.fit(X_train, s_train)
     P_test = np.clip(model.predict_proba(X_test)[:, 1], 1e-6, 1 - 1e-6)
 
-    weight = np.where(s_test == 1, (1.0 - P_test) / P_test, 1.0)
+    if weighting == "odds":
+        weight = np.where(s_test == 1, (1.0 - P_test) / P_test, 1.0)
+    elif weighting == "inverse":
+        weight = np.where(s_test == 1, 1.0 / P_test, 0.0)
+    else:
+        raise ValueError("weighting must be 'odds' or 'inverse'.")
+    weight = _trim_weights(weight, trim)
     pop = dataset.population_prevalence
     est = np.array([weighted_prevalence(weight, Y_test[:, q]) for q in range(len(pop))])
     pdiff = np.array([percent_difference(est[q], pop[q]) for q in range(len(pop))])
@@ -214,6 +235,8 @@ def penalized_ipw(
     K: int = 5,
     optimizer: str = "gd",
     combine: str | tuple[str, ...] = ("mean", "product", "harmonic", "absdiff"),
+    weighting: str = "odds",
+    trim: float | None = None,
     cv_seed: int | None = 0,
     cv_criterion: str = "prevalence",
     **estimator_kwargs,
@@ -225,6 +248,17 @@ def penalized_ipw(
     each requested weight-combination rule. ``cv_criterion`` is passed through to
     :func:`cross_validate` (``"prevalence"`` by default so the informed penalty
     is genuinely selectable).
+
+    Parameters
+    ----------
+    weighting:
+        ``"odds"`` (default, faithful to the R code) or ``"inverse"`` (textbook
+        Horvitz–Thompson, sample-only); see :meth:`PenalizedIPW.weights`.
+    trim:
+        Optional upper quantile in ``(0, 1]`` at which to clip the combined
+        weights (e.g. ``0.99``) before estimating. Weight trimming is standard
+        practice for taming the high variance that a few very large IPW weights
+        can cause; ``None`` disables it.
 
     Returns a dict with a :class:`MethodResult` per combine rule (keyed by rule
     name), plus the chosen ``best_lambda`` / ``best_gamma`` and the fitted
@@ -246,7 +280,7 @@ def penalized_ipw(
     est = PenalizedIPW(lam=best_lambda, gamma=best_gamma, optimizer=optimizer, **estimator_kwargs)
     est.fit(X_train, s_train, pop)
 
-    per_outcome_w = est.weights(X_test, s_test)  # (n, Q)
+    per_outcome_w = est.weights(X_test, s_test, scheme=weighting)  # (n, Q)
     P_test = est.predict_inclusion(X_test)  # (n, Q)
 
     results: dict = {
@@ -260,6 +294,7 @@ def penalized_ipw(
             per_outcome_w, method,
             pop_prevalence=pop, sample_prevalence=sample_prev,
         )
+        w = _trim_weights(w, trim)
         est_prev = np.array([weighted_prevalence(w, Y_test[:, q]) for q in range(len(pop))])
         pdiff = np.array([percent_difference(est_prev[q], pop[q]) for q in range(len(pop))])
         mse = np.array([weighted_mse(w, P_test[:, q], Y_test[:, q]) for q in range(len(pop))])

@@ -40,6 +40,9 @@ Homepage = "https://github.com/bvilhjal/i3pw"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+i3pw = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

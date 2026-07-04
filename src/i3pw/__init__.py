@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from ._links import logit, sigmoid
 from .dgm import Dataset, SimConfig, make_dataset, nearest_pd_correlation, random_correlation
+from .evaluation import MonteCarloSummary, format_summary, monte_carlo
 from .methods import (
     MethodResult,
     cross_validate,
@@ -39,6 +40,9 @@ __all__ = [
     "penalized_ipw",
     "cross_validate",
     "MethodResult",
+    "monte_carlo",
+    "MonteCarloSummary",
+    "format_summary",
     "combine_weights",
     "weighted_prevalence",
     "percent_difference",
