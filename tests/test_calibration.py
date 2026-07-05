@@ -121,6 +121,19 @@ def test_outcome_calibration_hits_marginals_and_cooccurrence():
     assert (wj * Y[:, 0] * Y[:, 1]).sum() == pytest.approx(k12, abs=1e-6)
 
 
+def test_outcome_calibration_composes_with_base_weights():
+    # The recommended UK Biobank pipeline: take covariate-participation weights as a
+    # base, then calibrate them to known disease prevalences. Calibration must still
+    # hit the margins exactly, and must actually use the base (differ from uniform).
+    rng = np.random.default_rng(5)
+    Y = (rng.uniform(size=(1500, 2)) < [0.3, 0.15]).astype(float)
+    base = rng.uniform(0.5, 5.0, 1500)  # e.g. 1 / P̂(S | X)
+    targets = [0.5, 0.3]
+    w = outcome_calibration_weights(Y, targets, base_weights=base)
+    assert np.allclose((w[:, None] * Y).sum(axis=0), targets, atol=1e-6)
+    assert not np.allclose(w, outcome_calibration_weights(Y, targets))
+
+
 def _multi_outcome_sample(g, seed, n_pop=200000, rho=0.5, k1=0.15, k2=0.08):
     rng = np.random.default_rng(seed)
     L = rng.multivariate_normal([0, 0], [[1, rho], [rho, 1]], size=n_pop)
