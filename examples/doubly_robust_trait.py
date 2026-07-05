@@ -1,29 +1,24 @@
-"""Genetics-flavoured ascertainment demo: recovering a participant-only trait.
+"""Doubly-robust recovery of a participant-only trait under ascertainment.
 
-Scenario (a case-cohort / ascertained cohort in statistical genetics):
+A binary outcome ``Y`` is ascertained — cases are over-represented relative to the
+known population prevalence ``K``. A separate trait ``V`` (a biomarker, say) is
+measured *only on participants* and correlates with the outcome's liability, so the
+ascertained sample's mean ``V`` is inflated. The trait is missing at random given
+the covariates (``S ⊥ V | X``), so the population mean ``E[V]`` is recoverable.
 
-- A disease ``Y`` is ascertained — cases are over-represented relative to the
-  population prevalence ``K``, which is known from a registry.
-- A trait ``V`` (think polygenic score / biomarker) is measured *only on
-  participants*. Because ``V`` correlates with disease liability, the ascertained
-  sample's mean ``V`` is inflated — a real phenomenon (participation is heritable;
-  cases carry higher genetic liability).
-
-Goal: recover the population mean ``E[V]``. We compare:
+Goal: recover ``E[V]``. Compared:
 
 - ``naive``        — sample mean of V (biased by ascertainment).
-- ``ipw_lasso``    — reweight by a covariate participation model (1/P).
-- ``calibration``  — reweight so the sample matches the known disease prevalence K.
-- ``aipw``         — doubly-robust: an outcome model for V plus the calibration
-                     weights.
+- ``ipw_lasso``    — reweight by a covariate participation model (``1/P̂``).
+- ``calibration``  — reweight so the sample matches the known prevalence ``K``.
+- ``aipw``         — doubly-robust: an outcome model for V plus the calibration weights.
 
-Notes on the theory this mirrors: the known ``K`` playing the correcting role is
-the same anchor used in the observed->liability heritability transform
-(Lee, Wray, Goddard & Visscher 2011); pure case-control ascertainment leaves
-*logistic slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute
-risks, and — as here — the mean of a liability-correlated trait.
+The doubly-robust estimator (:func:`i3pw.aipw_mean`) is consistent if *either* the
+outcome model or the weights are correct, and is the lower-variance choice for a
+downstream mean. Using calibration weights — which are tuned to the *ascertained
+margin* — as a raw weighted mean for an unrelated trait is comparatively noisy.
 
-    python examples/genetics_ascertainment.py
+    python examples/doubly_robust_trait.py
 """
 
 from __future__ import annotations
@@ -41,7 +36,7 @@ SIM = dict(
     n_features=12,
     n_outcomes=2,
     predictors_per_outcome=6,
-    target_population_prevalence=(0.15, 0.4),  # outcome 0 = the ascertained disease, K=0.15
+    target_population_prevalence=(0.15, 0.4),  # outcome 0 = the ascertained outcome, K=0.15
     target_sample_prevalence=(0.03, 0.2),
     sample_size=1500,
 )
@@ -57,11 +52,12 @@ def one_rep(seed):
     X_te, _, s_te = ds.split("test")
     sel = s_te == 1
 
-    # Participant-only trait V: disease liability (function of X) + independent noise.
+    # Participant-only trait V: the outcome's liability (a function of X) + independent
+    # noise. Noise ⟂ selection, so V is missing at random given X.
     rng = np.random.default_rng(1000 + seed)
     liability = X_te @ ds.coefficients[0]
     liability = (liability - liability.mean()) / liability.std()
-    V = liability + rng.normal(size=liability.shape[0])  # MAR given X (noise ⟂ selection)
+    V = liability + rng.normal(size=liability.shape[0])
     truth = V.mean()  # population mean over the test fold
 
     # Weights.

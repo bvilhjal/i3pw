@@ -225,29 +225,27 @@ weights `w` (from a participation model *or* from `calibration_ipw`). It is
 **doubly robust** — consistent if *either* `m` or `w` is correct — and lower
 variance than weighting alone.
 
-### A genetics-flavoured demo (`examples/genetics_ascertainment.py`)
+### A doubly-robust demo (`examples/doubly_robust_trait.py`)
 
-A disease is ascertained (cases over-represented; population prevalence `K`
-known from a registry); a trait `V` — think polygenic score / biomarker — is
-measured only on participants and correlates with disease liability, so the
-sample's mean `V` is inflated. Recovering `E[V]` over 20 replications (bias from
-the truth, `|bias|`):
+A binary outcome is ascertained (cases over-represented; population prevalence `K`
+known); a trait `V` — a biomarker, say — is measured only on participants and
+correlates with the outcome's liability, so the sample's mean `V` is inflated.
+Recovering `E[V]` over 20 replications (bias from the truth, `|bias|`):
 
 ```
 method          mean bias    |bias|
 naive             -0.096      0.101     <- ascertainment inflates the trait
 ipw_lasso         -0.019      0.065
-calibration       +0.084      0.103     <- weights tuned to the disease margin, noisy here
+calibration       +0.084      0.103     <- weights tuned to the ascertained margin, noisy here
 aipw              +0.003      0.050     <- doubly robust: best and most stable
 ```
 
 Two honest lessons: (1) `calibration_ipw`'s job is the ascertained margin —
 using its weights as a raw weighted mean for an *unrelated* quantity can be
-noisy; `aipw` is the right downstream estimator. (2) The known `K` playing the
-correcting role is the same anchor as the observed→liability heritability
-transform (Lee et al. 2011); pure case-control ascertainment leaves *logistic
-slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute risks, and
-liability-correlated traits — which is what these estimators repair.
+noisy; `aipw` is the right downstream estimator. (2) Pure case-control
+ascertainment leaves *logistic slopes* unbiased (Prentice & Pyke 1979) but biases
+means, absolute risks, and liability-correlated traits — which is what these
+estimators repair.
 
 ## Modifying a Schoeler-style weight to leverage known prevalences
 
@@ -283,44 +281,26 @@ here because the estimand is a variance component, not an effect size — see be
 The realistic version: a *latent* selection variable `U` drives participation
 (`logit P(S|U) = α + γU`); there are `N` outcomes, each a noisy proxy for `U`; only
 `k` are observed frame-wide (registry-linked); but the population **means** of all
-`N` are known. How best to infer the selection probabilities?
-`examples/selection_probability_inference.py` scores each method by how well its
-(log) weights track the oracle's, and by the bias left on two population quantities
-it never calibrated to (a trait `Z` and a held-out outcome, both correlated with `U`):
+`N` are known. How best to infer the selection probabilities (equivalently, the
+weights `1/P(S)`)? `examples/selection_inference_extensive.py` runs four studies — a
+comparison across selection regimes, sweeps over `N` and `k`, and a Schoeler-style
+covariate comparison — scoring each method by held-out bias, effective sample size,
+and how well its log-weights track the oracle's.
 
-```
-method       corr w/ oracle   |E[Z]| held-out   |E[Yh]−K| held-out
-naive              n/a             0.507             0.063
-registry          0.764            0.248             0.022   (model on the k frame-wide outcomes)
-calib_all         0.802            0.188             0.014   (calibrate to all N known means)
-combined          0.813            0.185             0.014   (registry base + calibrate to means)
-oracle            1.000            0.009             0.001
-```
+The one-line recipe, and the choice that is robust across every regime below: model
+`P(S | outcomes observed frame-wide)` for the base weights, then calibrate to *all*
+known population means — `entropy_balance(Y_sample, means, base_weights=1/P̂)`.
 
-- **Calibration to the known means is the workhorse** — it beats a registry model on
-  few outcomes, because *every* outcome with a known mean is another proxy for `U`.
-- **Combining is best**: individual-level modelling of the outcomes you observe
-  frame-wide, plus calibration to the known means of the rest. Its edge over
-  calibration-alone grows with how many strong proxies you observe individually.
-- **More of either helps** — more registry outcomes (`k`) and more known means (`N`).
-- **None reaches the oracle**: marginals plus a few proxies only *partially*
-  reconstruct the latent `U`. Closing the rest needs joint moments (known
-  co-occurrences) or an explicit latent-variable/measurement model of `U`.
+### Study A — the regime decides, and Lee-style weights are a bet
 
-So the recommended recipe: model `P(S | outcomes observed frame-wide)` for the base
-weights, then calibrate to *all* known population means — `entropy_balance(Y_sample,
-means, base_weights=1/P̂)`.
-
-### Extensive benchmark — the regime decides, and Lee-style weights are a bet
-
-`examples/selection_inference_extensive.py` stress-tests this across selection
-regimes, sweeps `N` and `k`, and adds a **Lee et al. (2011)-style** analytic weight
-(`lee_cc`): the product over all `N` outcomes of the case-control ratios `K_j/P_j`
-(case) and `(1−K_j)/(1−P_j)` (control) — model-free, using the same `N` known means
-as calibration but assuming each outcome is an *independent* case-control axis. The
-generative model dials between selection driven purely by the latent `U` (`latent`),
-purely by a few observed outcomes (`case_control`), or both (`mixed`). Held-out
-`|E[Z]−truth|`, 20 reps (lower is better):
+Alongside `registry`/`calib_all`/`combined` the benchmark adds a **Lee et al.
+(2011)-style** analytic weight (`lee_cc`): the product over all `N` outcomes of the
+case-control ratios `K_j/P_j` (case) and `(1−K_j)/(1−P_j)` (control) — model-free,
+using the same `N` known means as calibration but assuming each outcome is an
+*independent* case-control axis. The generative model dials between selection driven
+purely by the latent `U` (`latent`), purely by a few observed outcomes
+(`case_control`), or both (`mixed`). Held-out `|E[Z]−truth|`, 20 reps (lower is
+better):
 
 ```
 scenario        naive   lee_cc  registry  calib_all  combined   oracle
@@ -344,21 +324,21 @@ The headline is that **no method is uniformly best**:
   / 0.15). `lee_cc` swings from best (latent) to nearly-naive (case-control), and its
   effective sample size is low (≈0.4 of `n`) — it is a high-variance bet that pays off
   only when selection really is a latent factor cleanly proxied by all your outcomes.
-- **Sweeps**: calibration bias falls *monotonically* as `N` grows, but `lee_cc` is
-  *non-monotonic* — it improves then degrades once many weak correlated outcomes each
-  add an over-correction. Only the registry (and `combined`) benefit from more
-  frame-wide outcomes `k`.
+- **Studies B/C (sweeps)**: calibration bias falls *monotonically* as the number of
+  known means `N` grows, but `lee_cc` is *non-monotonic* — it improves then degrades
+  once many weak correlated outcomes each add an over-correction. Only the registry
+  (and `combined`) benefit from more frame-wide outcomes `k`.
 
 Practical read: if you know selection is case-control on a specific known-prevalence
 disorder, the analytic Lee/case-control weight is exact and cheap. If you don't know
 the mechanism — the usual biobank situation — prefer `combined`: it never blows up,
 and unlike `lee_cc` it keeps improving as you learn more prevalences.
 
-### Where Schoeler et al. fits in: a covariate model and calibration are complementary
+### Study D — where Schoeler et al. fits in: covariate model and calibration are complementary
 
 The methods above see only *outcomes*; the [Schoeler et al. (2023)](https://doi.org/10.1038/s41562-023-01579-9)
 approach instead fits a participation model on **socioeconomic covariates** `X` — a
-LASSO `P(S | X)`, inverted. Study D of the same example gives it a fair fight: a
+LASSO `P(S | X)`, inverted. Study D gives it a fair fight: a
 population where selection depends on *both* a socioeconomic index `X@b` **and** the
 disease latent `U` (with `X` independent of `U`), and a held-out trait `Z` that loads
 on both channels. `schoeler` = LASSO `1/P̂(S|X)`; `sch+prev` = those weights used as a
@@ -565,15 +545,11 @@ src/i3pw/
 ├── metrics.py      # weighted prevalence, % difference, weighted MSE
 └── _links.py       # stable sigmoid / logit
 tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
-examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
+examples/           # benchmark.py, monte_carlo.py, doubly_robust_trait.py,
                     #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
                     #   multi_outcome_calibration.py, ukb_participation.py,
-                    #   schoeler_plus_prevalence.py, selection_probability_inference.py,
-                    #   selection_inference_extensive.py
+                    #   schoeler_plus_prevalence.py, selection_inference_extensive.py
 ```
-
-(`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied
-framing; the statistics are identical to the probit model above.)
 
 ## Calibration in one snippet
 
