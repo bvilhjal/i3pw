@@ -40,14 +40,12 @@ SIM = dict(
 
 
 def main() -> None:
-    i3pw.warmup()
     t0 = time.time()
 
     summaries = i3pw.monte_carlo(
         n_reps=N_REPS,
         sim_kwargs=SIM,
         weighting="inverse",  # deployable, sample-only
-        include_penalized=False,
     )
     print(f"=== mean absolute % error over {N_REPS} reps (deployable estimator) ===")
     print(i3pw.format_summary(summaries))

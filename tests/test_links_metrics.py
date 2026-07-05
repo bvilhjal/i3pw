@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from i3pw import logit, sigmoid
-from i3pw.metrics import percent_difference, weighted_mse, weighted_prevalence
+from i3pw.metrics import percent_difference, weighted_prevalence
 
 
 def test_sigmoid_logit_inverse():
@@ -34,13 +34,6 @@ def test_weighted_prevalence_reweights():
 def test_percent_difference():
     assert percent_difference(0.2, 0.4) == pytest.approx(50.0)
     assert np.isnan(percent_difference(0.1, 0.0))
-
-
-def test_weighted_mse_matches_plain_mse():
-    p = np.array([0.2, 0.9, 0.4])
-    y = np.array([0, 1, 0])
-    w = np.ones(3)
-    assert weighted_mse(w, p, y) == pytest.approx(np.mean((p - y) ** 2))
 
 
 def test_zero_weight_sum_raises():

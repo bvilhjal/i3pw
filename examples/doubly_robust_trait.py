@@ -76,7 +76,6 @@ def one_rep(seed):
 
 
 def main():
-    i3pw.warmup()
     t0 = time.time()
     rows = [one_rep(s) for s in range(N_REPS)]
     biases = {k: np.array([r[0][k] for r in rows]) for k in rows[0][0]}

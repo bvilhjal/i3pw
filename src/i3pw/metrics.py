@@ -1,9 +1,7 @@
 """Evaluation metrics for weighted prevalence estimation.
 
-These mirror the quantities the original R scripts report for every method:
-a weighted prevalence estimate, its percentage difference from the known
-population prevalence, and a (weighted) mean squared error of the fitted
-inclusion probabilities.
+A weighted (Hájek) prevalence estimate and its percentage difference from the
+known population prevalence.
 """
 
 from __future__ import annotations
@@ -14,9 +12,12 @@ import numpy as np
 def weighted_prevalence(weights: np.ndarray, y: np.ndarray) -> float:
     r"""Weighted mean of a binary outcome, ``sum(w * y) / sum(w)``.
 
-    This is the Horvitz–Thompson style prevalence estimate used throughout the
-    project: reweighting a biased sample so that it represents the target
-    population.
+    This is the **Hájek** (self-normalized ratio) prevalence estimate used
+    throughout the project: reweighting a biased sample so that it represents the
+    target population. It is *not* the Horvitz–Thompson estimator
+    ``(1/N) sum_i y_i / P_i`` — dividing by ``sum(w)`` rather than ``N`` makes it
+    self-normalizing, which is the standard, lower-variance choice when the
+    population size (or the exact sampling fractions) is not pinned down.
     """
     weights = np.asarray(weights, dtype=float)
     y = np.asarray(y, dtype=float)
@@ -35,18 +36,3 @@ def percent_difference(estimate: float, truth: float) -> float:
     if truth == 0:
         return float("nan")
     return float(abs(estimate - truth) / abs(truth) * 100.0)
-
-
-def weighted_mse(weights: np.ndarray, p_pred: np.ndarray, y: np.ndarray) -> float:
-    """Weighted mean squared error ``sum(w (p - y)^2) / sum(w)``.
-
-    With ``weights`` all equal to one this reduces to the ordinary MSE between
-    predicted probabilities and observed outcomes.
-    """
-    weights = np.asarray(weights, dtype=float)
-    p_pred = np.asarray(p_pred, dtype=float).ravel()
-    y = np.asarray(y, dtype=float).ravel()
-    total = np.nansum(weights)
-    if total == 0:
-        raise ValueError("Weights sum to zero; cannot compute weighted MSE.")
-    return float(np.nansum(weights * (p_pred - y) ** 2) / total)
