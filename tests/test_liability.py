@@ -98,3 +98,36 @@ def test_oracle_ipw_beats_simple_under_liability_selection():
         oracle_err.append(abs(oracle - pop.true_r2))
     assert np.mean(oracle_err) < 0.05                      # oracle recovers truth
     assert np.mean(oracle_err) < np.mean(simple_err)       # and beats simple K/P IPW
+
+
+def test_modified_schoeler_recovers_liability_r2():
+    # Selection on covariates (Schoeler-capturable) AND disease status (not). A
+    # covariate-only participation model leaves the ascertainment uncorrected;
+    # raking its weights to the known prevalence recovers the liability-scale R2.
+    from scipy.special import expit
+    from scipy.stats import norm
+    from sklearn.linear_model import LogisticRegression
+
+    from i3pw import entropy_balance
+
+    sch_err, mod_err = [], []
+    for s in range(3):
+        rng = np.random.default_rng(200 + s)
+        N, pg, ncov, r2, K = 30000, 80, 5, 0.5, 0.1
+        G = rng.standard_normal((N, pg))
+        b = rng.normal(0, np.sqrt(r2 / pg), pg)
+        sig = G @ b
+        L = sig + rng.normal(0, np.sqrt(1 - r2), N)
+        truth = sig.var() / L.var()
+        Y = (L > norm.ppf(1 - K)).astype(float)
+        Xs = rng.standard_normal((N, ncov))
+        pi = expit(-3.5 + Xs @ rng.normal(0, 0.6, ncov) + 1.5 * Y)
+        S = rng.uniform(size=N) < pi
+        Gs, ys, Kp = G[S], Y[S], float(Y.mean())
+        clf = LogisticRegression(max_iter=300).fit(Xs, S.astype(int))
+        w_sch = 1.0 / np.clip(clf.predict_proba(Xs[S])[:, 1], 1e-4, 1 - 1e-4)
+        w_mod = entropy_balance(ys.reshape(-1, 1), [Kp], base_weights=w_sch)
+        sch_err.append(abs(liability_r2_from_weights(Gs, ys, Kp, w_sch) - truth))
+        mod_err.append(abs(liability_r2_from_weights(Gs, ys, Kp, w_mod) - truth))
+    assert np.mean(mod_err) < 0.15                 # modified recovers the truth
+    assert np.mean(mod_err) < np.mean(sch_err)     # and beats covariate-only IPW

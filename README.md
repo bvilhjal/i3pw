@@ -249,6 +249,35 @@ transform (Lee et al. 2011); pure case-control ascertainment leaves *logistic
 slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute risks, and
 liability-correlated traits — which is what these estimators repair.
 
+## Modifying a Schoeler-style weight to leverage known prevalences
+
+A covariate participation model (Schoeler et al. 2023; van Alten et al. 2024)
+weights the UK Biobank by `1/P̂(S | X_socio)` — correcting the sociodemographic
+tilt but blind to selection that depends on the disorder itself. The modification:
+use those weights as a **base**, then calibrate (rake) them to the known population
+prevalence. Equivalently, add a `θ·Y` term to the log-participation model whose
+coefficient is identified by the known prevalence — the
+calibration-for-nonignorable-nonresponse construction of Kott & Chang (2010).
+`examples/schoeler_plus_prevalence.py`, selection `= α + X_socio·c + θ·Y`,
+recovering the disorder's liability-scale variance explained `R²_L`:
+
+```
+method       R²_L
+truth        0.512
+naive        2.478   (ascertainment uncorrected)
+schoeler     3.747   (covariate IPW only: disease ascertainment still uncorrected)
+modified     0.514   (Schoeler base + rake to known prevalence — recovers truth)
+oracle       0.508   (1 / P(S | X_socio, Y))
+```
+
+The modification strictly extends Schoeler (it reduces to it when `θ → 0`) and is
+already in the package: `outcome_calibration_weights(Y, K, base_weights=1/P̂)`.
+Identifiability accounting: `Q` known marginal prevalences identify `Q` disease
+participation main effects (fixing prevalence, absolute risk, means, liability-scale
+heritability); known co-occurrence or covariate-*stratified* prevalences identify the
+interactions needed to push toward effect sizes. Marginal prevalences alone suffice
+here because the estimand is a variance component, not an effect size — see below.
+
 ## Participation bias and effect sizes: what known prevalences cannot fix
 
 The scientific target is usually an **effect size** (an exposure→outcome or genetic
@@ -432,7 +461,8 @@ src/i3pw/
 tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
 examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
                     #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
-                    #   multi_outcome_calibration.py, ukb_participation.py
+                    #   multi_outcome_calibration.py, ukb_participation.py,
+                    #   schoeler_plus_prevalence.py
 ```
 
 (`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied
@@ -462,6 +492,44 @@ res = i3pw.calibration_ipw(ds, anchor_outcomes=[0], base="lasso", shrinkage=0.0)
 ```bash
 pytest
 ```
+
+## References
+
+Selection / participation bias and reweighting:
+
+- Schoeler, T. et al. (2023). Participation bias in the UK Biobank distorts genetic
+  associations and downstream analyses. *Nature Human Behaviour* 7, 1216–1227.
+- van Alten, S., Domingue, B. W., Faul, J., Galama, T., Marees, A. T. (2024).
+  Reweighting UK Biobank corrects for pervasive selection bias due to volunteering.
+  *International Journal of Epidemiology* 53(3), dyae054.
+- Schoeler, T. et al. (2025). Correcting for volunteer bias in GWAS increases SNP
+  effect sizes and heritability estimates. *Nature Communications* 16.
+- Munafò, M. R. et al. (2018). Collider scope: when selection bias can substantially
+  influence observed associations. *Int. J. Epidemiol.* 47(1), 226–235.
+
+Calibration / weighting methodology:
+
+- Deville, J.-C. & Särndal, C.-E. (1992). Calibration estimators in survey sampling.
+  *JASA* 87(418), 376–382.
+- Kott, P. S. & Chang, T. (2010). Using calibration weighting to adjust for
+  nonignorable unit nonresponse. *JASA* 105(491), 1265–1275. *(the modification here)*
+- Hainmueller, J. (2012). Entropy balancing for causal effects. *Political Analysis*
+  20(1), 25–46.
+- Manski, C. F. & Lerman, S. R. (1977). The estimation of choice probabilities from
+  choice based samples. *Econometrica* 45(8), 1977–1988.
+- Chen, Y., Li, P., Wu, C. (2020). Doubly robust inference with nonprobability survey
+  samples. *JASA* 115(532), 2011–2021.
+- Robins, J. M., Rotnitzky, A., Zhao, L. P. (1994). Estimation of regression
+  coefficients when some regressors are not always observed. *JASA* 89(427), 846–866.
+
+Case-control / liability-threshold model:
+
+- Prentice, R. L. & Pyke, R. (1979). Logistic disease incidence models and
+  case-control studies. *Biometrika* 66(3), 403–411.
+- Lee, S. H., Wray, N. R., Goddard, M. E., Visscher, P. M. (2011). Estimating missing
+  heritability for disease from genome-wide association studies. *AJHG* 88(3), 294–305.
+- Golan, D., Lander, E. S., Rosset, S. (2014). Measuring missing heritability:
+  inferring the contribution of common variants. *PNAS* 111(49), E5272–E5281 (PCGC).
 
 ## License
 
