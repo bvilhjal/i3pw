@@ -30,6 +30,7 @@ from .calibration import (
     calibration_ipw,
     effective_sample_size,
     entropy_balance,
+    outcome_calibration_weights,
 )
 from .dgm import Dataset, SimConfig, make_dataset, nearest_pd_correlation, random_correlation
 from .evaluation import MonteCarloSummary, format_summary, monte_carlo
@@ -75,6 +76,7 @@ __all__ = [
     "calibration_ipw",
     "CalibrationResult",
     "entropy_balance",
+    "outcome_calibration_weights",
     "effective_sample_size",
     "aipw_mean",
     "AIPWResult",
