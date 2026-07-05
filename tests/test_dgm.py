@@ -4,6 +4,17 @@ from i3pw import make_dataset, nearest_pd_correlation, random_correlation
 from i3pw.dgm import SimConfig
 
 
+def test_default_prevalences_adapt_to_n_outcomes():
+    # Overriding n_outcomes without passing prevalence tuples must just work: the
+    # defaults adapt (the README/dgm docstring examples rely on this).
+    cfg = SimConfig(n_outcomes=2)
+    assert cfg.target_population_prevalence == (0.4, 0.2)
+    assert cfg.target_sample_prevalence == (0.2, 0.1)
+    assert len(SimConfig().target_population_prevalence) == 5  # full default unchanged
+    ds = make_dataset(seed=1, n_outcomes=2, population_size=1500, sample_size=400)
+    assert ds.Y.shape[1] == 2
+
+
 def test_shapes_and_types():
     ds = make_dataset(seed=3, population_size=2000, n_features=10, n_outcomes=2,
                       predictors_per_outcome=5,

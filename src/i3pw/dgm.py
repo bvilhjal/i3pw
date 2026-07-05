@@ -60,19 +60,33 @@ def random_correlation(
     return nearest_pd_correlation(corr)
 
 
+_DEFAULT_POP_PREVALENCE = (0.4, 0.2, 0.15, 0.1, 0.05)
+_DEFAULT_SAMPLE_PREVALENCE = (0.2, 0.1, 0.05, 0.01, 0.005)
+
+
+def _default_prevalence(base: tuple[float, ...], q: int) -> tuple[float, ...]:
+    """First ``q`` of ``base``, extended by halving the last entry if ``q`` is larger."""
+    ext = list(base[:q])
+    while len(ext) < q:
+        ext.append(ext[-1] / 2.0)
+    return tuple(ext)
+
+
 @dataclass
 class SimConfig:
     """Configuration for :func:`make_dataset`.
 
-    The defaults match the five-outcome scenario in ``generalised_form.R``.
+    The default prevalences follow the five-outcome scenario in ``generalised_form.R``
+    and adapt to ``n_outcomes`` when it is overridden (so ``SimConfig(n_outcomes=2)``
+    just uses the first two). Pass explicit tuples to control them.
     """
 
     population_size: int = 11000
     n_features: int = 50
     n_outcomes: int = 5
     predictors_per_outcome: int = 10
-    target_population_prevalence: tuple[float, ...] = (0.4, 0.2, 0.15, 0.1, 0.05)
-    target_sample_prevalence: tuple[float, ...] = (0.2, 0.1, 0.05, 0.01, 0.005)
+    target_population_prevalence: tuple[float, ...] | None = None
+    target_sample_prevalence: tuple[float, ...] | None = None
     sample_size: int = 1000
     coef_low: float = -0.5
     coef_high: float = 0.5
@@ -83,10 +97,12 @@ class SimConfig:
 
     def __post_init__(self) -> None:
         q = self.n_outcomes
+        if self.target_population_prevalence is None:
+            self.target_population_prevalence = _default_prevalence(_DEFAULT_POP_PREVALENCE, q)
+        if self.target_sample_prevalence is None:
+            self.target_sample_prevalence = _default_prevalence(_DEFAULT_SAMPLE_PREVALENCE, q)
         if len(self.target_population_prevalence) != q:
-            raise ValueError(
-                "target_population_prevalence must have n_outcomes entries."
-            )
+            raise ValueError("target_population_prevalence must have n_outcomes entries.")
         if len(self.target_sample_prevalence) != q:
             raise ValueError("target_sample_prevalence must have n_outcomes entries.")
 

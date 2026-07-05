@@ -506,6 +506,10 @@ res = i3pw.calibration_ipw(ds, anchor_outcomes=[0], base="lasso", shrinkage=0.0)
 
 ```bash
 pytest
+
+# If unrelated third-party pytest plugins in your environment interfere,
+# disable plugin autoload:
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 ```
 
 ## References
