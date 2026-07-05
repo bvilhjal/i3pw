@@ -1,11 +1,13 @@
 import numpy as np
 import pytest
+from scipy.stats import norm
 
 from i3pw import (
     calibration_ipw,
     effective_sample_size,
     entropy_balance,
     make_dataset,
+    outcome_calibration_weights,
 )
 
 
@@ -104,3 +106,64 @@ def test_calibration_delegates_methodresult_api(dataset):
     r = calibration_ipw(dataset, base="uniform")
     assert "calibration_ipw" in r.summary()
     assert r.weighted_prevalence.shape == (2,)
+
+
+def test_outcome_calibration_hits_marginals_and_cooccurrence():
+    rng = np.random.default_rng(0)
+    Y = (rng.uniform(size=(2000, 2)) < [0.3, 0.2]).astype(float)
+    targets = [0.45, 0.35]
+    w = outcome_calibration_weights(Y, targets)
+    assert np.allclose((w[:, None] * Y).sum(axis=0), targets, atol=1e-6)
+    # With a co-occurrence constraint, that joint moment is matched too.
+    k12 = 0.18
+    wj = outcome_calibration_weights(Y, targets, joint_prevalences={(0, 1): k12})
+    assert np.allclose((wj[:, None] * Y).sum(axis=0), targets, atol=1e-6)
+    assert (wj * Y[:, 0] * Y[:, 1]).sum() == pytest.approx(k12, abs=1e-6)
+
+
+def _multi_outcome_sample(g, seed, n_pop=200000, rho=0.5, k1=0.15, k2=0.08):
+    rng = np.random.default_rng(seed)
+    L = rng.multivariate_normal([0, 0], [[1, rho], [rho, 1]], size=n_pop)
+    t1, t2 = norm.ppf(1 - k1), norm.ppf(1 - k2)
+    Y1 = (L[:, 0] > t1).astype(float)
+    Y2 = (L[:, 1] > t2).astype(float)
+    zj = L[:, 0] * L[:, 1]
+    pi = np.clip(0.006 * 7.0**Y1 * 8.0**Y2 * g ** (Y1 * Y2), 1e-9, 1.0)
+    s = rng.uniform(size=n_pop) < pi
+    moments = (Y1.mean(), Y2.mean(), (Y1 * Y2).mean())
+    return Y1[s], Y2[s], zj[s], pi[s], moments
+
+
+def _joint_estimate(y1, y2, zj, moments, use_joint):
+    k1, k2, k12 = moments
+    feats = np.column_stack([y1, y2, y1 * y2]) if use_joint else np.column_stack([y1, y2])
+    tgt = [k1, k2, k12] if use_joint else [k1, k2]
+    w = entropy_balance(feats, tgt)
+    return float(np.sum(w * zj) / np.sum(w))
+
+
+def test_marginal_calibration_matches_oracle_without_coupling():
+    # g = 1: selection factorizes, so marginal calibration tracks the oracle (true
+    # inverse-probability weights) even on the joint target E[L1*L2]. Compare on the
+    # same sample to cancel the estimand's variance.
+    diffs = []
+    for s in range(5):
+        y1, y2, zj, pis, m = _multi_outcome_sample(1.0, s)
+        marg = _joint_estimate(y1, y2, zj, m, use_joint=False)
+        oracle = float(np.sum((1.0 / pis) * zj) / np.sum(1.0 / pis))
+        diffs.append(abs(marg - oracle))
+    assert np.mean(diffs) < 0.02  # measured ~0.007; the g>1 gap is ~5x larger
+
+
+def test_interaction_needs_cooccurrence_constraint():
+    # g > 1: comorbid over-recruitment couples the outcomes. Marginal calibration
+    # drifts from the oracle on the joint target; adding the co-occurrence constraint
+    # brings it back.
+    marg_d, joint_d = [], []
+    for s in range(5):
+        y1, y2, zj, pis, m = _multi_outcome_sample(2.5, s)
+        oracle = float(np.sum((1.0 / pis) * zj) / np.sum(1.0 / pis))
+        marg_d.append(abs(_joint_estimate(y1, y2, zj, m, use_joint=False) - oracle))
+        joint_d.append(abs(_joint_estimate(y1, y2, zj, m, use_joint=True) - oracle))
+    assert np.mean(joint_d) < 0.015               # joint calibration ~ oracle
+    assert np.mean(joint_d) * 2 < np.mean(marg_d)  # and clearly closer than marginal

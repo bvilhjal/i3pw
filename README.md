@@ -249,6 +249,49 @@ transform (Lee et al. 2011); pure case-control ascertainment leaves *logistic
 slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute risks, and
 liability-correlated traits — which is what these estimators repair.
 
+## Several case-control outcomes at once: joint calibration is optimal
+
+With `Q` outcomes ascertained together and their population prevalences known, the
+sampling probability `π(y)` is a function on the `2^Q` cells of the outcome vector,
+and the task is to invert it from the known moments. `outcome_calibration_weights`
+jointly calibrates the weights to all of them at once;
+`examples/multi_outcome_calibration.py` benchmarks this against the alternatives by
+how well the reweighted sample recovers two population targets it did *not*
+calibrate — an additive `E[L1+L2]` and a joint `E[L1·L2]` (bias, 10 reps):
+
+```
+                    independent selection (g=1)     comorbid interaction (g=2.5)
+method               E[L1+L2]   E[L1*L2]             E[L1+L2]   E[L1*L2]
+naive                  2.30       1.44                 2.88       2.05
+mean-combine           0.79       0.22                 0.82       0.25
+product-combine       -0.29      -0.09                -0.41      -0.13
+calib_marginal        -0.005     +0.002               -0.010     +0.032
+calib_joint           -0.005     +0.003               +0.003     -0.005
+oracle (1/π)          -0.005     +0.002               +0.008     -0.004
+```
+
+The optimum has a precise characterization:
+
+- **Joint calibration dominates the per-outcome heuristics.** Combining separate
+  case/control weights by `mean` or `product` is biased; jointly solving the
+  marginal constraints (entropy balancing) is the principled combination.
+- **Match the calibration terms to the selection structure.** When selection is
+  multiplicative in the outcomes (each outcome scales the inclusion odds
+  independently, `g = 1`), `log π(y)` is linear in `y`, the `Q` known marginals
+  identify it, and **marginal calibration equals the oracle** — even on the joint
+  target.
+- **Coupled selection needs the joint moments.** When comorbid cases are recruited
+  specially (`g > 1`), `log π` has an interaction term that the `Q` marginals cannot
+  represent, so `calib_marginal` is biased on the joint target (`+0.032`). Adding the
+  known co-occurrence `P(Y1=1, Y2=1)` as a constraint (`calib_joint`) restores the
+  oracle. In general you must calibrate to every population moment the selection
+  model needs — marginals for independent ascertainment, plus co-occurrences (and
+  higher-order joints) when the outcomes are sampled in a coupled way.
+
+`outcome_calibration_weights(Y, prevalences, joint_prevalences={(0,1): k12})` builds
+these constraints; if you actually *know* the per-outcome sampling design, the exact
+weights `1/π(y)` dominate everything.
+
 ## A probit / liability-threshold model: the Lee et al. transform vs IPW
 
 A separate, self-contained study (`i3pw.liability`, benchmarked in
@@ -342,7 +385,7 @@ comparable:
 ```
 src/i3pw/
 ├── dgm.py          # data-generating mechanism + biased sampling
-├── calibration.py  # calibration_ipw + entropy_balance (the recommended method)
+├── calibration.py  # calibration_ipw, entropy_balance, outcome_calibration_weights
 ├── aipw.py         # aipw_mean: doubly-robust downstream estimation
 ├── liability.py    # probit / liability-threshold model: Lee et al. transform vs IPW
 ├── methods.py      # no_correction, lasso_ipw / lasso_propensity, penalized_ipw
@@ -354,7 +397,8 @@ src/i3pw/
 └── _links.py       # stable sigmoid / logit
 tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
 examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
-                    #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py
+                    #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
+                    #   multi_outcome_calibration.py
 ```
 
 (`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied

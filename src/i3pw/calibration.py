@@ -111,6 +111,56 @@ def effective_sample_size(weights: np.ndarray) -> float:
     return float(np.sum(w) ** 2 / denom) if denom > 0 else 0.0
 
 
+def outcome_calibration_weights(
+    Y: np.ndarray,
+    prevalences,
+    *,
+    joint_prevalences=None,
+    base_weights: np.ndarray | None = None,
+    shrinkage: float = 0.0,
+) -> np.ndarray:
+    """Calibrate weights to known outcome margins — and optionally co-occurrences.
+
+    For a sample ascertained on several outcomes with known population prevalences,
+    the optimal weights come from **jointly** calibrating to all of them at once
+    (not per-outcome weights combined heuristically). This solves for the unique
+    exponential tilt reproducing every supplied moment.
+
+    Parameters
+    ----------
+    Y:
+        ``(n, Q)`` array of the sampled units' 0/1 outcomes.
+    prevalences:
+        Length-``Q`` known population marginal prevalences ``P(Y_q = 1)``.
+    joint_prevalences:
+        Optional dict ``{(q, q'): P(Y_q = 1, Y_q' = 1)}`` of known pairwise
+        co-occurrence prevalences. Add these when the sampling *couples* the
+        outcomes (interaction terms in the selection): marginals alone cannot
+        represent an interaction, so calibrating on the co-occurrences is what
+        restores exactness. Without coupling they are unnecessary.
+    base_weights, shrinkage:
+        Passed through to :func:`entropy_balance` (starting weights and ridge).
+
+    Returns
+    -------
+    numpy.ndarray
+        Calibration weights for the sampled units, summing to 1.
+    """
+    Y = np.atleast_2d(np.asarray(Y, dtype=float))
+    if Y.shape[0] == 1 and Y.shape[1] != len(list(prevalences)):
+        Y = Y.T
+    cols = [Y]
+    targets = list(prevalences)
+    if joint_prevalences:
+        for (q, qp), value in joint_prevalences.items():
+            cols.append((Y[:, q] * Y[:, qp])[:, None])
+            targets.append(value)
+    features = np.hstack(cols)
+    return entropy_balance(
+        features, np.asarray(targets, dtype=float), base_weights=base_weights, ridge=shrinkage
+    )
+
+
 @dataclass
 class CalibrationResult:
     """Result of :func:`calibration_ipw`, extending :class:`MethodResult` semantics."""
