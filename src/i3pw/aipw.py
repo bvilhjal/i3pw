@@ -1,23 +1,25 @@
 """Doubly-robust (AIPW) estimation of downstream population means.
 
-Prevalence calibration (:mod:`i3pw.calibration`) fixes the *ascertained outcome*
-itself, which is not point-identified by covariate weighting. But most analyses
-target a *downstream* quantity — the population mean of a trait, biomarker, or
-polygenic score measured only on participants. When that quantity is missing at
-random given the covariates (``S ⊥ V | X``), it can be recovered, and the
-efficient, robust way to do so is the augmented IPW (AIPW) estimator.
+Calibration (:mod:`i3pw.calibration`) fixes the *ascertained outcome* itself. But
+the target is usually something else — the population mean of a trait or biomarker
+measured only on participants. If that trait is missing at random given the
+covariates (``S ⊥ V | X``), it is recoverable, and augmented IPW (AIPW) is the
+robust way to recover it: it combines a prediction for everyone with a weighted
+correction from the sample.
 
-For a variable ``V`` observed only on sampled units, with covariates ``X`` known
-for the whole population and weights ``w`` (from a participation model or from
+For a trait ``V`` seen only on sampled units, with covariates ``X`` known for the
+whole population and weights ``w`` (from a participation model or from
 :func:`i3pw.calibration_ipw`):
 
     mu_AIPW = mean_i m(X_i)  +  sum_{i in sample} w_i (V_i - m(X_i))
+              \\_____________/   \\_____________________________________/
+              predict for all     reweighted residual: fixes the prediction
+                                   where the sample and model disagree
 
-where ``m(X) = E[V | X]`` is an outcome regression fit on the sample and the
-weights are self-normalized (Hájek). This is **doubly robust**: consistent if
-*either* the outcome model ``m`` *or* the weights ``w`` are correct
-(Robins–Rotnitzky–Zhao 1994). The outcome model also cuts variance relative to
-weighting alone.
+with ``m(X) = E[V | X]`` an outcome regression fit on the sample and the weights
+self-normalized (Hájek). It is **doubly robust** — consistent if *either* ``m`` or
+``w`` is correct (Robins–Rotnitzky–Zhao 1994) — so you get two chances to be right,
+and the prediction term also lowers variance versus weighting alone.
 """
 
 from __future__ import annotations

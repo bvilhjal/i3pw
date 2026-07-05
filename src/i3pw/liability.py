@@ -1,35 +1,34 @@
 """Liability-threshold (probit) model with outcome-dependent selection.
 
-A latent Gaussian **liability** ``L = f(X) + e`` drives a binary outcome
-``Y = 1[L > t]``, with threshold ``t = Phi^-1(1 - K)`` for population prevalence
-``K`` (this is the probit / liability-threshold model). The estimand is the
-**liability-scale variance explained**, ``R2_L = Var(f(X)) / Var(L)`` — the probit
-analogue of a signal-to-total variance ratio (a.k.a. heritability in one field,
-but nothing here is specific to that).
+A binary outcome is modelled as a hidden continuous **liability** crossing a
+threshold: ``L = f(X) + e`` and ``Y = 1[L > t]``, with ``t = Phi^-1(1 - K)`` set by
+the population prevalence ``K``. The estimand is how much of the liability the
+predictors explain, ``R2_L = Var(f(X)) / Var(L)`` — a signal-to-total variance
+ratio on the latent scale (this is "heritability" in one field, but nothing here
+is specific to that).
 
-The sample is ascertained on the outcome: cases and controls are drawn with
-different probabilities, so the sample case fraction ``P`` differs from ``K``.
-Two ways to recover ``R2_L`` from such a sample are compared:
+The catch: the sample is ascertained on the outcome, so cases are over-represented
+(sample case fraction ``P`` differs from ``K``), which distorts any naive estimate.
+Two ways to undo that distortion and recover ``R2_L``:
 
-- **Lee et al. (2011) transform** — estimate the observed-0/1-scale variance
-  explained in the raw ascertained sample, then multiply by
-  ``[K(1-K)/z^2] * [K(1-K)/(P(1-P))]`` (``z = phi(t)``): the observed->liability
-  factor times an analytic ascertainment correction.
-- **IPW** — reweight the sample so the case fraction returns to ``K`` (weights
-  ``K/P`` for cases, ``(1-K)/(1-P)`` for controls: the exact inverse-probability
-  weights for selection that depends only on ``Y``), estimate the observed-scale
-  variance explained with a *weighted* moment estimator, then apply only the
-  population observed->liability factor.
+- **Lee et al. (2011) transform** — estimate the variance explained on the raw 0/1
+  scale, then multiply by two analytic factors: ``K(1-K)/z^2`` (moves a 0/1-scale
+  quantity to the latent scale, ``z = phi(t)``) and ``K(1-K)/(P(1-P))`` (undoes the
+  case over-sampling). A closed form.
+- **IPW** — first reweight so the case fraction goes back to ``K`` (weights ``K/P``
+  for cases, ``(1-K)/(1-P)`` for controls — the exact inverse-probability weights
+  when selection depends only on ``Y``), run a *weighted* estimate, then apply just
+  the ``K(1-K)/z^2`` scale factor. A design-based reweighting.
 
-The ascertainment factor in the Lee transform is the analytic counterpart of what
-IPW does by reweighting. They agree to first order; IPW removes the selection
-exactly at any strength (it is design-based), while the Lee factor is a
-linearization that degrades under strong ascertainment.
+Same job, two routes: Lee corrects for the over-sampling with a formula, IPW does it
+by reweighting. They agree when effects and ascertainment are mild. IPW is exact at
+any ascertainment strength; the Lee ascertainment factor is a linearization that
+drifts low when effects are large and cases are heavily over-sampled.
 
-The observed-scale variance explained is estimated by a method-of-moments
-(Haseman–Elston-type) regression of pairwise outcome products on a predictor
-similarity matrix — the standard moment estimator for a many-weak-predictors
-variance component.
+Under the hood the 0/1-scale variance explained comes from a method-of-moments
+(Haseman–Elston-type) regression: regress each pair's outcome product ``y_i y_j`` on
+the predictor similarity ``A_ij`` — the standard estimator for a variance component
+spread over many weak predictors.
 """
 
 from __future__ import annotations

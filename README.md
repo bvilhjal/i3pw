@@ -270,11 +270,15 @@ oracle       0.508   (1 / P(S | X_socio, Y))
 
 The modification strictly extends Schoeler (it reduces to it when `θ → 0`) and is
 already in the package: `outcome_calibration_weights(Y, K, base_weights=1/P̂)`.
-Identifiability accounting: `Q` known marginal prevalences identify `Q` disease
-participation main effects (fixing prevalence, absolute risk, means, liability-scale
-heritability); known co-occurrence or covariate-*stratified* prevalences identify the
-interactions needed to push toward effect sizes. Marginal prevalences alone suffice
-here because the estimand is a variance component, not an effect size — see below.
+
+How much can the prevalences buy you? Each known marginal prevalence pins down one
+number in the selection model — the outcome's own participation effect — which is
+enough to fix marginal quantities (prevalence, absolute risk, means, and the
+liability-scale variance explained here). What it *cannot* pin down is how selection
+depends on two things at once; recovering that (the interaction terms behind
+effect-size bias) needs richer inputs — known co-occurrence rates, or prevalences
+broken down by covariate strata. Marginals alone suffice above only because the
+estimand is a variance component, not an effect size — see below.
 
 ## Inferring selection probabilities from many outcomes
 
@@ -400,13 +404,13 @@ right — something known prevalences cannot supply or verify.
 
 ## Several case-control outcomes at once: joint calibration is optimal
 
-With `Q` outcomes ascertained together and their population prevalences known, the
-sampling probability `π(y)` is a function on the `2^Q` cells of the outcome vector,
-and the task is to invert it from the known moments. `outcome_calibration_weights`
-jointly calibrates the weights to all of them at once;
-`examples/multi_outcome_calibration.py` benchmarks this against the alternatives by
-how well the reweighted sample recovers two population targets it did *not*
-calibrate — an additive `E[L1+L2]` and a joint `E[L1·L2]` (bias, 10 reps):
+Now `Q` outcomes are ascertained together, and every combination of their
+case/control statuses can be recruited at its own rate — so the selection
+probability `π(y)` is one unknown number per outcome pattern (`2^Q` of them). The
+known prevalences give us moments to pin those numbers down. `outcome_calibration_weights`
+calibrates the weights to all the outcomes jointly; `examples/multi_outcome_calibration.py`
+tests how well the reweighted sample then recovers two targets it did *not* calibrate
+to — an additive `E[L1+L2]` and a joint `E[L1·L2]` (bias, 10 reps):
 
 ```
                     independent selection (g=1)     comorbid interaction (g=2.5)
