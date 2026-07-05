@@ -169,6 +169,64 @@ def test_selection_inference_combined_beats_registry():
     assert np.mean(comb_z) < np.mean(reg_z) < np.mean(naive_z)
 
 
+def _lee_cc_weights(Ys, Kpop):
+    # Product of per-outcome case-control ratios K_j/P_j (case), (1-K)/(1-P) (control).
+    P = np.clip(Ys.mean(axis=0), 1e-3, 1 - 1e-3)
+    K = np.clip(Kpop, 1e-3, 1 - 1e-3)
+    logw = (Ys * np.log(K / P) + (1 - Ys) * np.log((1 - K) / (1 - P))).sum(axis=1)
+    return np.exp(logw - logw.max())
+
+
+def _sel_inference_pop(seed, scenario):
+    # Shared latent U; N correlated outcomes; held-out U-correlated trait Z.
+    from scipy.special import expit
+
+    rng = np.random.default_rng(seed)
+    n_pop, n_out = 40000, 12
+    U = rng.standard_normal(n_pop)
+    lam = rng.uniform(0.3, 0.5, n_out)
+    lam[:3] = rng.uniform(0.7, 0.85, 3)
+    Kj = rng.uniform(0.05, 0.30, n_out)
+    Y = (lam * U[:, None] + np.sqrt(1 - lam**2) * rng.standard_normal((n_pop, n_out))
+         > norm.ppf(1 - Kj)).astype(float)
+    Z = 0.8 * U + rng.standard_normal(n_pop)
+    if scenario == "latent":
+        pi = expit(-1.3 + 1.2 * U)
+    else:  # case_control: selection driven by a few correlated outcomes, not U directly
+        pi = expit(-1.4 + 1.3 * Y[:, :3].sum(axis=1))
+    S = rng.uniform(size=n_pop) < pi
+    return Y[S], Y.mean(axis=0), Z[S], float(Z.mean())
+
+
+def _zbias(w, zs, zt):
+    return abs(float(np.sum(w * zs) / np.sum(w)) - zt)
+
+
+def test_lee_style_weights_beat_naive_under_latent_selection():
+    # When every outcome proxies one latent driver, averaging N analytic case-control
+    # corrections (lee_cc) reconstructs it and removes most of the held-out bias.
+    lee_z, naive_z = [], []
+    for s in range(3):
+        Ys, Kpop, Zs, zt = _sel_inference_pop(400 + s, "latent")
+        lee_z.append(_zbias(_lee_cc_weights(Ys, Kpop), Zs, zt))
+        naive_z.append(abs(Zs.mean() - zt))
+    assert np.mean(lee_z) < 0.4 * np.mean(naive_z)
+
+
+def test_calibration_beats_lee_style_weights_under_case_control_selection():
+    # When only a few correlated outcomes drive selection, the analytic lee_cc weights
+    # over-correct (an independent correction per outcome) and barely beat naive, while
+    # exact calibration to the same known means cannot push past the true margins.
+    lee_z, cal_z, naive_z = [], [], []
+    for s in range(3):
+        Ys, Kpop, Zs, zt = _sel_inference_pop(420 + s, "case_control")
+        lee_z.append(_zbias(_lee_cc_weights(Ys, Kpop), Zs, zt))
+        cal_z.append(_zbias(entropy_balance(Ys, Kpop), Zs, zt))
+        naive_z.append(abs(Zs.mean() - zt))
+    assert np.mean(cal_z) < np.mean(lee_z)
+    assert np.mean(cal_z) < 0.2 * np.mean(naive_z)
+
+
 def _multi_outcome_sample(g, seed, n_pop=200000, rho=0.5, k1=0.15, k2=0.08):
     rng = np.random.default_rng(seed)
     L = rng.multivariate_normal([0, 0], [[1, rho], [rho, 1]], size=n_pop)
