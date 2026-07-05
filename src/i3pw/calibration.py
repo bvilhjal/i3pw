@@ -21,7 +21,14 @@ with ``lambda`` from a small convex dual (entropy balancing; Hainmueller 2012,
 Deville & Sarndal 1992). Because that tilt is log-linear in ``Y`` — the same form
 as the selection mechanism — it recovers the disease-driven selection the
 covariate model cannot. Using covariate-model weights as the ``base`` keeps the
-part of selection that *is* covariate-driven, giving a doubly-robust flavour.
+part of selection that *is* covariate-driven.
+
+A note on what this guarantees. This is **not** doubly robust in the AIPW sense
+(where either the outcome model or the weights alone suffice). It is better stated
+as: the weights are consistent if the base weights capture the ignorable,
+covariate-driven part of selection *and* the supplied calibration functions
+``g(Y)`` span the remaining outcome-driven part. The two ingredients cover
+different pieces of the selection mechanism; neither alone is enough.
 
 References
 ----------
@@ -208,10 +215,12 @@ def calibration_ipw(
         left free, so evaluating them measures how well calibrating on the known
         diseases transfers to an unknown one.
     base:
-        ``"lasso"`` uses covariate-model IPW weights as the base (doubly-robust
-        flavour); ``"uniform"`` starts from equal weights (pure calibration).
+        ``"lasso"`` uses covariate-model IPW weights as the base (so the covariate-
+        driven part of selection is handled by the base and the outcome-driven part
+        by the calibration constraints); ``"uniform"`` starts from equal weights
+        (pure calibration).
     base_scheme:
-        ``"inverse"`` (``1/P``, Horvitz-Thompson) or ``"odds"`` (``(1-P)/P``) for
+        ``"inverse"`` (``1/P``, inverse-probability) or ``"odds"`` (``(1-P)/P``) for
         the ``"lasso"`` base weights.
     shrinkage:
         Ridge on the tilt; ``0`` calibrates exactly, larger values shrink toward

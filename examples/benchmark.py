@@ -1,13 +1,13 @@
-"""Reproduce the method comparison from the R ``SelectionBias`` project.
+"""Compare selection-bias corrections against the known population prevalence.
 
 Simulates a population with outcome-dependent selection bias, then compares:
 
-    * no correction   (naive sample prevalence)
-    * LASSO IPW       (single cv.glmnet-style inclusion model)
-    * penalized IPW   (the informed estimator, several weight-combination rules)
+    * no correction    (naive sample prevalence)
+    * LASSO IPW        (covariate-only inclusion model — the approach that fails)
+    * calibration IPW  (the recommended estimator: calibrate to known prevalences)
 
-against the known population prevalence. Kept deliberately light so it runs in a
-few seconds; scale ``population_size`` / the CV grid up for a serious comparison.
+Kept deliberately light so it runs in a few seconds; scale ``population_size`` up
+for a serious comparison.
 
     python examples/benchmark.py
 """
@@ -24,11 +24,7 @@ import i3pw
 def main() -> None:
     t_start = time.time()
 
-    # numba compiles the kernels on first use (one-time, then disk-cached).
-    print("Compiling numba kernels (one-time)...", flush=True)
-    i3pw.warmup()
-
-    # Two-outcome scenario (one common, one rare), echoing differing_dgms.R.
+    # Two-outcome scenario (one common, one rare).
     ds = i3pw.make_dataset(
         seed=97,
         population_size=8000,
@@ -49,20 +45,7 @@ def main() -> None:
     rows: list[tuple[str, np.ndarray]] = []
     rows.append(("no_correction", i3pw.no_correction(ds).percent_diff))
     rows.append(("lasso_ipw", i3pw.lasso_ipw(ds, cv=5).percent_diff))
-
-    res = i3pw.penalized_ipw(
-        ds,
-        lambdas=(0.001, 0.01),
-        gammas=(0.0, 1.0, 10.0),
-        K=4,
-        optimizer="gd",
-        learning_rate=0.05,
-        max_iter=5000,
-        decay_interval=2000,
-    )
-    print(f"penalized IPW selected: lambda={res['best_lambda']}, gamma={res['best_gamma']}\n")
-    for method in ("mean", "product", "harmonic", "absdiff"):
-        rows.append((res[method].name, res[method].percent_diff))
+    rows.append(("calibration_ipw", i3pw.calibration_ipw(ds, base="lasso").percent_diff))
 
     print(f"{'method':<28}{'% diff Y1':>12}{'% diff Y2':>12}")
     print("-" * 52)

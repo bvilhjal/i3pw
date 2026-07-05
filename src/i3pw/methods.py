@@ -1,21 +1,13 @@
-"""Baseline correction methods and the prevalence-penalized estimator.
+"""Baseline correction methods.
 
-Each method estimates the population prevalence of one or more binary outcomes
-from a biased sample and reports the percentage difference from the truth.
-
-Baselines (what the project compares against):
+Each estimates the population prevalence of one or more binary outcomes from a
+biased sample and reports the percentage difference from the truth:
 
 - :func:`no_correction` – naive prevalence in the observed sample.
 - :func:`lasso_propensity` / :func:`lasso_ipw` – the standard covariate-only
   participation model (``cv.glmnet`` analogue). This is the approach that the
-  project found wanting for disease outcomes.
-
-Prevalence-informed:
-
-- :func:`penalized_ipw` – the original R project's soft approach: a logistic
-  inclusion model with a quadratic prevalence penalty, cross-validated over
-  ``(lambda, gamma)``. The exact, principled version lives in
-  :mod:`i3pw.calibration`.
+  project found wanting for disease outcomes; the prevalence-informed remedy is
+  :func:`i3pw.calibration_ipw`.
 
 The covariate participation model follows Schoeler et al. (2023) / van Alten et al.
 (2024); the LASSO fit mirrors ``glmnet`` (Friedman, Hastie & Tibshirani 2010).
@@ -33,9 +25,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
 from .dgm import Dataset
-from .metrics import percent_difference, weighted_mse, weighted_prevalence
-from .penalized import PenalizedIPW
-from .weights import combine_weights
+from .metrics import percent_difference, weighted_prevalence
 
 
 @dataclass
@@ -62,6 +52,22 @@ class MethodResult:
 def _test_arrays(dataset: Dataset):
     X_test, Y_test, s_test = dataset.split("test")
     return X_test, Y_test, s_test
+
+
+def _ipw_weight(P: np.ndarray, s: np.ndarray, weighting: str) -> np.ndarray:
+    """Per-unit IPW weights from inclusion probabilities ``P`` and indicator ``s``.
+
+    ``"inverse"`` — the deployable Hájek weight: selected units get ``1/P``,
+    unselected units get ``0`` (a weighted mean then uses the *sample only*).
+    ``"oracle_odds"`` — a simulation-only diagnostic: selected units get ``(1-P)/P``
+    and unselected units get ``1``, so a weighted mean over *all* units reads the
+    outcomes of unselected units — only possible when everyone's outcome is known.
+    """
+    if weighting == "oracle_odds":
+        return np.where(s == 1, (1.0 - P) / P, 1.0)
+    if weighting == "inverse":
+        return np.where(s == 1, 1.0 / P, 0.0)
+    raise ValueError("weighting must be 'inverse' (deployable) or 'oracle_odds'.")
 
 
 def _trim_weights(w: np.ndarray, trim: float | None) -> np.ndarray:
@@ -147,7 +153,7 @@ def lasso_ipw(
     cv: int = 5,
     Cs=None,
     max_iter: int = 1000,
-    weighting: str = "odds",
+    weighting: str = "inverse",
     trim: float | None = None,
 ) -> MethodResult:
     """LASSO logistic IPW with a single inclusion model shared across outcomes.
@@ -171,171 +177,9 @@ def lasso_ipw(
         X_train, s_train, X_test, interactions=interactions, cv=cv, Cs=Cs, max_iter=max_iter
     )
 
-    if weighting == "odds":
-        weight = np.where(s_test == 1, (1.0 - P_test) / P_test, 1.0)
-    elif weighting == "inverse":
-        weight = np.where(s_test == 1, 1.0 / P_test, 0.0)
-    else:
-        raise ValueError("weighting must be 'odds' or 'inverse'.")
+    weight = _ipw_weight(P_test, s_test, weighting)
     weight = _trim_weights(weight, trim)
     pop = dataset.population_prevalence
     est = np.array([weighted_prevalence(weight, Y_test[:, q]) for q in range(len(pop))])
     pdiff = np.array([percent_difference(est[q], pop[q]) for q in range(len(pop))])
-    mse = np.array([weighted_mse(weight, P_test, Y_test[:, q]) for q in range(len(pop))])
-    return MethodResult("lasso_ipw", est, pdiff, pop, extra={"weight": weight, "mse": mse})
-
-
-def _prevalence_recovery_score(est, X_val, s_val, Y_val, pop, sample_prev):
-    """Mean squared logit-gap between reweighted validation prevalence and truth."""
-    from ._links import logit
-
-    w = combine_weights(
-        est.weights(X_val, s_val), "mean",
-        pop_prevalence=pop, sample_prevalence=sample_prev,
-    )
-    gaps = []
-    for q in range(len(pop)):
-        est_prev = weighted_prevalence(w, Y_val[:, q])
-        gaps.append((logit(np.array([est_prev]))[0] - logit(np.array([pop[q]]))[0]) ** 2)
-    return float(np.mean(gaps))
-
-
-def cross_validate(
-    X_train: np.ndarray,
-    s_train: np.ndarray,
-    population_prevalence: np.ndarray,
-    lambdas,
-    gammas,
-    *,
-    K: int = 5,
-    seed: int | None = 0,
-    criterion: str = "prevalence",
-    Y_train: np.ndarray | None = None,
-    sample_prevalence: np.ndarray | None = None,
-    **estimator_kwargs,
-):
-    """Grid-search ``(lambda, gamma)`` by K-fold cross-validation.
-
-    Parameters
-    ----------
-    criterion:
-        ``"prevalence"`` (default) scores each fold by how closely the reweighted
-        validation prevalence matches the known population prevalence (mean
-        squared logit gap). This makes the informed penalty ``gamma`` genuinely
-        selectable — it rewards weights that recover the target prevalence
-        out-of-fold. ``"objective"`` reproduces the R behaviour of minimizing the
-        mean penalized objective; because that objective grows with ``gamma`` it
-        structurally favours ``gamma = 0``.
-
-    Returns ``(best_lambda, best_gamma, cv_table)``.
-    """
-    if criterion not in ("prevalence", "objective"):
-        raise ValueError("criterion must be 'prevalence' or 'objective'.")
-    if criterion == "prevalence" and Y_train is None:
-        raise ValueError("criterion='prevalence' requires Y_train.")
-
-    rng = np.random.default_rng(seed)
-    pop = np.atleast_1d(np.asarray(population_prevalence, dtype=float))
-    n = X_train.shape[0]
-    folds = rng.integers(0, K, size=n)
-    cv_table: dict[tuple[float, float], float] = {}
-
-    for lam in lambdas:
-        for gamma in gammas:
-            scores = []
-            for k in range(K):
-                tr, va = folds != k, folds == k
-                if va.sum() == 0 or tr.sum() == 0:
-                    continue
-                est = PenalizedIPW(lam=lam, gamma=gamma, **estimator_kwargs)
-                est.fit(X_train[tr], s_train[tr], pop)
-                if criterion == "objective":
-                    scores.append(est.score_objective(X_train[va], s_train[va]))
-                else:
-                    scores.append(
-                        _prevalence_recovery_score(
-                            est, X_train[va], s_train[va], Y_train[va], pop, sample_prevalence
-                        )
-                    )
-            cv_table[(lam, gamma)] = float(np.mean(scores)) if scores else np.inf
-
-    best = min(cv_table, key=cv_table.get)
-    return best[0], best[1], cv_table
-
-
-def penalized_ipw(
-    dataset: Dataset,
-    lambdas=(0.001, 0.01, 0.1),
-    gammas=(0.0, 0.01, 0.1, 1.0),
-    *,
-    K: int = 5,
-    optimizer: str = "gd",
-    combine: str | tuple[str, ...] = ("mean", "product", "harmonic", "absdiff"),
-    weighting: str = "odds",
-    trim: float | None = None,
-    cv_seed: int | None = 0,
-    cv_criterion: str = "prevalence",
-    **estimator_kwargs,
-) -> dict:
-    """Cross-validated, prevalence-penalized IPW — the core ``i3pw`` estimator.
-
-    Selects ``(lambda, gamma)`` by K-fold CV on the training fold, refits on the
-    full training fold, then evaluates weighted prevalence on the test fold for
-    each requested weight-combination rule. ``cv_criterion`` is passed through to
-    :func:`cross_validate` (``"prevalence"`` by default so the informed penalty
-    is genuinely selectable).
-
-    Parameters
-    ----------
-    weighting:
-        ``"odds"`` (default, faithful to the R code) or ``"inverse"`` (textbook
-        Horvitz–Thompson, sample-only); see :meth:`PenalizedIPW.weights`.
-    trim:
-        Optional upper quantile in ``(0, 1]`` at which to clip the combined
-        weights (e.g. ``0.99``) before estimating. Weight trimming is standard
-        practice for taming the high variance that a few very large IPW weights
-        can cause; ``None`` disables it.
-
-    Returns a dict with a :class:`MethodResult` per combine rule (keyed by rule
-    name), plus the chosen ``best_lambda`` / ``best_gamma`` and the fitted
-    estimator under ``"estimator"``.
-    """
-    combine_methods = (combine,) if isinstance(combine, str) else tuple(combine)
-    X_train, Y_train, s_train = dataset.split("train")
-    X_test, Y_test, s_test = _test_arrays(dataset)
-    pop = dataset.population_prevalence
-    sample_prev = dataset.sample_prevalence
-
-    best_lambda, best_gamma, cv_table = cross_validate(
-        X_train, s_train, pop, lambdas, gammas,
-        K=K, seed=cv_seed, optimizer=optimizer,
-        criterion=cv_criterion, Y_train=Y_train, sample_prevalence=sample_prev,
-        **estimator_kwargs,
-    )
-
-    est = PenalizedIPW(lam=best_lambda, gamma=best_gamma, optimizer=optimizer, **estimator_kwargs)
-    est.fit(X_train, s_train, pop)
-
-    per_outcome_w = est.weights(X_test, s_test, scheme=weighting)  # (n, Q)
-    P_test = est.predict_inclusion(X_test)  # (n, Q)
-
-    results: dict = {
-        "best_lambda": best_lambda,
-        "best_gamma": best_gamma,
-        "cv_table": cv_table,
-        "estimator": est,
-    }
-    for method in combine_methods:
-        w = combine_weights(
-            per_outcome_w, method,
-            pop_prevalence=pop, sample_prevalence=sample_prev,
-        )
-        w = _trim_weights(w, trim)
-        est_prev = np.array([weighted_prevalence(w, Y_test[:, q]) for q in range(len(pop))])
-        pdiff = np.array([percent_difference(est_prev[q], pop[q]) for q in range(len(pop))])
-        mse = np.array([weighted_mse(w, P_test[:, q], Y_test[:, q]) for q in range(len(pop))])
-        results[method] = MethodResult(
-            f"penalized_ipw[{method}]", est_prev, pdiff, pop,
-            extra={"weight": w, "mse": mse},
-        )
-    return results
+    return MethodResult("lasso_ipw", est, pdiff, pop, extra={"weight": weight})

@@ -31,8 +31,7 @@ disease-driven selection.
 | --- | --- | --- |
 | No correction | `no_correction` | Naive prevalence in the observed sample. |
 | LASSO IPW | `lasso_ipw` | Covariate-only participation model (`cv.glmnet` analogue) — *the approach that fails for disease outcomes*. |
-| **Calibration IPW** | `calibration_ipw` | **Recommended.** Calibrate weights so the reweighted sample reproduces the known prevalences *exactly* (entropy balancing), optionally on top of the covariate model. |
-| Penalized IPW | `penalized_ipw` | The original R project's softer precursor: a logistic inclusion model with a quadratic prevalence penalty, cross-validated `(λ, γ)`, numba-JIT compiled. |
+| **Calibration IPW** | `calibration_ipw` | **The method.** Calibrate weights so the reweighted sample reproduces the known prevalences *exactly* (entropy balancing), optionally on top of the covariate model. |
 
 ### Calibration IPW (the principled version)
 
@@ -48,25 +47,14 @@ a small convex dual (entropy balancing; Hainmueller 2012, Deville & Särndal 199
 Because that tilt is log-linear in `Y` — the same functional form as the selection
 mechanism — calibrating on the `Q` known prevalences recovers the disease-driven
 selection weights that a covariate model cannot. Using the covariate model for the
-base weights `d_i` keeps the covariate-driven part too (a doubly-robust flavour).
+base weights `d_i` keeps the covariate-driven part too. (This is **not** doubly
+robust in the AIPW sense; rather, it is consistent when the base weights capture the
+covariate-driven part of selection *and* the calibration functions span the
+remaining outcome-driven part — two ingredients covering different pieces.)
 
 `shrinkage=` adds a ridge on the tilt (exact calibration → shrink toward the base
 weights, trading bias for variance); `calibration_ipw` reports the Kish **effective
 sample size**, since strong ascertainment concentrates weight on few units.
-
-### Penalized IPW (numba)
-
-The softer precursor fits, for each outcome (with `p = sigmoid(Xβ)`):
-
-```
-f(β) = -mean( s·log(p) + (1-s)·log(1-p) )     # logistic negative log-likelihood
-       + λ · ‖β‖₁                              # LASSO penalty
-       + γ · (logit(mean(p)) - logit(π))²      # informed prevalence penalty
-```
-
-where `s` is the sample indicator and `π` the outcome's known population
-prevalence. `γ = 0` recovers ordinary L1-penalized IPW; larger `γ` drags the
-mean predicted inclusion probability toward `π`.
 
 ## Install
 
@@ -75,7 +63,7 @@ pip install -e .           # from a clone of this repo
 pip install -e '.[test]'   # with the test dependencies
 ```
 
-Requires Python ≥ 3.10 and numpy / scipy / scikit-learn / numba.
+Requires Python ≥ 3.10 and numpy / scipy / scikit-learn.
 
 ## Quick start
 
@@ -96,14 +84,13 @@ ds = i3pw.make_dataset(
 print(ds.population_prevalence)   # truth we want to recover
 print(ds.sample_prevalence)       # biased, naive estimate
 
-# 2. Correct the bias.
+# 2. Correct the bias by calibrating the weights to the known prevalences.
 naive = i3pw.no_correction(ds)
-res   = i3pw.penalized_ipw(ds, lambdas=(0.001, 0.01, 0.1),
-                           gammas=(0.0, 0.1, 1.0, 10.0), K=5)
+cal   = i3pw.calibration_ipw(ds, base="lasso")   # the recommended estimator
 
 print(naive.summary())
-print(res["mean"].summary())      # weighted prevalence, per outcome
-print("selected (λ, γ):", res["best_lambda"], res["best_gamma"])
+print(cal.summary())              # weighted prevalence, per outcome
+print("effective sample size:", round(cal.ess))
 ```
 
 Run the full benchmark comparison:
@@ -112,52 +99,16 @@ Run the full benchmark comparison:
 python examples/benchmark.py
 ```
 
-Typical output (8k population, one common + one rare outcome; ~3.5s total incl.
-one-time numba compile):
+Typical output (8k population, one common + one rare outcome; ~2s total):
 
 ```
-method                         % diff Y1   % diff Y2
-----------------------------------------------------
-no_correction                      48.25       91.32
-lasso_ipw                          12.99       33.96
-penalized_ipw[mean]                13.20       32.83
-penalized_ipw[harmonic]            13.20       32.83
-----------------------------------------------------
+method                       % diff Y1   % diff Y2
+--------------------------------------------------
+no_correction                    48.25       91.32
+lasso_ipw                        45.64       91.44   <- covariate model barely helps
+calibration_ipw                   0.00        0.00   <- uses the known prevalences
+--------------------------------------------------
 ```
-
-## Using the estimator directly
-
-```python
-from i3pw import PenalizedIPW
-
-X_train, _, s_train = ds.split("train")
-est = PenalizedIPW(lam=0.01, gamma=1.0, optimizer="gd")  # or "bfgs", "lbfgs"
-est.fit(X_train, s_train, ds.population_prevalence)
-
-X_test, Y_test, s_test = ds.split("test")
-P = est.predict_inclusion(X_test)   # (n, Q) fitted inclusion probabilities
-W = est.weights(X_test, s_test)     # (n, Q) per-outcome IPW weights
-```
-
-Three optimizers are available, mirroring the R scripts:
-
-- `"gd"` — numba gradient descent with learning-rate decay (`Parallel_methods.R`);
-- `"bfgs"` — SciPy BFGS (`BFGS.R`);
-- `"lbfgs"` — SciPy L-BFGS-B with optional box `bounds` on coefficients (`L_BFGS.R`).
-
-When several outcome models share one sample, their per-outcome weights are
-combined with one of four rules (`combine=` in `penalized_ipw`): `"mean"`,
-`"product"`, `"harmonic"`, `"absdiff"` (inverse-abs-difference weighting).
-
-Two weighting schemes are available (`weighting=` in `lasso_ipw` / `penalized_ipw`,
-or `scheme=` in `PenalizedIPW.weights`):
-
-- `"odds"` — the R construction: selected units get `(1 - P) / P`, unselected units
-  get weight 1, and the weighted mean runs over the whole test set.
-- `"inverse"` — the textbook Horvitz–Thompson / Hájek estimator: selected units get
-  `1 / P`, unselected units get weight 0, so only the **sample** is used.
-
-Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
 ## Why the covariate model fails and calibration works
 
@@ -195,16 +146,15 @@ Two honest caveats:
   cases can be absent, and no reweighting reaches the target; `shrinkage=` (or
   pooling outcomes) helps degrade gracefully.
 
-### Weighting schemes for the IPW baselines
+### Weighting schemes for the IPW baseline
 
-`lasso_ipw` / `penalized_ipw` accept `weighting=`, and `PenalizedIPW.weights` accepts
-`scheme=`:
+`lasso_ipw` (and `monte_carlo`) accept `weighting=`:
 
-- `"inverse"` — the textbook Horvitz–Thompson / Hájek estimator (`1 / P`, sample only).
-  **Deployable**, and the default lens for honest evaluation.
-- `"odds"` — the original R construction (`(1 - P) / P` for selected, weight 1 for
-  unselected, mean over the whole test set). It reads unselected outcomes, so it
-  flatters the method; treat it as an oracle diagnostic.
+- `"inverse"` — the Hájek (self-normalized) estimator (`1 / P`, sample only).
+  **The default and the only deployable choice.**
+- `"oracle_odds"` — `(1 - P) / P` for selected, weight 1 for unselected, mean over
+  the whole test set. It reads unselected outcomes, so it flatters the method; it is
+  a simulation-only oracle diagnostic.
 
 Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
@@ -514,25 +464,6 @@ The lesson: a closed-form transform is stuck with the selection model it assumes
 IPW is only as good as the sampling probabilities you can supply — and if you can
 *estimate* or *know* them, it keeps working where the transform cannot.
 
-## Notable differences from the R code
-
-These are deliberate corrections/improvements, documented so results are
-comparable:
-
-- **Intercept in the inclusion model.** The R gradient methods omitted an
-  intercept, which crippled the prevalence penalty (with mean-zero covariates
-  there is no lever to shift the mean prediction). `PenalizedIPW` fits an
-  unpenalized intercept by default (`fit_intercept=True`).
-- **Exact penalty gradient.** The gradient of the prevalence penalty is
-  implemented in closed form and verified against numerical differentiation
-  (`scipy.optimize.check_grad`, error < 1e-7).
-- **Cross-validation criterion.** The R code selects `(λ, γ)` by minimizing the
-  *penalized* objective, whose scale grows with `γ` — so it structurally favors
-  `γ = 0`. `penalized_ipw` defaults to `cv_criterion="prevalence"`, scoring each
-  fold by how well the reweighted validation prevalence recovers the known
-  population value, which makes the informed penalty genuinely selectable. The
-  faithful `cv_criterion="objective"` is still available.
-
 ## Package layout
 
 ```
@@ -541,12 +472,9 @@ src/i3pw/
 ├── calibration.py  # calibration_ipw, entropy_balance, outcome_calibration_weights
 ├── aipw.py         # aipw_mean: doubly-robust downstream estimation
 ├── liability.py    # probit / liability-threshold model: Lee et al. transform vs IPW
-├── methods.py      # no_correction, lasso_ipw / lasso_propensity, penalized_ipw
-├── penalized.py    # PenalizedIPW estimator (gd / bfgs / lbfgs)
-├── _kernels.py     # numba-compiled objective, gradient, gradient descent
-├── weights.py      # per-outcome weight combination rules
+├── methods.py      # baselines: no_correction, lasso_ipw / lasso_propensity
 ├── evaluation.py   # Monte Carlo comparison across many replications
-├── metrics.py      # weighted prevalence, % difference, weighted MSE
+├── metrics.py      # weighted (Hájek) prevalence, % difference
 └── _links.py       # stable sigmoid / logit
 tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
 examples/           # benchmark.py, monte_carlo.py, doubly_robust_trait.py,
