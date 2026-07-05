@@ -33,6 +33,19 @@ from .calibration import (
 )
 from .dgm import Dataset, SimConfig, make_dataset, nearest_pd_correlation, random_correlation
 from .evaluation import MonteCarloSummary, format_summary, monte_carlo
+from .liability import (
+    AscertainedSample,
+    SelectionPopulation,
+    estimate_liability_r2,
+    lee_transform,
+    liability_r2_from_weights,
+    liability_threshold,
+    moment_slope,
+    observed_to_liability,
+    similarity_matrix,
+    simulate_case_control,
+    simulate_liability_selection,
+)
 from .methods import (
     MethodResult,
     cross_validate,
@@ -65,6 +78,17 @@ __all__ = [
     "effective_sample_size",
     "aipw_mean",
     "AIPWResult",
+    "liability_threshold",
+    "observed_to_liability",
+    "lee_transform",
+    "moment_slope",
+    "similarity_matrix",
+    "simulate_case_control",
+    "estimate_liability_r2",
+    "liability_r2_from_weights",
+    "simulate_liability_selection",
+    "SelectionPopulation",
+    "AscertainedSample",
     "cross_validate",
     "MethodResult",
     "monte_carlo",

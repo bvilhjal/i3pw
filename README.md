@@ -249,6 +249,75 @@ transform (Lee et al. 2011); pure case-control ascertainment leaves *logistic
 slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute risks, and
 liability-correlated traits — which is what these estimators repair.
 
+## A probit / liability-threshold model: the Lee et al. transform vs IPW
+
+A separate, self-contained study (`i3pw.liability`, benchmarked in
+`examples/probit_selection_lee_vs_ipw.py`). Latent Gaussian liability
+`L = f(X) + e`, binary outcome `Y = 1[L > t]`, prevalence `K`; the estimand is the
+liability-scale variance explained `R²_L = Var(f)/Var(L)`. The sample is
+ascertained on `Y` (cases over-represented), so the sample case fraction `P ≠ K`.
+Two corrections:
+
+- **Lee et al. (2011)** — estimate `R²` on the observed 0/1 scale, then multiply by
+  `[K(1-K)/z²] · [K(1-K)/(P(1-P))]` (observed→liability × an analytic ascertainment
+  factor).
+- **IPW** — reweight the case fraction back to `K` (weights `K/P`, `(1-K)/(1-P)` —
+  the exact inverse-probability weights for selection on `Y` alone), run a weighted
+  moment estimator, then apply only the population `K(1-K)/z²` factor.
+
+Both correct the ascertainment; the Lee factor is the *analytic* counterpart of what
+IPW does by *reweighting*. Benchmark (25 reps, strong-ascertainment `P = 0.5` rows):
+
+```
+ true R²_L    K      naive        lee          ipw
+   0.50     0.01   12.21±0.40   0.483±0.02   0.494±0.02
+   0.50     0.10    1.40±0.11   0.503±0.04   0.505±0.04
+   0.80     0.01   19.46±0.71   0.771±0.03   0.807±0.03
+   0.80     0.05    4.08±0.15   0.775±0.03   0.788±0.03
+```
+
+Findings:
+
+- **Ignoring ascertainment is catastrophic** — the naive estimate is inflated up to
+  ~24× (it is worse for rarer `K` and more balanced `P`).
+- **Lee and IPW both work**, and agree closely at moderate `R²` / mild ascertainment.
+- **They diverge exactly where theory predicts.** IPW removes the selection *exactly*
+  at any strength (it is design-based); the Lee ascertainment factor is a
+  linearization, so as effects grow (`R²_L = 0.8`) *and* ascertainment is strong,
+  Lee drifts low (−3 to −4%) while IPW stays within ~1–2%. Both still share the
+  observed→liability approximation, so both sit slightly low at high `R²`.
+- **No variance penalty** for IPW here — the SDs match Lee's. (The design-based /
+  moment route is the same idea as PCGC regression, which is the ascertainment-exact
+  fix to the Lee transform.)
+
+### When selection depends on more than the outcome
+
+The comparison above is a level playing field: selection is a pure function of the
+outcome, so Lee and IPW have the same information. But IPW's real advantage appears
+when selection is *more complex*. `examples/complex_selection_ipw.py` makes selection
+depend slightly on the latent liability too, `logit P(S=1|Y,L) = a_Y + δ·L` (e.g.
+severity-dependent recruitment, super-normal controls):
+
+```
+delta   truth      lee   ipw_simple   ipw_fitted   ipw_oracle
+  0.0   0.605    0.594      0.602        0.595        0.599
+  0.6   0.602    0.399      0.407        0.571        0.604
+  1.2   0.598    0.279      0.284        0.542        0.586
+```
+
+- `δ = 0` (pure case-control): everything works.
+- `δ > 0`: **Lee and simple `K/P` IPW fail identically** — both know only `(K, P)`, so
+  both assume selection is a function of the outcome alone and miss the within-group
+  liability selection.
+- **`ipw_fitted`** — weights from a *fitted* `P(S|X, Y)` — recovers most of it, limited
+  by how well the predictors `X` proxy the latent liability.
+- **`ipw_oracle`** — weights `1/P(S=1|Y,L)` from the *true* inclusion probabilities —
+  is exact.
+
+The lesson: a closed-form transform is stuck with the selection model it assumes, but
+IPW is only as good as the sampling probabilities you can supply — and if you can
+*estimate* or *know* them, it keeps working where the transform cannot.
+
 ## Notable differences from the R code
 
 These are deliberate corrections/improvements, documented so results are
@@ -275,6 +344,7 @@ src/i3pw/
 ├── dgm.py          # data-generating mechanism + biased sampling
 ├── calibration.py  # calibration_ipw + entropy_balance (the recommended method)
 ├── aipw.py         # aipw_mean: doubly-robust downstream estimation
+├── liability.py    # probit / liability-threshold model: Lee et al. transform vs IPW
 ├── methods.py      # no_correction, lasso_ipw / lasso_propensity, penalized_ipw
 ├── penalized.py    # PenalizedIPW estimator (gd / bfgs / lbfgs)
 ├── _kernels.py     # numba-compiled objective, gradient, gradient descent
@@ -282,9 +352,13 @@ src/i3pw/
 ├── evaluation.py   # Monte Carlo comparison across many replications
 ├── metrics.py      # weighted prevalence, % difference, weighted MSE
 └── _links.py       # stable sigmoid / logit
-tests/              # pytest suite (calibration, AIPW, gradient checks, DGM, methods)
-examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py
+tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
+examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
+                    #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py
 ```
+
+(`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied
+framing; the statistics are identical to the probit model above.)
 
 ## Calibration in one snippet
 
