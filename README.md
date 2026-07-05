@@ -582,10 +582,11 @@ pytest
 
 ## References
 
-Selection / participation bias and reweighting:
+**Selection / participation bias in volunteer cohorts (the applied motivation):**
 
 - Schoeler, T. et al. (2023). Participation bias in the UK Biobank distorts genetic
   associations and downstream analyses. *Nature Human Behaviour* 7, 1216–1227.
+  [doi:10.1038/s41562-023-01579-9](https://doi.org/10.1038/s41562-023-01579-9)
 - van Alten, S., Domingue, B. W., Faul, J., Galama, T., Marees, A. T. (2024).
   Reweighting UK Biobank corrects for pervasive selection bias due to volunteering.
   *International Journal of Epidemiology* 53(3), dyae054.
@@ -593,30 +594,55 @@ Selection / participation bias and reweighting:
   effect sizes and heritability estimates. *Nature Communications* 16.
 - Munafò, M. R. et al. (2018). Collider scope: when selection bias can substantially
   influence observed associations. *Int. J. Epidemiol.* 47(1), 226–235.
+- Elliott, M. R. & Valliant, R. (2017). Inference for nonprobability samples.
+  *Statistical Science* 32(2), 249–264.
 
-Calibration / weighting methodology:
+**Inverse-probability weighting and calibration (the machinery):**
 
+- Horvitz, D. G. & Thompson, D. J. (1952). A generalization of sampling without
+  replacement from a finite universe. *JASA* 47(260), 663–685. *(the IPW estimator)*
+- Hájek, J. (1971). Comment on a paper by D. Basu. In *Foundations of Statistical
+  Inference*, eds. V. P. Godambe & D. A. Sprott. Holt, Rinehart & Winston.
+  *(the self-normalized ratio estimator)*
 - Deville, J.-C. & Särndal, C.-E. (1992). Calibration estimators in survey sampling.
   *JASA* 87(418), 376–382.
-- Kott, P. S. & Chang, T. (2010). Using calibration weighting to adjust for
-  nonignorable unit nonresponse. *JASA* 105(491), 1265–1275. *(the modification here)*
 - Hainmueller, J. (2012). Entropy balancing for causal effects. *Political Analysis*
-  20(1), 25–46.
+  20(1), 25–46. *(the exact form `entropy_balance` solves)*
+- Kott, P. S. & Chang, T. (2010). Using calibration weighting to adjust for
+  nonignorable unit nonresponse. *JASA* 105(491), 1265–1275. *(the prevalence-informed
+  base-weight modification)*
 - Manski, C. F. & Lerman, S. R. (1977). The estimation of choice probabilities from
   choice based samples. *Econometrica* 45(8), 1977–1988.
-- Chen, Y., Li, P., Wu, C. (2020). Doubly robust inference with nonprobability survey
-  samples. *JASA* 115(532), 2011–2021.
+- Kish, L. (1965). *Survey Sampling.* Wiley. *(effective sample size / design effect)*
+
+**Doubly-robust and nonprobability-sample inference:**
+
 - Robins, J. M., Rotnitzky, A., Zhao, L. P. (1994). Estimation of regression
   coefficients when some regressors are not always observed. *JASA* 89(427), 846–866.
+- Bang, H. & Robins, J. M. (2005). Doubly robust estimation in missing data and causal
+  inference models. *Biometrics* 61(4), 962–973.
+- Chen, Y., Li, P., Wu, C. (2020). Doubly robust inference with nonprobability survey
+  samples. *JASA* 115(532), 2011–2021.
 
-Case-control / liability-threshold model:
+**Case-control ascertainment and the liability-threshold model:**
 
 - Prentice, R. L. & Pyke, R. (1979). Logistic disease incidence models and
   case-control studies. *Biometrika* 66(3), 403–411.
+- Dempster, E. R. & Lerner, I. M. (1950). Heritability of threshold characters.
+  *Genetics* 35(2), 212–236. *(the observed→liability transform)*
+- Haseman, J. K. & Elston, R. C. (1972). The investigation of linkage between a
+  quantitative trait and a marker locus. *Behavior Genetics* 2(1), 3–19. *(the
+  method-of-moments variance-component estimator)*
 - Lee, S. H., Wray, N. R., Goddard, M. E., Visscher, P. M. (2011). Estimating missing
   heritability for disease from genome-wide association studies. *AJHG* 88(3), 294–305.
 - Golan, D., Lander, E. S., Rosset, S. (2014). Measuring missing heritability:
   inferring the contribution of common variants. *PNAS* 111(49), E5272–E5281 (PCGC).
+
+**Software:**
+
+- Friedman, J., Hastie, T., Tibshirani, R. (2010). Regularization paths for generalized
+  linear models via coordinate descent. *Journal of Statistical Software* 33(1), 1–22.
+  *(`glmnet`, the LASSO/coordinate-descent baseline)*
 
 ## License
 
