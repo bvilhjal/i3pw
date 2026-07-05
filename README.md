@@ -278,6 +278,39 @@ heritability); known co-occurrence or covariate-*stratified* prevalences identif
 interactions needed to push toward effect sizes. Marginal prevalences alone suffice
 here because the estimand is a variance component, not an effect size — see below.
 
+## Inferring selection probabilities from many outcomes
+
+The realistic version: a *latent* selection variable `U` drives participation
+(`logit P(S|U) = α + γU`); there are `N` outcomes, each a noisy proxy for `U`; only
+`k` are observed frame-wide (registry-linked); but the population **means** of all
+`N` are known. How best to infer the selection probabilities?
+`examples/selection_probability_inference.py` scores each method by how well its
+(log) weights track the oracle's, and by the bias left on two population quantities
+it never calibrated to (a trait `Z` and a held-out outcome, both correlated with `U`):
+
+```
+method       corr w/ oracle   |E[Z]| held-out   |E[Yh]−K| held-out
+naive              n/a             0.507             0.063
+registry          0.764            0.248             0.022   (model on the k frame-wide outcomes)
+calib_all         0.802            0.188             0.014   (calibrate to all N known means)
+combined          0.813            0.185             0.014   (registry base + calibrate to means)
+oracle            1.000            0.009             0.001
+```
+
+- **Calibration to the known means is the workhorse** — it beats a registry model on
+  few outcomes, because *every* outcome with a known mean is another proxy for `U`.
+- **Combining is best**: individual-level modelling of the outcomes you observe
+  frame-wide, plus calibration to the known means of the rest. Its edge over
+  calibration-alone grows with how many strong proxies you observe individually.
+- **More of either helps** — more registry outcomes (`k`) and more known means (`N`).
+- **None reaches the oracle**: marginals plus a few proxies only *partially*
+  reconstruct the latent `U`. Closing the rest needs joint moments (known
+  co-occurrences) or an explicit latent-variable/measurement model of `U`.
+
+So the recommended recipe: model `P(S | outcomes observed frame-wide)` for the base
+weights, then calibrate to *all* known population means — `entropy_balance(Y_sample,
+means, base_weights=1/P̂)`.
+
 ## Participation bias and effect sizes: what known prevalences cannot fix
 
 The scientific target is usually an **effect size** (an exposure→outcome or genetic
@@ -462,7 +495,7 @@ tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
 examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
                     #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
                     #   multi_outcome_calibration.py, ukb_participation.py,
-                    #   schoeler_plus_prevalence.py
+                    #   schoeler_plus_prevalence.py, selection_probability_inference.py
 ```
 
 (`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied
