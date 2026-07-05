@@ -29,6 +29,16 @@ Under the hood the 0/1-scale variance explained comes from a method-of-moments
 (Haseman–Elston-type) regression: regress each pair's outcome product ``y_i y_j`` on
 the predictor similarity ``A_ij`` — the standard estimator for a variance component
 spread over many weak predictors.
+
+References
+----------
+- Dempster & Lerner (1950), *Genetics* 35, 212–236 — observed→liability transform.
+- Haseman & Elston (1972), *Behavior Genetics* 2, 3–19 — the moment estimator.
+- Prentice & Pyke (1979), *Biometrika* 66, 403–411 — case-control sampling.
+- Lee, Wray, Goddard & Visscher (2011), *AJHG* 88, 294–305 — the transform benchmarked
+  here against IPW.
+- Golan, Lander & Rosset (2014), *PNAS* 111, E5272–E5281 — PCGC, the design-based
+  (ascertainment-exact) counterpart of the IPW route.
 """
 
 from __future__ import annotations

@@ -22,6 +22,14 @@ Deville & Sarndal 1992). Because that tilt is log-linear in ``Y`` — the same f
 as the selection mechanism — it recovers the disease-driven selection the
 covariate model cannot. Using covariate-model weights as the ``base`` keeps the
 part of selection that *is* covariate-driven, giving a doubly-robust flavour.
+
+References
+----------
+- Deville & Särndal (1992), *JASA* 87, 376–382 — calibration estimators.
+- Hainmueller (2012), *Political Analysis* 20, 25–46 — entropy balancing.
+- Kott & Chang (2010), *JASA* 105, 1265–1275 — calibration for nonignorable
+  nonresponse (the ``base_weights`` + known-prevalence construction).
+- Horvitz & Thompson (1952), *JASA* 47, 663–685 — the underlying IPW estimator.
 """
 
 from __future__ import annotations

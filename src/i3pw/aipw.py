@@ -17,9 +17,17 @@ whole population and weights ``w`` (from a participation model or from
                                    where the sample and model disagree
 
 with ``m(X) = E[V | X]`` an outcome regression fit on the sample and the weights
-self-normalized (Hájek). It is **doubly robust** — consistent if *either* ``m`` or
-``w`` is correct (Robins–Rotnitzky–Zhao 1994) — so you get two chances to be right,
-and the prediction term also lowers variance versus weighting alone.
+self-normalized (Hájek 1971). It is **doubly robust** — consistent if *either* ``m``
+or ``w`` is correct (Robins–Rotnitzky–Zhao 1994) — so you get two chances to be
+right, and the prediction term also lowers variance versus weighting alone.
+
+References
+----------
+- Robins, Rotnitzky & Zhao (1994), *JASA* 89, 846–866 — AIPW / doubly-robust estimation.
+- Bang & Robins (2005), *Biometrics* 61, 962–973 — doubly-robust estimation for
+  missing data.
+- Chen, Li & Wu (2020), *JASA* 115, 2011–2021 — doubly-robust inference for
+  nonprobability (e.g. volunteer) samples.
 """
 
 from __future__ import annotations

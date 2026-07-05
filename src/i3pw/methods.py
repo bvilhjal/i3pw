@@ -16,6 +16,9 @@ Prevalence-informed:
   inclusion model with a quadratic prevalence penalty, cross-validated over
   ``(lambda, gamma)``. The exact, principled version lives in
   :mod:`i3pw.calibration`.
+
+The covariate participation model follows Schoeler et al. (2023) / van Alten et al.
+(2024); the LASSO fit mirrors ``glmnet`` (Friedman, Hastie & Tibshirani 2010).
 """
 
 from __future__ import annotations
