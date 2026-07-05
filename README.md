@@ -354,6 +354,36 @@ disorder, the analytic Lee/case-control weight is exact and cheap. If you don't 
 the mechanism — the usual biobank situation — prefer `combined`: it never blows up,
 and unlike `lee_cc` it keeps improving as you learn more prevalences.
 
+### Where Schoeler et al. fits in: a covariate model and calibration are complementary
+
+The methods above see only *outcomes*; the [Schoeler et al. (2023)](https://doi.org/10.1038/s41562-023-01579-9)
+approach instead fits a participation model on **socioeconomic covariates** `X` — a
+LASSO `P(S | X)`, inverted. Study D of the same example gives it a fair fight: a
+population where selection depends on *both* a socioeconomic index `X@b` **and** the
+disease latent `U` (with `X` independent of `U`), and a held-out trait `Z` that loads
+on both channels. `schoeler` = LASSO `1/P̂(S|X)`; `sch+prev` = those weights used as a
+base, then calibrated to the `N` known outcome means. Held-out `|E[Z]−truth|`:
+
+```
+selection channel   naive   schoeler  calib_all  sch+prev   oracle
+socioeconomic       0.689    0.208     0.600      0.094      0.022
+balanced            0.741    0.421     0.551      0.206      0.021
+disease             0.689    0.548     0.424      0.276      0.020
+```
+
+- When selection is **socioeconomic**, the Schoeler covariate model removes most of the
+  bias and prevalence calibration barely helps (the outcomes don't proxy an `X`-driven
+  mechanism).
+- When selection is **disease-driven**, the covariate model is nearly useless — this is
+  the project's motivating failure, participation driven by *having the disease*, a
+  signal orthogonal to `X` — and prevalence calibration does the work instead.
+- The two are **complementary**: `sch+prev` (Schoeler weights calibrated to the known
+  means) is best in *every* channel mix. So the recommended UK Biobank recipe is
+  literally *Schoeler-plus-prevalences* — `entropy_balance(Y_sample, means,
+  base_weights=1/P̂(S|X))` — with the covariate model handling the socioeconomic part
+  and the known prevalences handling the disease part. (See also
+  `examples/schoeler_plus_prevalence.py`.)
+
 ## Participation bias and effect sizes: what known prevalences cannot fix
 
 The scientific target is usually an **effect size** (an exposure→outcome or genetic

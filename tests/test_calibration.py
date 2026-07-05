@@ -227,6 +227,54 @@ def test_calibration_beats_lee_style_weights_under_case_control_selection():
     assert np.mean(cal_z) < 0.2 * np.mean(naive_z)
 
 
+def _schoeler_pop(seed, c_x, c_u):
+    # Selection on socioeconomic covariates X (independent of the disease latent U)
+    # and on U; held-out Z loads on both channels. Returns sample pieces + weights.
+    from scipy.special import expit
+    from sklearn.linear_model import LogisticRegression
+
+    rng = np.random.default_rng(seed)
+    n_pop, n_out, p = 40000, 12, 8
+    X = rng.standard_normal((n_pop, p))
+    b = np.zeros(p)
+    b[:3] = rng.uniform(0.4, 0.9, 3) * rng.choice([-1.0, 1.0], 3)
+    xb = X @ b
+    xb = xb / xb.std()
+    U = rng.standard_normal(n_pop)
+    lam = rng.uniform(0.3, 0.5, n_out)
+    lam[:3] = rng.uniform(0.7, 0.85, 3)
+    Kj = rng.uniform(0.05, 0.30, n_out)
+    Y = (lam * U[:, None] + np.sqrt(1 - lam**2) * rng.standard_normal((n_pop, n_out))
+         > norm.ppf(1 - Kj)).astype(float)
+    Kpop = Y.mean(axis=0)
+    Z = 0.7 * xb + 0.7 * U + rng.standard_normal(n_pop)
+    S = rng.uniform(size=n_pop) < expit(-1.4 + c_x * xb + c_u * U)
+    clf = LogisticRegression(solver="saga", l1_ratio=1.0, C=0.5, max_iter=500)
+    clf.fit(X, S.astype(int))
+    w_sch = 1.0 / np.clip(clf.predict_proba(X[S])[:, 1], 1e-4, 1 - 1e-4)
+    return Y[S], Kpop, Z[S], float(Z.mean()), w_sch
+
+
+def test_schoeler_and_calibration_are_complementary():
+    # X-driven selection: the Schoeler covariate model helps, prevalence calibration
+    # barely does. Disease-driven selection: the reverse. Combining is best in both.
+    for c_x, c_u, sch_wins in [(1.5, 0.4, True), (0.4, 1.5, False)]:
+        sch_z, cal_z, both_z, naive_z = [], [], [], []
+        for s in range(3):
+            Ys, Kpop, Zs, zt, w_sch = _schoeler_pop(440 + s, c_x, c_u)
+            sch_z.append(_zbias(w_sch, Zs, zt))
+            cal_z.append(_zbias(entropy_balance(Ys, Kpop), Zs, zt))
+            both_z.append(_zbias(entropy_balance(Ys, Kpop, base_weights=w_sch), Zs, zt))
+            naive_z.append(abs(Zs.mean() - zt))
+        m_sch, m_cal, m_both = np.mean(sch_z), np.mean(cal_z), np.mean(both_z)
+        if sch_wins:
+            assert m_sch < m_cal            # covariate model wins the socioeconomic channel
+        else:
+            assert m_cal < m_sch            # calibration wins the disease channel
+        assert m_both < m_sch and m_both < m_cal        # combining beats either alone
+        assert m_both < np.mean(naive_z)
+
+
 def _multi_outcome_sample(g, seed, n_pop=200000, rho=0.5, k1=0.15, k2=0.08):
     rng = np.random.default_rng(seed)
     L = rng.multivariate_normal([0, 0], [[1, rho], [rho, 1]], size=n_pop)

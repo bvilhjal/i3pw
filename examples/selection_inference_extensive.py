@@ -45,7 +45,10 @@ correlated with ``U``. Three studies run:
 
   A. scenario comparison at a fixed (N, k);
   B. sweep over N (number of known prevalences), latent regime;
-  C. sweep over k (number of frame-wide outcomes), latent regime.
+  C. sweep over k (number of frame-wide outcomes), latent regime;
+  D. a Schoeler et al. (2023)-style covariate model vs prevalence calibration, in a
+     population where selection depends on both socioeconomic covariates ``X`` and
+     the disease latent ``U`` (see :func:`simulate_cov`).
 
     python examples/selection_inference_extensive.py
 """
@@ -241,6 +244,92 @@ def study_sweep_k(reps: int):
     print_idx_table("Held-out |E[Z] - truth|", "k frame-wide", rows, methods, idx=1, fmt=".4f")
 
 
+@dataclass
+class CovRep:
+    Xs: np.ndarray       # (n_sel, p) sample covariates
+    Xframe: np.ndarray   # (N_POP, p) frame covariates (for the Schoeler model)
+    Ys: np.ndarray       # (n_sel, N) sample outcomes
+    Kpop: np.ndarray     # (N,) population outcome prevalences
+    S: np.ndarray        # (N_POP,) selection indicator
+    pis: np.ndarray      # (n_sel,) true inclusion probabilities
+    Zs: np.ndarray       # (n_sel,) held-out trait (loads on BOTH X and U)
+    z_truth: float
+
+
+N_COV = 10               # socioeconomic covariates (only the first few drive anything)
+N_COV_ACTIVE = 4
+
+
+def simulate_cov(seed: int, n_out: int, c_x: float, c_u: float) -> CovRep:
+    """Selection driven by BOTH socioeconomic covariates X and a disease latent U.
+
+    ``logit P(S) = alpha + c_x * (X @ b) + c_u * U``, with ``X`` independent of ``U``.
+    A held-out trait ``Z`` loads on the same X direction *and* on U, so removing the
+    selection bias in ``E[Z]`` requires correcting both channels. Schoeler-style
+    covariate models see only the X channel; prevalence calibration sees only the U
+    channel (through the outcomes that proxy it).
+    """
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((N_POP, N_COV))
+    b = np.zeros(N_COV)
+    b[:N_COV_ACTIVE] = rng.uniform(0.4, 0.9, N_COV_ACTIVE) * rng.choice([-1.0, 1.0], N_COV_ACTIVE)
+    xb = X @ b
+    xb = xb / xb.std()                                   # unit-variance X selection index
+
+    U = rng.standard_normal(N_POP)
+    lam = rng.uniform(0.30, 0.50, n_out)
+    lam[:STRONG] = rng.uniform(0.70, 0.85, min(STRONG, n_out))
+    Kj = rng.uniform(0.05, 0.30, n_out)
+    Y = (lam * U[:, None] + np.sqrt(1.0 - lam**2) * rng.standard_normal((N_POP, n_out))
+         > norm.ppf(1.0 - Kj)).astype(float)
+    Kpop = Y.mean(axis=0)
+
+    Z = 0.7 * xb + 0.7 * U + rng.standard_normal(N_POP)  # loads on both channels
+    pi = expit(-1.4 + c_x * xb + c_u * U)
+    S = rng.uniform(size=N_POP) < pi
+    return CovRep(Xs=X[S], Xframe=X, Ys=Y[S], Kpop=Kpop, S=S, pis=pi[S],
+                  Zs=Z[S], z_truth=float(Z.mean()))
+
+
+def schoeler_weights(rep: CovRep) -> np.ndarray:
+    """Schoeler et al. (2023)-style weights: L1-penalized logistic P(S | X), inverted."""
+    clf = LogisticRegression(solver="saga", l1_ratio=1.0, C=0.5, max_iter=500)
+    clf.fit(rep.Xframe, rep.S.astype(int))
+    return 1.0 / np.clip(clf.predict_proba(rep.Xs)[:, 1], 1e-4, 1 - 1e-4)
+
+
+def study_schoeler(reps: int):
+    methods = ("naive", "schoeler", "calib_all", "sch+prev", "oracle")
+    n_out = 16
+    settings = [
+        ("socioeconomic", 1.4, 0.4),   # selection mostly X-driven
+        ("balanced", 0.9, 0.9),
+        ("disease", 0.4, 1.4),         # selection mostly disease/latent-driven
+    ]
+    rows = []
+    for label, c_x, c_u in settings:
+        runs = []
+        for r in range(reps):
+            rep = simulate_cov(3700 + r, n_out, c_x, c_u)
+            w_sch = schoeler_weights(rep)
+            weights = {
+                "naive": np.ones(len(rep.Ys)),
+                "schoeler": w_sch,
+                "calib_all": entropy_balance(rep.Ys, rep.Kpop),
+                "sch+prev": entropy_balance(rep.Ys, rep.Kpop, base_weights=w_sch),
+                "oracle": 1.0 / rep.pis,
+            }
+            runs.append({m: (np.nan, abs(hajek(w, rep.Zs) - rep.z_truth), np.nan,
+                             effective_sample_size(w) / len(w)) for m, w in weights.items()})
+        rows.append((label, aggregate(runs, methods)))
+    print("\n" + "=" * 72)
+    print(f"STUDY D — Schoeler covariate model vs prevalence calibration  (N={n_out} means)")
+    print("=" * 72)
+    print("Selection = alpha + c_x*(X@b) + c_u*U; X (socioeconomic) independent of U.")
+    print_idx_table("Held-out |E[Z] - truth| (Z loads on both X and U) - lower is better",
+                    "sel. channel", rows, methods, idx=1, fmt=".4f")
+
+
 def main():
     t0 = time.time()
     reps = 20
@@ -249,6 +338,7 @@ def main():
     study_scenarios(reps)
     study_sweep_n(reps)
     study_sweep_k(reps)
+    study_schoeler(reps)
     print("\nReading the tables — no method is uniformly best; the regime decides:")
     print(" - latent regime (all outcomes proxy one hidden driver): the analytic Lee-style")
     print("   weights (lee_cc) are startlingly good — averaging N simple case-control")
@@ -269,6 +359,10 @@ def main():
     print(" - Study C: only the registry model (and combined) benefit from more frame-wide")
     print("   outcomes (k); lee_cc and calib_all ignore the frame and are flat in k. None")
     print("   reaches the oracle because a latent driver is only proxied, never seen.")
+    print(" - Study D: the Schoeler covariate model fixes only the socioeconomic (X) channel")
+    print("   of selection and is near-useless when selection is disease-driven; prevalence")
+    print("   calibration fixes only the disease (U) channel. They are complementary, and")
+    print("   sch+prev (covariate weights calibrated to the known means) handles both.")
     print(f"\nTotal wall time: {time.time() - t0:.1f}s")
 
 
