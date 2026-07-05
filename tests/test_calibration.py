@@ -134,6 +134,41 @@ def test_outcome_calibration_composes_with_base_weights():
     assert not np.allclose(w, outcome_calibration_weights(Y, targets))
 
 
+def test_selection_inference_combined_beats_registry():
+    # Latent selection variable U; N outcomes proxy it, k observed frame-wide.
+    # Combining a registry model with calibration to all N known means recovers a
+    # held-out U-correlated trait better than the registry model or naive.
+    from scipy.special import expit
+    from sklearn.linear_model import LogisticRegression
+
+    naive_z, reg_z, comb_z = [], [], []
+    for s in range(3):
+        rng = np.random.default_rng(300 + s)
+        n_pop, n_out, k = 40000, 12, 3
+        U = rng.standard_normal(n_pop)
+        lam = rng.uniform(0.3, 0.5, n_out)
+        lam[:k] = rng.uniform(0.7, 0.85, k)
+        Kj = rng.uniform(0.05, 0.30, n_out)
+        Y = (lam * U[:, None] + np.sqrt(1 - lam**2) * rng.standard_normal((n_pop, n_out))
+             > norm.ppf(1 - Kj)).astype(float)
+        Kpop = Y.mean(axis=0)
+        Z = 0.8 * U + rng.standard_normal(n_pop)
+        z_truth = Z.mean()
+        S = rng.uniform(size=n_pop) < expit(-1.3 + U)
+        Ys, Zs = Y[S], Z[S]
+        clf = LogisticRegression(max_iter=300).fit(Y[:, :k], S.astype(int))
+        w_reg = 1.0 / np.clip(clf.predict_proba(Ys[:, :k])[:, 1], 1e-4, 1 - 1e-4)
+        w_comb = entropy_balance(Ys, Kpop, base_weights=w_reg)
+
+        def zbias(w, zs=Zs, zt=z_truth):
+            return abs(float(np.sum(w * zs) / np.sum(w)) - zt)
+
+        naive_z.append(abs(Zs.mean() - z_truth))
+        reg_z.append(zbias(w_reg))
+        comb_z.append(zbias(w_comb))
+    assert np.mean(comb_z) < np.mean(reg_z) < np.mean(naive_z)
+
+
 def _multi_outcome_sample(g, seed, n_pop=200000, rho=0.5, k1=0.15, k2=0.08):
     rng = np.random.default_rng(seed)
     L = rng.multivariate_normal([0, 0], [[1, rho], [rho, 1]], size=n_pop)
