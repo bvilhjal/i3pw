@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .calibration import calibration_ipw
 from .dgm import make_dataset
 from .methods import lasso_ipw, no_correction, penalized_ipw
 
@@ -38,6 +39,8 @@ def monte_carlo(
     penalized_kwargs: dict | None = None,
     weighting: str = "odds",
     include_lasso: bool = True,
+    include_calibration: bool = True,
+    include_penalized: bool = True,
 ) -> dict[str, MonteCarloSummary]:
     """Repeat the correction pipeline over ``n_reps`` random populations.
 
@@ -54,7 +57,9 @@ def monte_carlo(
         Overrides forwarded to :func:`i3pw.penalized_ipw` (e.g. grids, ``K``,
         ``learning_rate``). ``weighting`` is set separately.
     weighting:
-        ``"odds"`` or ``"inverse"`` — passed to both IPW methods.
+        ``"odds"`` or ``"inverse"`` — passed to the IPW methods.
+    include_calibration / include_penalized / include_lasso:
+        Toggle each prevalence-informed / baseline method.
     """
     sim_kwargs = dict(sim_kwargs or {})
     penalized_kwargs = dict(penalized_kwargs or {})
@@ -71,8 +76,11 @@ def monte_carlo(
         record("no_correction", no_correction(ds).percent_diff)
         if include_lasso:
             record("lasso_ipw", lasso_ipw(ds, weighting=weighting).percent_diff)
-        res = penalized_ipw(ds, weighting=weighting, combine="mean", **penalized_kwargs)
-        record("penalized_ipw", res["mean"].percent_diff)
+        if include_calibration:
+            record("calibration_ipw", calibration_ipw(ds, base="lasso").percent_diff)
+        if include_penalized:
+            res = penalized_ipw(ds, weighting=weighting, combine="mean", **penalized_kwargs)
+            record("penalized_ipw", res["mean"].percent_diff)
 
     summaries: dict[str, MonteCarloSummary] = {}
     for name, rows in errors.items():

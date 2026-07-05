@@ -1,15 +1,19 @@
 """Monte Carlo comparison of the correction methods across many populations.
 
 Repeats simulate -> bias -> correct over ``N_REPS`` random draws and reports each
-method's mean absolute percentage error (+/- SD). It runs the comparison under
-both weighting schemes to make an important point explicit:
+method's mean absolute percentage error (+/- SD), using the *deployable*
+sample-only estimator throughout. The point it makes:
 
-- ``odds``    -- the R construction. Its weighted mean runs over the *whole* test
-                 set, so unselected units contribute their (in reality
-                 unobservable) outcomes. It looks great, but is not deployable.
-- ``inverse`` -- the textbook Horvitz-Thompson estimator over the *sample only*
-                 (the realistic case). It reveals how much correction is actually
-                 achievable when selection is outcome-driven and X is a proxy.
+- ``no_correction`` and ``lasso_ipw`` (the covariate-only participation model)
+  barely dent the bias, because participation here is driven by the outcomes,
+  which the covariates only weakly proxy.
+- ``calibration_ipw`` uses the known population prevalences directly, so it
+  reproduces them (the anchored outcomes) essentially exactly. That is the
+  whole idea: the known prevalences carry the information the covariate model
+  cannot.
+
+Also prints the Kish effective sample size for the calibration weights — strong
+ascertainment concentrates weight on few units, the price of the correction.
 
     python examples/monte_carlo.py
 """
@@ -17,6 +21,8 @@ both weighting schemes to make an important point explicit:
 from __future__ import annotations
 
 import time
+
+import numpy as np
 
 import i3pw
 
@@ -27,38 +33,32 @@ SIM = dict(
     n_features=12,
     n_outcomes=2,
     predictors_per_outcome=6,
-    target_population_prevalence=(0.4, 0.08),
-    target_sample_prevalence=(0.2, 0.01),
+    target_population_prevalence=(0.4, 0.15),
+    target_sample_prevalence=(0.2, 0.03),
     sample_size=1200,
-)
-
-PENALIZED = dict(
-    lambdas=(0.001, 0.01),
-    gammas=(0.0, 1.0),
-    K=3,
-    learning_rate=0.05,
-    max_iter=3000,
-    decay_interval=1000,
 )
 
 
 def main() -> None:
     i3pw.warmup()
     t0 = time.time()
-    for weighting in ("odds", "inverse"):
-        summaries = i3pw.monte_carlo(
-            n_reps=N_REPS,
-            sim_kwargs=SIM,
-            penalized_kwargs=PENALIZED,
-            weighting=weighting,
-        )
-        label = (
-            "oracle (reads unselected outcomes)"
-            if weighting == "odds"
-            else "deployable (sample only)"
-        )
-        print(f"\n=== weighting = {weighting!r}  [{label}]  ({N_REPS} reps) ===")
-        print(i3pw.format_summary(summaries))
+
+    summaries = i3pw.monte_carlo(
+        n_reps=N_REPS,
+        sim_kwargs=SIM,
+        weighting="inverse",  # deployable, sample-only
+        include_penalized=False,
+    )
+    print(f"=== mean absolute % error over {N_REPS} reps (deployable estimator) ===")
+    print(i3pw.format_summary(summaries))
+
+    # Effective sample size of the calibration weights.
+    ess = []
+    for rep in range(N_REPS):
+        ds = i3pw.make_dataset(seed=rep, **SIM)
+        ess.append(i3pw.calibration_ipw(ds, base="lasso").ess)
+    print(f"\ncalibration_ipw Kish ESS: {np.mean(ess):.0f} ± {np.std(ess):.0f}")
+    print("(the variance cost of concentrating weight on the ascertained units)")
     print(f"\nTotal wall time: {time.time() - t0:.1f}s")
 
 

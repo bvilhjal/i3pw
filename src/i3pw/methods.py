@@ -1,14 +1,21 @@
-"""High-level selection-bias correction methods and cross-validation.
+"""Baseline correction methods and the prevalence-penalized estimator.
 
 Each method estimates the population prevalence of one or more binary outcomes
-from a biased sample, and reports the percentage difference from the truth. The
-methods mirror those benchmarked in the R scripts:
+from a biased sample and reports the percentage difference from the truth.
 
-- :func:`no_correction` – naive prevalence in the observed sample (baseline).
-- :func:`lasso_ipw` – a single LASSO logistic inclusion model (``cv.glmnet``),
-  one weight per unit shared across outcomes.
-- :func:`penalized_ipw` – the informed, prevalence-penalized IPW estimator,
-  with cross-validated ``(lambda, gamma)`` and several weight-combination rules.
+Baselines (what the project compares against):
+
+- :func:`no_correction` – naive prevalence in the observed sample.
+- :func:`lasso_propensity` / :func:`lasso_ipw` – the standard covariate-only
+  participation model (``cv.glmnet`` analogue). This is the approach that the
+  project found wanting for disease outcomes.
+
+Prevalence-informed:
+
+- :func:`penalized_ipw` – the original R project's soft approach: a logistic
+  inclusion model with a quadratic prevalence penalty, cross-validated over
+  ``(lambda, gamma)``. The exact, principled version lives in
+  :mod:`i3pw.calibration`.
 """
 
 from __future__ import annotations
@@ -67,6 +74,59 @@ def _trim_weights(w: np.ndarray, trim: float | None) -> np.ndarray:
     return np.minimum(w, cap)
 
 
+def lasso_propensity(
+    X_train: np.ndarray,
+    s_train: np.ndarray,
+    X_eval: np.ndarray,
+    *,
+    interactions: bool = False,
+    cv: int = 5,
+    Cs=None,
+    max_iter: int = 1000,
+) -> np.ndarray:
+    """Fit ``P(selected | X)`` by cross-validated L1 logistic regression.
+
+    This is the *standard* participation model — the covariate-only propensity
+    that the project's central finding shows is weak for many disease outcomes
+    (see :func:`i3pw.calibration.calibration_ipw` for the prevalence-informed
+    alternative). Returns inclusion probabilities on ``X_eval``, clipped to
+    ``(1e-6, 1 - 1e-6)``. The scikit-learn analogue of
+    ``cv.glmnet(..., family="binomial")``.
+
+    ``Cs`` (the inverse-regularization grid) defaults to ``numpy.logspace(-3, 1, 8)``
+    — moderate-to-mild L1, kept away from very large ``C`` where the near-separable
+    inclusion problem makes liblinear iterate pathologically.
+    """
+    if interactions:
+        poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
+        X_train = poly.fit_transform(X_train)
+        X_eval = poly.transform(X_eval)
+
+    if Cs is None:
+        Cs = np.logspace(-3, 1, 8)
+
+    lr_kwargs = dict(Cs=Cs, cv=cv, scoring="neg_log_loss", max_iter=max_iter)
+    params = inspect.signature(LogisticRegressionCV).parameters
+    if "penalty" in params:
+        # liblinear runs glmnet-style coordinate descent: far faster than saga
+        # on these problem sizes. `penalty` is deprecated (but present) in recent
+        # scikit-learn; silence just that forward-compat notice.
+        lr_kwargs.update(solver="liblinear", penalty="l1")
+    else:
+        # `penalty` removed in a future scikit-learn: use the elastic-net API.
+        lr_kwargs.update(solver="saga", l1_ratios=(1.0,))
+    if "use_legacy_attributes" in params:
+        lr_kwargs["use_legacy_attributes"] = False
+
+    # Standardize first, as glmnet does internally: it puts the shared L1 penalty
+    # on a comparable scale across covariates and speeds convergence.
+    model = make_pipeline(StandardScaler(), LogisticRegressionCV(**lr_kwargs))
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FutureWarning)
+        model.fit(X_train, s_train)
+    return np.clip(model.predict_proba(X_eval)[:, 1], 1e-6, 1 - 1e-6)
+
+
 def no_correction(dataset: Dataset) -> MethodResult:
     """Naive prevalence: the outcome mean among sampled units in the test fold."""
     _, Y_test, s_test = _test_arrays(dataset)
@@ -104,36 +164,9 @@ def lasso_ipw(
     X_train, _, s_train = dataset.split("train")
     X_test, Y_test, s_test = _test_arrays(dataset)
 
-    if interactions:
-        poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
-        X_train = poly.fit_transform(X_train)
-        X_test = poly.transform(X_test)
-
-    if Cs is None:
-        Cs = np.logspace(-3, 1, 8)
-
-    # Pure L1 (LASSO) logistic regression with CV-selected penalty strength —
-    # the scikit-learn analogue of cv.glmnet(family="binomial").
-    lr_kwargs = dict(Cs=Cs, cv=cv, scoring="neg_log_loss", max_iter=max_iter)
-    params = inspect.signature(LogisticRegressionCV).parameters
-    if "penalty" in params:
-        # liblinear runs glmnet-style coordinate descent: far faster than saga
-        # on these problem sizes. `penalty` is deprecated (but present) in recent
-        # scikit-learn; silence just that forward-compat notice.
-        lr_kwargs.update(solver="liblinear", penalty="l1")
-    else:
-        # `penalty` removed in a future scikit-learn: use the elastic-net API.
-        lr_kwargs.update(solver="saga", l1_ratios=(1.0,))
-    if "use_legacy_attributes" in params:
-        lr_kwargs["use_legacy_attributes"] = False
-
-    # Standardize first, as glmnet does internally: it puts the shared L1 penalty
-    # on a comparable scale across covariates and speeds convergence.
-    model = make_pipeline(StandardScaler(), LogisticRegressionCV(**lr_kwargs))
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=FutureWarning)
-        model.fit(X_train, s_train)
-    P_test = np.clip(model.predict_proba(X_test)[:, 1], 1e-6, 1 - 1e-6)
+    P_test = lasso_propensity(
+        X_train, s_train, X_test, interactions=interactions, cv=cv, Cs=Cs, max_iter=max_iter
+    )
 
     if weighting == "odds":
         weight = np.where(s_test == 1, (1.0 - P_test) / P_test, 1.0)
