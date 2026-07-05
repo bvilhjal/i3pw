@@ -1,36 +1,62 @@
 # i3pw — Informed Inference of Inverse Probability Weights
 
-A Python reimplementation of the key methods from the `SelectionBias` R project:
-simulating **outcome-dependent selection bias** and correcting it with
-**inverse-probability weighting (IPW)**, including a novel *prevalence-penalized*
-IPW estimator that uses known population prevalences to inform the weights.
+Correcting **outcome-dependent selection (ascertainment) bias** by
+**inverse-probability weighting (IPW)** when the population prevalences of the
+outcomes are known a priori.
 
-The compute-heavy inner loops (penalized objective, exact gradient, and
-gradient descent) are JIT-compiled with [numba](https://numba.pydata.org/).
-Compilation happens once per environment and is cached to disk; call
-`i3pw.warmup()` to pay that one-time cost up front.
+## The problem, and the idea
 
-## The problem
+You have a biased sample — units were selected in a way that depends on their
+outcomes (e.g. cases oversampled in a case-control or volunteer cohort), so
+outcome prevalences in the sample are skewed, and so is everything estimated
+from it. The standard fix models each unit's participation probability
+`P(selected | X)` from covariates (socioeconomic features, via LASSO) and
+reweights by `1 / P`.
 
-You have a biased sample from a population — units were selected in a way that
-depends on their outcomes, so outcome prevalences in the sample are skewed. You
-want to recover the **population** prevalence of each outcome.
+**That participation model works poorly for many disease outcomes.** Write the
+selection log-odds as `a(X) + θ·Y`: participation depends on *having the disease*
+(`θ·Y`), a signal largely orthogonal to the covariates, so a covariate-only model
+learns `a(X)` but not `θ·Y`, the propensities barely vary, and the weights barely
+correct anything.
 
-IPW corrects this by modelling each unit's probability of inclusion,
-`P(selected | X)`, and reweighting sampled units by the inverse odds
-`(1 - P) / P`. The **informed** twist: when the population prevalence of an
-outcome is known (e.g. from a registry or census), add a penalty that pulls the
-inclusion model's average prediction toward that known value.
+i3pw's idea: **use the known population prevalences to supply the missing `θ·Y`.**
+Knowing `Pr(Y_q)` a priori (from a registry or census) is exactly the information
+the covariate model lacks, and injecting it as a **calibration constraint** — force
+the reweighted sample to reproduce the known prevalences — recovers the
+disease-driven selection.
 
 ## Methods
 
 | Method | Function | Idea |
 | --- | --- | --- |
-| No correction | `no_correction` | Naive prevalence in the observed sample (baseline). |
-| LASSO IPW | `lasso_ipw` | One L1-penalized logistic inclusion model (the `cv.glmnet` analogue), one weight per unit. |
-| **Penalized IPW** | `penalized_ipw` | Per-outcome inclusion models with an L1 penalty **and** an informed prevalence penalty; cross-validated `(λ, γ)`. |
+| No correction | `no_correction` | Naive prevalence in the observed sample. |
+| LASSO IPW | `lasso_ipw` | Covariate-only participation model (`cv.glmnet` analogue) — *the approach that fails for disease outcomes*. |
+| **Calibration IPW** | `calibration_ipw` | **Recommended.** Calibrate weights so the reweighted sample reproduces the known prevalences *exactly* (entropy balancing), optionally on top of the covariate model. |
+| Penalized IPW | `penalized_ipw` | The original R project's softer precursor: a logistic inclusion model with a quadratic prevalence penalty, cross-validated `(λ, γ)`, numba-JIT compiled. |
 
-The penalized objective fit for each outcome (with `p = sigmoid(Xβ)`):
+### Calibration IPW (the principled version)
+
+Given base weights `d_i` (uniform, or the covariate-model IPW weights), solve
+
+```
+min_w  Σ_i d_i · KL(w_i / d_i)
+s.t.   Σ_i w_i Y_iq / Σ_i w_i = Pr(Y_q)   for each anchored outcome q
+```
+
+The solution is exponential tilting, `w_i ∝ d_i · exp(Σ_q λ_q Y_iq)`, with `λ` from
+a small convex dual (entropy balancing; Hainmueller 2012, Deville & Särndal 1992).
+Because that tilt is log-linear in `Y` — the same functional form as the selection
+mechanism — calibrating on the `Q` known prevalences recovers the disease-driven
+selection weights that a covariate model cannot. Using the covariate model for the
+base weights `d_i` keeps the covariate-driven part too (a doubly-robust flavour).
+
+`shrinkage=` adds a ridge on the tilt (exact calibration → shrink toward the base
+weights, trading bias for variance); `calibration_ipw` reports the Kish **effective
+sample size**, since strong ascertainment concentrates weight on few units.
+
+### Penalized IPW (numba)
+
+The softer precursor fits, for each outcome (with `p = sigmoid(Xβ)`):
 
 ```
 f(β) = -mean( s·log(p) + (1-s)·log(1-p) )     # logistic negative log-likelihood
@@ -133,38 +159,54 @@ or `scheme=` in `PenalizedIPW.weights`):
 
 Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
-## Does the correction actually work? A caveat worth reading
+## Why the covariate model fails and calibration works
 
 Run `python examples/monte_carlo.py` — it repeats the whole pipeline over 20 random
-populations and reports mean absolute % error (± SD) for each method under both
-weighting schemes:
+populations and reports mean absolute % error (± SD) for each method, using the
+deployable sample-only estimator:
 
 ```
-weighting = 'odds'     (oracle — reads unselected outcomes)
 method                     Y1 %err         Y2 %err
-no_correction        46.76±4.83      87.49±6.69
-lasso_ipw            14.25±2.98      29.37±4.46
-penalized_ipw        14.12±2.73      27.57±4.76
-
-weighting = 'inverse'  (deployable — sample only)
-method                     Y1 %err         Y2 %err
-no_correction        46.76±4.83      87.49±6.69
-lasso_ipw            44.28±5.07      87.28±6.62
-penalized_ipw        45.61±4.86      87.41±6.67
+no_correction        46.81±5.70      79.53±6.49
+lasso_ipw            44.66±5.93      78.50±6.61      <- covariate model, barely helps
+calibration_ipw       0.00±0.00       0.00±0.00      <- uses the known prevalences
+                                    (Kish effective sample size: 155 ± 32)
 ```
 
-Under the **`odds`** scheme the methods look excellent — but that weighted mean
-includes unselected units, contributing their outcomes, which you would never
-observe in a real study. Under the **`inverse`** scheme (the deployable estimator
-that uses only the sampled units) the correction almost vanishes.
+The covariate-only participation model (`lasso_ipw`) barely dents the bias, because
+selection here is driven by the *outcomes* and the covariates are only a weak proxy
+— exactly the situation that motivated the project. `calibration_ipw` reproduces the
+known prevalences essentially exactly, because it is *given* them and enforces them
+as constraints. That is the point: the known prevalences carry information the
+covariate model cannot recover.
 
-This is not a bug; it is the fundamental limitation of IPW here. Selection in this
-DGM is driven directly by the *outcomes*, and the covariates `X` are only a weak
-proxy for them. Inverse-probability weighting on `X` can only remove the part of the
-selection that `X` explains — it cannot recover prevalence when units are selected on
-the outcome itself (a missing-not-at-random problem). The headline numbers reported
-by the original R scripts rely on the `odds` construction, so they flatter the method.
-Treat `odds` as an oracle diagnostic and `inverse` as the honest estimate.
+Two honest caveats:
+
+- **The anchored outcomes are recovered by construction.** The value is not that
+  calibration "predicts" a prevalence it was told, but that it produces *weights*
+  that are correct along the ascertained dimensions — which then de-bias downstream
+  estimands (associations, coefficients) that are correlated with those outcomes.
+- **Transfer is not automatic.** Calibrating on outcome A helps estimands correlated
+  with A; for a target driven by factors independent of the anchored outcomes there
+  is little to transfer. And the correction costs variance — `calibration_ipw`
+  reports the Kish effective sample size, which shrinks as ascertainment strengthens.
+- **Feasibility.** A target prevalence is reachable only if the ascertained sample
+  contains cases of that outcome. For a very rare outcome in a small sample the
+  cases can be absent, and no reweighting reaches the target; `shrinkage=` (or
+  pooling outcomes) helps degrade gracefully.
+
+### Weighting schemes for the IPW baselines
+
+`lasso_ipw` / `penalized_ipw` accept `weighting=`, and `PenalizedIPW.weights` accepts
+`scheme=`:
+
+- `"inverse"` — the textbook Horvitz–Thompson / Hájek estimator (`1 / P`, sample only).
+  **Deployable**, and the default lens for honest evaluation.
+- `"odds"` — the original R construction (`(1 - P) / P` for selected, weight 1 for
+  unselected, mean over the whole test set). It reads unselected outcomes, so it
+  flatters the method; treat it as an oracle diagnostic.
+
+Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
 ## Notable differences from the R code
 
@@ -189,16 +231,36 @@ comparable:
 
 ```
 src/i3pw/
-├── dgm.py         # data-generating mechanism + biased sampling
-├── penalized.py   # PenalizedIPW estimator (gd / bfgs / lbfgs)
-├── _kernels.py    # numba-compiled objective, gradient, gradient descent
-├── methods.py     # no_correction, lasso_ipw, penalized_ipw, cross_validate
-├── weights.py     # per-outcome weight combination rules
-├── evaluation.py  # Monte Carlo comparison across many replications
-├── metrics.py     # weighted prevalence, % difference, weighted MSE
-└── _links.py      # stable sigmoid / logit
-tests/             # pytest suite (gradient checks, DGM, methods, Monte Carlo)
-examples/          # benchmark.py, monte_carlo.py
+├── dgm.py          # data-generating mechanism + biased sampling
+├── calibration.py  # calibration_ipw + entropy_balance (the recommended method)
+├── methods.py      # no_correction, lasso_ipw / lasso_propensity, penalized_ipw
+├── penalized.py    # PenalizedIPW estimator (gd / bfgs / lbfgs)
+├── _kernels.py     # numba-compiled objective, gradient, gradient descent
+├── weights.py      # per-outcome weight combination rules
+├── evaluation.py   # Monte Carlo comparison across many replications
+├── metrics.py      # weighted prevalence, % difference, weighted MSE
+└── _links.py       # stable sigmoid / logit
+tests/              # pytest suite (calibration, gradient checks, DGM, methods)
+examples/           # benchmark.py, monte_carlo.py
+```
+
+## Calibration in one snippet
+
+```python
+import i3pw
+
+ds = i3pw.make_dataset(seed=0, n_outcomes=2)
+
+# Covariate model alone barely corrects an outcome-driven selection...
+print(i3pw.lasso_ipw(ds, weighting="inverse").summary())
+
+# ...so inject the known population prevalences as calibration constraints.
+res = i3pw.calibration_ipw(ds, base="lasso")   # base weights from the covariate model
+print(res.summary())
+print("effective sample size:", round(res.ess))
+
+# Anchor only the diseases whose prevalence you actually know:
+res = i3pw.calibration_ipw(ds, anchor_outcomes=[0], base="lasso", shrinkage=0.0)
 ```
 
 ## Tests

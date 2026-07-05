@@ -123,7 +123,8 @@ def test_monte_carlo_summary(dataset):
                 target_population_prevalence=(0.4, 0.1),
                 target_sample_prevalence=(0.2, 0.02), sample_size=400)
     summaries = monte_carlo(
-        n_reps=3, base_seed=10, sim_kwargs=sims, include_lasso=False,
+        n_reps=3, base_seed=10, sim_kwargs=sims,
+        include_lasso=False, include_calibration=False,
         penalized_kwargs=dict(lambdas=(0.01,), gammas=(0.0, 1.0), K=3,
                               learning_rate=0.05, max_iter=1500, decay_interval=1000),
     )
