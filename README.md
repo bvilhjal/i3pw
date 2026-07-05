@@ -208,6 +208,47 @@ Two honest caveats:
 
 Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
+## Downstream estimands: doubly-robust estimation
+
+Calibration fixes the *ascertained outcome*, which is not otherwise identified.
+But most analyses target a **downstream** quantity — the population mean of a
+trait or biomarker measured only on participants. When that is missing at random
+given the covariates (`S ⊥ V | X`), it is recoverable, and the efficient, robust
+estimator is augmented IPW (`aipw_mean`):
+
+```
+μ_AIPW = mean_i m(X_i)  +  Σ_{i in sample} w_i (V_i − m(X_i))
+```
+
+with an outcome model `m(X) = E[V|X]` fit on the sample and self-normalized
+weights `w` (from a participation model *or* from `calibration_ipw`). It is
+**doubly robust** — consistent if *either* `m` or `w` is correct — and lower
+variance than weighting alone.
+
+### A genetics-flavoured demo (`examples/genetics_ascertainment.py`)
+
+A disease is ascertained (cases over-represented; population prevalence `K`
+known from a registry); a trait `V` — think polygenic score / biomarker — is
+measured only on participants and correlates with disease liability, so the
+sample's mean `V` is inflated. Recovering `E[V]` over 20 replications (bias from
+the truth, `|bias|`):
+
+```
+method          mean bias    |bias|
+naive             -0.096      0.101     <- ascertainment inflates the trait
+ipw_lasso         -0.019      0.065
+calibration       +0.084      0.103     <- weights tuned to the disease margin, noisy here
+aipw              +0.003      0.050     <- doubly robust: best and most stable
+```
+
+Two honest lessons: (1) `calibration_ipw`'s job is the ascertained margin —
+using its weights as a raw weighted mean for an *unrelated* quantity can be
+noisy; `aipw` is the right downstream estimator. (2) The known `K` playing the
+correcting role is the same anchor as the observed→liability heritability
+transform (Lee et al. 2011); pure case-control ascertainment leaves *logistic
+slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute risks, and
+liability-correlated traits — which is what these estimators repair.
+
 ## Notable differences from the R code
 
 These are deliberate corrections/improvements, documented so results are
@@ -233,6 +274,7 @@ comparable:
 src/i3pw/
 ├── dgm.py          # data-generating mechanism + biased sampling
 ├── calibration.py  # calibration_ipw + entropy_balance (the recommended method)
+├── aipw.py         # aipw_mean: doubly-robust downstream estimation
 ├── methods.py      # no_correction, lasso_ipw / lasso_propensity, penalized_ipw
 ├── penalized.py    # PenalizedIPW estimator (gd / bfgs / lbfgs)
 ├── _kernels.py     # numba-compiled objective, gradient, gradient descent
@@ -240,8 +282,8 @@ src/i3pw/
 ├── evaluation.py   # Monte Carlo comparison across many replications
 ├── metrics.py      # weighted prevalence, % difference, weighted MSE
 └── _links.py       # stable sigmoid / logit
-tests/              # pytest suite (calibration, gradient checks, DGM, methods)
-examples/           # benchmark.py, monte_carlo.py
+tests/              # pytest suite (calibration, AIPW, gradient checks, DGM, methods)
+examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py
 ```
 
 ## Calibration in one snippet
