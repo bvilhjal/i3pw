@@ -311,6 +311,49 @@ So the recommended recipe: model `P(S | outcomes observed frame-wide)` for the b
 weights, then calibrate to *all* known population means — `entropy_balance(Y_sample,
 means, base_weights=1/P̂)`.
 
+### Extensive benchmark — the regime decides, and Lee-style weights are a bet
+
+`examples/selection_inference_extensive.py` stress-tests this across selection
+regimes, sweeps `N` and `k`, and adds a **Lee et al. (2011)-style** analytic weight
+(`lee_cc`): the product over all `N` outcomes of the case-control ratios `K_j/P_j`
+(case) and `(1−K_j)/(1−P_j)` (control) — model-free, using the same `N` known means
+as calibration but assuming each outcome is an *independent* case-control axis. The
+generative model dials between selection driven purely by the latent `U` (`latent`),
+purely by a few observed outcomes (`case_control`), or both (`mixed`). Held-out
+`|E[Z]−truth|`, 20 reps (lower is better):
+
+```
+scenario        naive   lee_cc  registry  calib_all  combined   oracle
+latent          0.582   0.036    0.330     0.256     0.254     0.013
+case_control    0.344   0.326    0.008     0.009     0.008     0.008
+mixed           0.540   0.139    0.197     0.158     0.150     0.011
+```
+
+The headline is that **no method is uniformly best**:
+
+- **Latent regime** (every outcome proxies one hidden driver): `lee_cc` is
+  startlingly good — averaging `N` simple case-control corrections reconstructs `U`
+  with low variance and *beats exact joint calibration*, which chases sampling noise
+  in each of the `N` margins.
+- **Case-control regime** (a few *correlated* outcomes drive selection): `lee_cc`
+  now **over-corrects** — it applies an independent correction for every outcome even
+  though most only correlate with the true drivers — and is barely better than naive.
+  A registry model or exact calibration, which cannot push past the true margins, are
+  near-exact.
+- **`combined` is the robust choice**: never catastrophic in any regime (0.25 / 0.008
+  / 0.15). `lee_cc` swings from best (latent) to nearly-naive (case-control), and its
+  effective sample size is low (≈0.4 of `n`) — it is a high-variance bet that pays off
+  only when selection really is a latent factor cleanly proxied by all your outcomes.
+- **Sweeps**: calibration bias falls *monotonically* as `N` grows, but `lee_cc` is
+  *non-monotonic* — it improves then degrades once many weak correlated outcomes each
+  add an over-correction. Only the registry (and `combined`) benefit from more
+  frame-wide outcomes `k`.
+
+Practical read: if you know selection is case-control on a specific known-prevalence
+disorder, the analytic Lee/case-control weight is exact and cheap. If you don't know
+the mechanism — the usual biobank situation — prefer `combined`: it never blows up,
+and unlike `lee_cc` it keeps improving as you learn more prevalences.
+
 ## Participation bias and effect sizes: what known prevalences cannot fix
 
 The scientific target is usually an **effect size** (an exposure→outcome or genetic
@@ -495,7 +538,8 @@ tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
 examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
                     #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
                     #   multi_outcome_calibration.py, ukb_participation.py,
-                    #   schoeler_plus_prevalence.py, selection_probability_inference.py
+                    #   schoeler_plus_prevalence.py, selection_probability_inference.py,
+                    #   selection_inference_extensive.py
 ```
 
 (`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied
