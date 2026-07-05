@@ -24,6 +24,7 @@ propensity model that motivated the whole exercise).
 from __future__ import annotations
 
 from ._links import logit, sigmoid
+from .aipw import AIPWResult, aipw_mean
 from .calibration import (
     CalibrationResult,
     calibration_ipw,
@@ -62,6 +63,8 @@ __all__ = [
     "CalibrationResult",
     "entropy_balance",
     "effective_sample_size",
+    "aipw_mean",
+    "AIPWResult",
     "cross_validate",
     "MethodResult",
     "monte_carlo",
