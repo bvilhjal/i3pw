@@ -249,6 +249,40 @@ transform (Lee et al. 2011); pure case-control ascertainment leaves *logistic
 slopes* unbiased (Prentice & Pyke 1979) but biases means, absolute risks, and
 liability-correlated traits — which is what these estimators repair.
 
+## Participation bias and effect sizes: what known prevalences cannot fix
+
+The scientific target is usually an **effect size** (an exposure→outcome or genetic
+association, an MR estimate), not a prevalence — and there the known-prevalence tool
+mostly does not apply. `examples/ukb_participation.py` estimates a true effect `β` of an
+exposure `E` on an outcome `Y` under participation `logit P(S|E,Y) = α + δ_E·E + δ_Y·Y`:
+
+```
+                     outcome-only (δ_E=0)     collider (δ_E=0.8)
+β_truth                    1.096                    1.096
+β_naive                    1.094  (unbiased)        1.274  (+16%)
+β_prev_calib               1.107                    1.313  (calibration doesn't fix it)
+β_model_ipw  P̂(S|E,Y)      1.107                    1.110  (recovers β)
+β_oracle     1/P(S|E,Y)    1.107                    1.110
+```
+
+Two facts, both important:
+
+1. **Selection on the outcome alone does not bias the effect size** (Prentice & Pyke 1979:
+   the logistic slope is consistent) — `β_naive ≈ β_truth`. There is nothing to correct,
+   and reweighting only adds variance.
+2. **The effect-size bias that matters is collider bias** — participation depending on the
+   exposure *and* the outcome (the regime behind Schoeler et al.'s distorted genetic
+   associations and MR estimates). There, **prevalence calibration does not help** (`1.313`
+   vs truth `1.096`): an effect size is a *conditional association* (a joint moment), and
+   matching the outcome's *marginal* leaves the exposure-outcome *joint* selection untouched.
+   Only weights from a sampling model that **includes the exposure**, `P(S|E,Y)`, recover it.
+
+So: known prevalences are the right information for **prevalences, absolute risk and means**
+(where calibration is exact) — and essentially the **wrong** information for **effect sizes**.
+Correcting effect-size (collider) bias needs a participation model that captures the variables
+driving selection (Schoeler-style IPW), and its validity rests entirely on that model being
+right — something known prevalences cannot supply or verify.
+
 ## Several case-control outcomes at once: joint calibration is optimal
 
 With `Q` outcomes ascertained together and their population prevalences known, the
@@ -398,7 +432,7 @@ src/i3pw/
 tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
 examples/           # benchmark.py, monte_carlo.py, genetics_ascertainment.py,
                     #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
-                    #   multi_outcome_calibration.py
+                    #   multi_outcome_calibration.py, ukb_participation.py
 ```
 
 (`examples/genetics_ascertainment.py` is the same ascertainment idea in an applied
