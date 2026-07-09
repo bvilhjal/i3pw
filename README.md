@@ -72,6 +72,78 @@ is on the outcome alone (no covariates in the base), the two agree exactly — t
 is a per-class constant either way, which is why the liability-model `K/P` weights [below](#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
 are exact IPW, not an approximation.
 
+## Two separable tasks: predict selection, then anchor to the population
+
+It clarifies everything to split selection-bias correction into two tasks that i3pw
+deliberately keeps separate:
+
+1. **Predict who is in the sample** — an individual-level participation model
+   `P(S = 1 | X)`, inverted to base weights. The predictors `X` can be socioeconomic
+   *and* clinical or genetic (any measured proxy of participation), not just
+   demographics. This corrects selection on *measured* covariates but is blind to
+   selection on the disorder itself.
+2. **Anchor the weighted sample to the target population** — calibrate those base
+   weights so the reweighted sample reproduces known register quantities: disease
+   prevalence, and prevalence *within* demographic and clinical strata. This is the
+   task the known prevalences make possible, and where register data (e.g. iPSYCH,
+   Danish registers) supplies what a selected genetic sample (UK Biobank, PGC-style
+   cohorts) cannot.
+
+`calibration_ipw` / `entropy_balance` implement task 2 on top of *any* task-1 base
+weights — `entropy_balance(Y_sample, targets, base_weights=1/P̂)`. Keeping the two
+apart is what makes the method defensible: the participation model handles the part of
+selection it can see, and the register prevalences anchor the rest. It also states the
+honest division of labour — *prediction* of selection at the individual level, and
+*anchoring* of the weighted sample to the target population — rather than hoping one
+model does both.
+
+### A ladder of prevalence-informed weights
+
+From simplest to most defensible, with the i3pw entry point for each. Each rung adds
+constraints; `shrinkage=` (the entropy-balancing ridge) stabilises any of them against
+extreme weights.
+
+| Constraint you add | What it fixes | i3pw entry point |
+| --- | --- | --- |
+| Case/control prevalence `P(Y)=K` | overall case fraction | `outcome_calibration_weights(Y, [K])`; the `K/P` form in `estimate_liability_r2(method="ipw")` |
+| Prevalence within strata | case mix across sex / birth year / ancestry / parental history / region | `stratified_calibration_weights` |
+| Several known margins (raking) | multiple population totals at once | `outcome_calibration_weights` / `entropy_balance` with base weights |
+| Calibrated IPW model | a fitted participation model **anchored** to `K` | `calibration_ipw(base="lasso")`, or `entropy_balance(Y, K, base_weights=1/P̂)` |
+| Comorbidity / disease-state prevalence | joint case patterns, not just margins | `outcome_calibration_weights(..., joint_prevalences=...)` |
+| Severity prevalence `P(severity given Y=1)` | over-/under-representation of severe cases | severity as a stratum in `stratified_calibration_weights` |
+| Outcome model **and** weights | robustness if either is roughly right | `aipw_mean` (doubly robust) |
+| Sensitivity to the assumed `K` | how much the answer leans on the register number | `prevalence_sensitivity` |
+
+The natural recommended recipe for a register-linked genetic cohort is the middle of
+the ladder: estimate base weights from demographic, clinical, and genetic predictors of
+participation, then calibrate them to register prevalences by diagnosis, sex, birth
+year, and severity — conventional IPW, prevalence-calibrated IPW, entropy-balanced
+weights, and a doubly-robust estimator are all directly comparable here because they
+share the same two-task structure.
+
+### Prevalence sets the scale, not the case mix
+
+The central caution. Calibrating to a known prevalence fixes the **number** of cases in
+the weighted sample, not their **type**. If the sampled cases differ systematically from
+the population's — e.g. UK Biobank holding a milder, higher-functioning subset of
+schizophrenia — then matching the overall prevalence leaves that *within-case* selection
+untouched: right count, wrong mix, and any estimand that depends on severity or
+comorbidity stays biased. The fixes climb the ladder:
+
+- calibrate prevalence **within severity / comorbidity strata**
+  (`stratified_calibration_weights`), not just the marginal, so the weighted case mix
+  matches the register's — this is usually the single most important step for
+  psychiatric cohorts;
+- past that, within-case selection on things you *cannot* stratify on (unmeasured
+  severity, differential survival) is the residual risk that prevalence cannot fix.
+  Fold the available proxies into the task-1 participation model, and report a
+  sensitivity analysis (`prevalence_sensitivity`, plus varying the assumed within-case
+  selection).
+
+This is the same boundary as the [effect-size / collider section](#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix):
+marginal prevalence anchors marginal quantities; anything driven by the *joint*
+structure of selection needs richer constraints or a selection model that captures it.
+
 ## Methods
 
 | Method | Function | Idea |

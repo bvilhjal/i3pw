@@ -16,6 +16,16 @@ reweighted sample reproduces the known prevalences exactly:
     find weights w minimizing KL(w || base)
     s.t.  sum_i w_i Y_iq / sum_i w_i = Pr(Y_q)   for each anchored outcome q
 
+This splits selection correction into two separable tasks the package keeps apart:
+(1) *predict* individual selection with a participation model ``P(S | X)`` (the base
+weights; the predictors may be demographic, clinical, or genetic), and (2) *anchor*
+the weighted sample to the target population by calibrating to known register
+quantities — the overall prevalence and, via :func:`stratified_calibration_weights`,
+prevalence within strata. A known marginal prevalence fixes the *number* of cases,
+not their *type*: if the sampled cases are systematically milder/more severe than the
+population's, matching the margin leaves that within-case selection uncorrected —
+calibrate within severity/comorbidity strata for that.
+
 The solution is exponential tilting, ``w_i ∝ base_i * exp(lambda . (Y_i - Pr))``,
 with ``lambda`` from a small convex dual (entropy balancing; Hainmueller 2012,
 Deville & Sarndal 1992).
