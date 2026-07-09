@@ -21,6 +21,15 @@ self-normalized (Hájek 1971). It is **doubly robust** — consistent if *either
 or ``w`` is correct (Robins–Rotnitzky–Zhao 1994) — so you get two chances to be
 right, and the prediction term also lowers variance versus weighting alone.
 
+A caveat on the "doubly robust" story. The usual semiparametric guarantees assume
+either a correctly specified ``m`` or independence of the fit from the point it is
+evaluated at. Fitting ``m`` on the whole sample and predicting *in-sample* (the
+default) is fine for the simple/low-complexity models used in the demos, but with a
+flexible ML outcome model it lets the fit chase its own residuals and makes the
+inference optimistic. Pass ``crossfit=K`` to fit ``m`` out-of-fold (Chernozhukov et
+al. 2018): each sampled unit's residual uses a model that never saw it, restoring the
+honest √n theory.
+
 References
 ----------
 - Robins, Rotnitzky & Zhao (1994), *JASA* 89, 846–866 — AIPW / doubly-robust estimation.
@@ -28,6 +37,8 @@ References
   missing data.
 - Chen, Li & Wu (2020), *JASA* 115, 2011–2021 — doubly-robust inference for
   nonprobability (e.g. volunteer) samples.
+- Chernozhukov et al. (2018), *Econometrics Journal* 21, C1–C68 — double/debiased
+  machine learning with cross-fitting.
 """
 
 from __future__ import annotations
@@ -37,6 +48,7 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.base import clone
 from sklearn.linear_model import Ridge
+from sklearn.model_selection import KFold
 
 
 def _predict(model, X: np.ndarray) -> np.ndarray:
@@ -65,6 +77,8 @@ def aipw_mean(
     weights: np.ndarray,
     *,
     outcome_model=None,
+    crossfit: int = 1,
+    random_state: int | None = None,
     truth: float | None = None,
 ) -> AIPWResult:
     """Doubly-robust estimate of the population mean of ``V``.
@@ -84,6 +98,14 @@ def aipw_mean(
         An unfitted sklearn-style estimator for ``E[V|X]``; cloned and fit on the
         sample. Defaults to ridge regression. Pass a classifier (with
         ``predict_proba``) for a binary ``V``.
+    crossfit:
+        ``1`` (default) fits ``m`` once on the whole sample and predicts in-sample —
+        exact and cheap for simple models. ``K >= 2`` fits ``m`` with ``K``-fold
+        cross-fitting: each sampled unit's residual is predicted by a model trained on
+        the other folds, and the population plug-in term uses the fold-averaged model.
+        Use this with flexible/ML outcome models so the inference is not optimistic.
+    random_state:
+        Seed for the cross-fitting fold split (ignored when ``crossfit == 1``).
     truth:
         Optional known population mean, stored for convenience.
     """
@@ -95,13 +117,30 @@ def aipw_mean(
         raise ValueError("V_sample and weights must have length sample_mask.sum().")
     if np.any(w < 0):
         raise ValueError("weights must be non-negative.")
+    if crossfit < 1:
+        raise ValueError("crossfit must be a positive integer.")
     w = w / w.sum()
 
     Xs = X_all[mask]
-    model = clone(Ridge(alpha=1.0) if outcome_model is None else outcome_model)
-    model.fit(Xs, V)
-    m_all = _predict(model, X_all)
-    m_s = _predict(model, Xs)
+    base = Ridge(alpha=1.0) if outcome_model is None else outcome_model
+
+    if crossfit == 1:
+        model = clone(base)
+        model.fit(Xs, V)
+        m_all = _predict(model, X_all)
+        m_s = _predict(model, Xs)
+    else:
+        n_s = Xs.shape[0]
+        k = min(crossfit, n_s)  # KFold needs n_splits <= n_samples
+        kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
+        m_s = np.empty(n_s)
+        m_all_folds = np.empty((k, X_all.shape[0]))
+        for f, (tr, te) in enumerate(kf.split(Xs)):
+            model = clone(base)
+            model.fit(Xs[tr], V[tr])
+            m_s[te] = _predict(model, Xs[te])         # out-of-fold: never trained on te
+            m_all_folds[f] = _predict(model, X_all)   # this fold's model over the population
+        m_all = m_all_folds.mean(axis=0)              # fold-averaged plug-in
 
     outcome_only = float(m_all.mean())
     ipw_only = float(np.sum(w * V))

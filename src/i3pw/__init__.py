@@ -21,11 +21,15 @@ from __future__ import annotations
 from ._links import logit, sigmoid
 from .aipw import AIPWResult, aipw_mean
 from .calibration import (
+    CalibrationDiagnostics,
     CalibrationResult,
+    CalibrationWarning,
+    base_weights,
     calibration_ipw,
     effective_sample_size,
     entropy_balance,
     outcome_calibration_weights,
+    stratified_calibration_weights,
 )
 from .dgm import Dataset, SimConfig, make_dataset, nearest_pd_correlation, random_correlation
 from .evaluation import MonteCarloSummary, format_summary, monte_carlo
@@ -49,6 +53,14 @@ from .methods import (
     no_correction,
 )
 from .metrics import percent_difference, weighted_prevalence
+from .uncertainty import (
+    BootstrapResult,
+    Estimate,
+    SensitivityResult,
+    bootstrap_calibration_ipw,
+    prevalence_sensitivity,
+    weighted_mean_se,
+)
 
 __version__ = "0.1.0"
 
@@ -63,9 +75,19 @@ __all__ = [
     "lasso_propensity",
     "calibration_ipw",
     "CalibrationResult",
+    "CalibrationDiagnostics",
+    "CalibrationWarning",
     "entropy_balance",
     "outcome_calibration_weights",
+    "stratified_calibration_weights",
+    "base_weights",
     "effective_sample_size",
+    "weighted_mean_se",
+    "Estimate",
+    "bootstrap_calibration_ipw",
+    "BootstrapResult",
+    "prevalence_sensitivity",
+    "SensitivityResult",
     "aipw_mean",
     "AIPWResult",
     "liability_threshold",

@@ -1,13 +1,18 @@
+import warnings
+
 import numpy as np
 import pytest
 from scipy.stats import norm
 
 from i3pw import (
+    CalibrationDiagnostics,
+    CalibrationWarning,
     calibration_ipw,
     effective_sample_size,
     entropy_balance,
     make_dataset,
     outcome_calibration_weights,
+    stratified_calibration_weights,
 )
 
 
@@ -62,6 +67,129 @@ def test_effective_sample_size():
     # One dominating weight -> tiny ESS.
     w = np.array([100.0, 1.0, 1.0, 1.0])
     assert effective_sample_size(w) < 2.0
+
+
+def test_entropy_balance_returns_diagnostics_on_success():
+    rng = np.random.default_rng(0)
+    Y = (rng.uniform(size=(400, 2)) < [0.3, 0.1]).astype(float)
+    w, diag = entropy_balance(Y, np.array([0.45, 0.2]), return_diagnostics=True)
+    assert isinstance(diag, CalibrationDiagnostics)
+    assert diag.converged
+    assert diag.max_abs_residual < 1e-6
+    assert diag.ess == pytest.approx(effective_sample_size(w))
+    assert 0.0 < diag.top1pct_weight_mass < 1.0
+    assert "converged" in diag.summary()
+
+
+def test_entropy_balance_warns_and_flags_infeasible_target():
+    # A target of 0.2 when no unit is a case: no exponential tilt can reach it.
+    y = np.zeros((50, 1))
+    with pytest.warns(CalibrationWarning):
+        w, diag = entropy_balance(y, np.array([0.2]), return_diagnostics=True)
+    assert not diag.converged or diag.max_abs_residual > 1e-6
+    assert diag.max_abs_residual == pytest.approx(0.2, abs=1e-6)
+
+
+def test_entropy_balance_warn_false_is_silent():
+    y = np.zeros((50, 1))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning would raise
+        entropy_balance(y, np.array([0.2]), warn=False)
+
+
+def test_ridge_does_not_warn_on_expected_residual():
+    # With ridge > 0 the constraints are intentionally not met; that is not a warning.
+    rng = np.random.default_rng(2)
+    Y = (rng.uniform(size=(300, 1)) < 0.2).astype(float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        entropy_balance(Y, np.array([0.5]), ridge=5.0)
+
+
+def test_calibration_ipw_validates_base_and_scheme(dataset):
+    with pytest.raises(ValueError):
+        calibration_ipw(dataset, base="nonsense")
+    with pytest.raises(ValueError):
+        calibration_ipw(dataset, base_scheme="nonsense")
+
+
+def test_calibration_ipw_reports_support_and_diagnostics(dataset):
+    r = calibration_ipw(dataset, anchor_outcomes=[0], base="uniform")
+    assert r.diagnostics is not None and r.diagnostics.converged
+    n_case, n_ctrl = r.support[0]
+    assert n_case > 0 and n_ctrl > 0
+    assert "support" in r.diagnostics_summary()
+    assert r.pre_trim_residual < 1e-6
+    assert r.post_trim_residual == pytest.approx(r.pre_trim_residual)
+
+
+def test_calibration_ipw_trim_breaks_calibration_and_is_reported(dataset):
+    # Anchoring the rare outcome too forces extreme case weights; trimming them
+    # clips real mass and pulls the achieved prevalence off its exact target.
+    with pytest.warns(CalibrationWarning):
+        r = calibration_ipw(dataset, base="uniform", trim=0.9)
+    assert r.post_trim_residual > r.pre_trim_residual
+
+
+def test_outcome_calibration_warns_on_unreachable_cooccurrence():
+    # Two mutually exclusive outcomes: their co-occurrence is never observed.
+    y1 = np.array([1.0, 0.0] * 100)
+    y2 = 1.0 - y1
+    Y = np.column_stack([y1, y2])
+    with pytest.warns(CalibrationWarning):
+        outcome_calibration_weights(Y, [0.5, 0.5], joint_prevalences={(0, 1): 0.1})
+
+
+def _stratified_pop(seed):
+    # Two strata (share 0.6 / 0.4) with different disease prevalence (0.10 / 0.30);
+    # selection over-samples stratum 1 AND cases; a held-out trait Z depends on the
+    # stratum only, so its population mean is P(A=1)=0.4.
+    from scipy.special import expit
+
+    rng = np.random.default_rng(seed)
+    n = 200000
+    A = (rng.uniform(size=n) < 0.4).astype(int)
+    prev = np.where(A == 1, 0.30, 0.10)
+    Y = (rng.uniform(size=n) < prev).astype(float)
+    Z = A.astype(float) + rng.standard_normal(n)
+    pi = expit(-1.5 + 1.2 * A + 1.0 * Y)
+    S = rng.uniform(size=n) < pi
+    return A[S], Y[S][:, None], Z[S], float(Z.mean())
+
+
+def test_stratified_calibration_recovers_within_stratum_prevalence():
+    A_s, Y_s, _, _ = _stratified_pop(0)
+    within = np.array([[0.10], [0.30]])
+    share = np.array([0.6, 0.4])
+    w = stratified_calibration_weights(Y_s, A_s, within, share)
+    for a in (0, 1):
+        m = A_s == a
+        assert (w[m] * Y_s[m, 0]).sum() / w[m].sum() == pytest.approx(within[a, 0], abs=1e-6)
+        assert w[m].sum() == pytest.approx(share[a], abs=1e-6)  # stratum shares restored too
+
+
+def test_stratified_beats_pooled_on_stratum_dependent_estimand():
+    within = np.array([[0.10], [0.30]])
+    share = np.array([0.6, 0.4])
+    strat_err, pooled_err, naive_err = [], [], []
+    for s in range(3):
+        A_s, Y_s, Z_s, z_truth = _stratified_pop(10 + s)
+        w_strat = stratified_calibration_weights(Y_s, A_s, within, share)
+        w_pool = outcome_calibration_weights(Y_s, [float(share @ within[:, 0])])
+        strat_err.append(abs(float(np.sum(w_strat * Z_s)) - z_truth))
+        pooled_err.append(abs(float(np.sum(w_pool * Z_s)) - z_truth))
+        naive_err.append(abs(Z_s.mean() - z_truth))
+    assert np.mean(strat_err) < np.mean(pooled_err) < np.mean(naive_err)
+    assert np.mean(strat_err) < 0.01  # stratum shares pinned -> Z recovered
+
+
+def test_stratified_calibration_validates_shapes():
+    Y = np.zeros((10, 2))
+    share = np.array([0.5, 0.5])
+    with pytest.raises(ValueError):  # within_stratum_prevalence must be (A, Q)
+        stratified_calibration_weights(Y, np.zeros(10, int), np.zeros((2, 3)), share)
+    with pytest.raises(ValueError):  # stratum label 5 out of range for A=2
+        stratified_calibration_weights(Y, np.array([0, 5] * 5), np.zeros((2, 2)), share)
 
 
 def test_calibration_matches_anchored_prevalence(dataset):

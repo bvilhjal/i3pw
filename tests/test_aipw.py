@@ -56,3 +56,36 @@ def test_input_validation():
         aipw_mean(X, S, Vs[:-1], w)            # length mismatch
     with pytest.raises(ValueError):
         aipw_mean(X, S, Vs, -w)                # negative weights
+    with pytest.raises(ValueError):
+        aipw_mean(X, S, Vs, w, crossfit=0)     # crossfit must be positive
+
+
+def test_crossfit_is_consistent():
+    # Cross-fitting must keep the estimator consistent (and robust to wrong weights).
+    both, wrong_w = [], []
+    for seed in range(5):
+        X, S, Vs, w_true = _mar_scenario(seed)
+        w_unif = np.ones(S.sum())
+        both.append(aipw_mean(X, S, Vs, w_true, outcome_model=Ridge(1.0),
+                              crossfit=5, random_state=0, truth=0.0).error)
+        wrong_w.append(aipw_mean(X, S, Vs, w_unif, outcome_model=Ridge(1.0),
+                                 crossfit=5, random_state=0, truth=0.0).error)
+    assert np.mean(both) < 0.12
+    assert np.mean(wrong_w) < 0.12
+
+
+def test_crossfit_deterministic_with_seed():
+    X, S, Vs, w = _mar_scenario(1)
+    a = aipw_mean(X, S, Vs, w, crossfit=4, random_state=7).estimate
+    b = aipw_mean(X, S, Vs, w, crossfit=4, random_state=7).estimate
+    assert a == b
+
+
+def test_crossfit_clamps_to_sample_size():
+    # crossfit larger than the sample must not raise (clamped to n_samples).
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(6, 2))
+    S = np.ones(6, dtype=bool)
+    V = rng.normal(size=6)
+    res = aipw_mean(X, S, V, np.ones(6), crossfit=50)
+    assert np.isfinite(res.estimate)

@@ -22,8 +22,55 @@ correct anything.
 i3pw's idea: **use the known population prevalences to supply the missing `θ·Y`.**
 Knowing `Pr(Y_q)` a priori (from a registry or census) is exactly the information
 the covariate model lacks, and injecting it as a **calibration constraint** — force
-the reweighted sample to reproduce the known prevalences — recovers the
-disease-driven selection.
+the reweighted sample to reproduce the known prevalences — supplies the
+disease-driven part of the reweighting that the covariate model cannot. What that
+does and does not identify is made precise in [What is identified?](#what-is-identified)
+below: calibration recovers *minimum-divergence* weights matching the known moments,
+which coincide with the true inverse-probability weights under a stated condition.
+
+## What is identified?
+
+Be precise about what the known prevalences buy you. Write the **population-to-sample
+density ratio** — the reweighting that turns the biased sample back into the population —
+as log-linear in the covariates and outcomes:
+
+```
+log dP_population/dP_sample (X, Y) = a(X) + θ·g(Y)
+```
+
+Calibration returns the **minimum-divergence** weights `w ∝ d(X)·exp(λ·g(Y))` (base `d(X)`
+tilted by the smallest exponential factor) that reproduce the supplied population moments
+`g(Y)`. This is a *density-ratio* model, not a claim to have recovered each unit's inclusion
+probability. Three consequences:
+
+- **Anchored margins are exact by construction.** The reweighted sample reproduces each
+  known prevalence exactly — because that is the constraint. It is not evidence the method
+  "works", only that it did what it was told.
+- **Coincidence with true IPW is conditional.** These weights equal the true
+  inverse-probability weights `1/π(X, Y)` *only* when the density ratio genuinely lies in
+  the tilt family — the base `d(X)` captures the covariate-driven part, `g(Y)` spans the
+  outcome-driven part — and positivity holds (every relevant `(X, Y)` region has sample
+  support).
+- **Transfer to other estimands is conditional too.** Downstream means, variance
+  components, and effect sizes are recovered only insofar as this density-ratio model is
+  adequate for them (see the effect-size/collider section for where it is *not*).
+
+So the honest one-liner is **not** "we infer the true inverse-probability weights" but:
+*we estimate minimum-divergence weights that reproduce the known population moments, and
+they equal the true IPW weights when the population-to-sample density ratio is spanned by
+the base weights plus those moments.*
+
+**Inverse vs odds base weights (`base_scheme`).** That separability is *exact* for one
+familiar choice. Under logistic participation `logit π = a(X) + θ·Y`, the **inverse-odds**
+weight `(1−π)/π = exp(−a(X))·exp(−θ·Y)` is exactly multiplicatively separable and
+log-linear, so it composes cleanly with the `exp(λ·Y)` calibration tilt. The
+Horvitz–Thompson weight `1/π = 1 + exp(−a(X)−θ·Y)` is **not** separable; it only approaches
+the tilt family as inclusion becomes rare (`π → 0`, where `1/π ≈ (1−π)/π`).
+`calibration_ipw(base_scheme="odds")` uses the exactly-composing form; `"inverse"` (the
+default) is the standard IPW weight and is very close under strong selection. When selection
+is on the outcome alone (no covariates in the base), the two agree exactly — the reweighting
+is a per-class constant either way, which is why the liability-model `K/P` weights [below](#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
+are exact IPW, not an approximation.
 
 ## Methods
 
@@ -44,17 +91,23 @@ s.t.   Σ_i w_i Y_iq / Σ_i w_i = Pr(Y_q)   for each anchored outcome q
 
 The solution is exponential tilting, `w_i ∝ d_i · exp(Σ_q λ_q Y_iq)`, with `λ` from
 a small convex dual (entropy balancing; Hainmueller 2012, Deville & Särndal 1992).
-Because that tilt is log-linear in `Y` — the same functional form as the selection
-mechanism — calibrating on the `Q` known prevalences recovers the disease-driven
-selection weights that a covariate model cannot. Using the covariate model for the
-base weights `d_i` keeps the covariate-driven part too. (This is **not** doubly
+Because that tilt is log-linear in `Y`, calibrating on the `Q` known prevalences supplies
+the disease-driven part of the reweighting a covariate model cannot — and it *equals* the
+true inverse-probability weights when the population-to-sample density ratio lies in this
+tilt family (base `d(X)` for the covariate-driven part, `exp(λ·Y)` for the outcome-driven
+part; see [What is identified?](#what-is-identified)). Otherwise it is the
+minimum-divergence weighting that matches the known moments. (This is **not** doubly
 robust in the AIPW sense; rather, it is consistent when the base weights capture the
 covariate-driven part of selection *and* the calibration functions span the
 remaining outcome-driven part — two ingredients covering different pieces.)
 
 `shrinkage=` adds a ridge on the tilt (exact calibration → shrink toward the base
-weights, trading bias for variance); `calibration_ipw` reports the Kish **effective
-sample size**, since strong ascertainment concentrates weight on few units.
+weights, trading bias for variance). `calibration_ipw` returns **diagnostics**
+(`res.diagnostics_summary()`): optimizer convergence, the max calibration residual
+(non-zero flags an infeasible target — e.g. an anchored outcome with no cases sampled),
+per-anchor case/control support, the Kish **effective sample size**, and how much weight
+the top 1% of units carry. It warns (`CalibrationWarning`) when the solve fails to
+converge, a target is unreachable, or `trim=` breaks the exact calibration.
 
 ## Install
 
@@ -158,6 +211,34 @@ Two honest caveats:
 
 Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
+## Uncertainty
+
+Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces:
+
+- `weighted_mean_se(values, weights)` — the design-based linearization (sandwich) SE of a
+  Hájek weighted mean or prevalence, `Var = Σ wᵢ²(yᵢ−μ)² / (Σ wᵢ)²`. Exact for
+  independent units but treats the weights as *fixed*, so it is a lower bound on the
+  uncertainty of a calibration estimate.
+- `bootstrap_calibration_ipw(dataset, ...)` — a nonparametric bootstrap over the sampled
+  units that re-solves the calibration each replicate, so it captures the
+  weight-*estimation* variability the linearization SE omits; `refit_base=True` also
+  refits the LASSO participation model per replicate. Anchored outcomes come back with
+  near-zero SE **by construction** — the honest read is that, conditional on the known
+  prevalences, the anchored margins carry no sampling uncertainty; the variance lives in
+  the *unanchored* and downstream estimands:
+
+  ```
+  bootstrap (100 reps, 95% percentile CI):
+    Y1: 0.4085 ± 0.0000 [0.4085, 0.4085] (anchored)
+    Y2: 0.0312 ± 0.0096 [0.0151, 0.0508]
+  ```
+
+- `prevalence_sensitivity(dataset, ...)` — registry prevalences are not exact constants
+  (age/period, ascertainment, diagnostic, linkage error), so this scales the known `K`
+  by `1 + δ` across a grid and reports how each estimand and the ESS move. The anchored
+  outcome tracks its perturbed target by construction; the informative response is in the
+  unanchored outcomes and the ESS.
+
 ## Downstream estimands: doubly-robust estimation
 
 Calibration fixes the *ascertained outcome*, which is not otherwise identified.
@@ -174,6 +255,14 @@ with an outcome model `m(X) = E[V|X]` fit on the sample and self-normalized
 weights `w` (from a participation model *or* from `calibration_ipw`). It is
 **doubly robust** — consistent if *either* `m` or `w` is correct — and lower
 variance than weighting alone.
+
+The doubly-robust guarantee is conditional: it needs the MAR structure `S ⊥ V | X`,
+and — for the usual √n inference with a *flexible* outcome model — the fit to be
+independent of the point it scores. Fitting `m` on the whole sample and predicting
+in-sample (the default) is fine for the simple models here, but for ML outcome models
+pass `aipw_mean(..., crossfit=K)`: it fits `m` out-of-fold (Chernozhukov et al. 2018),
+so each unit's residual comes from a model that never saw it. `crossfit=1` keeps the
+exact in-sample behaviour.
 
 ### A doubly-robust demo (`examples/doubly_robust_trait.py`)
 
@@ -395,6 +484,30 @@ The optimum has a precise characterization:
 these constraints; if you actually *know* the per-outcome sampling design, the exact
 weights `1/π(y)` dominate everything.
 
+## Stratified calibration: prevalence known within strata
+
+A single pooled prevalence is often too crude. In registers and biobanks, prevalence
+varies strongly by **sex, birth cohort, age, ancestry, region, or calendar time**, and
+participation varies across those same strata. When the registry reports prevalence
+*within* strata, calibrate to it directly rather than to the pooled margin.
+`stratified_calibration_weights(Y, strata, within_stratum_prevalence, stratum_share)`
+matches, for every stratum `a` and outcome `q`,
+
+```
+E_w[1(A = a)]        = P(A = a)              (stratum shares)
+E_w[Y_q · 1(A = a)]  = P(Y_q = 1, A = a)     (within-stratum prevalence)
+```
+
+so the reweighted sample reproduces both the stratum sizes and the per-stratum
+prevalences. This matters whenever selection acts *through* the strata: pooled outcome
+calibration reweights as a function of the outcome only, so it cannot restore a distorted
+stratum composition, and any estimand that depends on the strata (not just on the anchored
+outcome) stays biased. Calibrating within strata pins the composition and recovers it —
+and, being calibration to richer moments, it also reaches past purely marginal selection
+toward the interaction structure marginal calibration cannot represent. It reduces to
+`outcome_calibration_weights` when there is a single stratum, and composes with covariate
+base weights exactly like the other calibrators.
+
 ## A probit / liability-threshold model: the Lee et al. transform vs IPW
 
 A separate, self-contained study (`i3pw.liability`, benchmarked in
@@ -469,8 +582,9 @@ IPW is only as good as the sampling probabilities you can supply — and if you 
 ```
 src/i3pw/
 ├── dgm.py          # data-generating mechanism + biased sampling
-├── calibration.py  # calibration_ipw, entropy_balance, outcome_calibration_weights
-├── aipw.py         # aipw_mean: doubly-robust downstream estimation
+├── calibration.py  # calibration_ipw, entropy_balance, outcome/stratified calibration, diagnostics
+├── uncertainty.py  # bootstrap, linearization SEs, prevalence-sensitivity
+├── aipw.py         # aipw_mean: doubly-robust downstream estimation (+ cross-fitting)
 ├── liability.py    # probit / liability-threshold model: Lee et al. transform vs IPW
 ├── methods.py      # baselines: no_correction, lasso_ipw / lasso_propensity
 ├── evaluation.py   # Monte Carlo comparison across many replications
@@ -555,6 +669,8 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
   inference models. *Biometrics* 61(4), 962–973.
 - Chen, Y., Li, P., Wu, C. (2020). Doubly robust inference with nonprobability survey
   samples. *JASA* 115(532), 2011–2021.
+- Chernozhukov, V. et al. (2018). Double/debiased machine learning for treatment and
+  structural parameters. *Econometrics Journal* 21(1), C1–C68. *(cross-fitting)*
 
 **Case-control ascertainment and the liability-threshold model:**
 
