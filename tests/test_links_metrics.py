@@ -39,3 +39,11 @@ def test_percent_difference():
 def test_zero_weight_sum_raises():
     with pytest.raises(ValueError):
         weighted_prevalence(np.zeros(3), np.ones(3))
+
+
+def test_weighted_prevalence_shape_mismatch_raises():
+    with pytest.raises(ValueError, match="same length"):
+        weighted_prevalence(np.ones(3), np.ones(4))
+    # (n, 1) column vectors are accepted gracefully
+    col = np.array([[1.0], [0.0], [1.0]])
+    assert weighted_prevalence(np.ones(3), col) == pytest.approx(2 / 3)

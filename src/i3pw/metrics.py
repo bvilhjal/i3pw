@@ -19,8 +19,12 @@ def weighted_prevalence(weights: np.ndarray, y: np.ndarray) -> float:
     self-normalizing, which is the standard, lower-variance choice when the
     population size (or the exact sampling fractions) is not pinned down.
     """
-    weights = np.asarray(weights, dtype=float)
-    y = np.asarray(y, dtype=float)
+    weights = np.asarray(weights, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    if weights.shape != y.shape:
+        raise ValueError(
+            f"weights and y must have the same length; got "
+            f"{weights.shape} and {y.shape}")
     total = weights.sum()
     if total == 0:
         raise ValueError("Weights sum to zero; cannot compute weighted prevalence.")

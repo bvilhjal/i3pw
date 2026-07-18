@@ -89,6 +89,8 @@ def monte_carlo(
 
 def format_summary(summaries: dict[str, MonteCarloSummary]) -> str:
     """Render Monte Carlo summaries as a fixed-width table (mean % error ± SD)."""
+    if not summaries:
+        raise ValueError("summaries must contain at least one method summary.")
     any_summary = next(iter(summaries.values()))
     q = len(any_summary.mean_pct_error)
     header = f"{'method':<18}" + "".join(f"{'Y' + str(i + 1) + ' %err':>16}" for i in range(q))

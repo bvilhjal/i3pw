@@ -26,11 +26,12 @@ from ._links import logit, sigmoid
 
 
 def nearest_pd_correlation(a: np.ndarray) -> np.ndarray:
-    """Project a symmetric matrix onto the nearest positive-definite correlation matrix.
+    """Repair a symmetric matrix to a nearby positive-definite correlation matrix.
 
     The R code relies on ``Matrix::nearPD``. Here we clip the eigenvalues to a
-    small positive floor and rescale the result to have a unit diagonal, which
-    yields a valid (positive-definite, unit-diagonal) correlation matrix.
+    small positive floor and rescale the result to have a unit diagonal. This
+    is not the Frobenius-nearest projection, but it yields a valid
+    (positive-definite, unit-diagonal) correlation matrix.
     """
     a = np.asarray(a, dtype=float)
     a = (a + a.T) / 2.0
@@ -133,6 +134,8 @@ class Dataset:
 
     def split(self, which: str):
         """Return ``(X, Y, sample_indicator)`` for the ``"train"`` or ``"test"`` fold."""
+        if which not in ("train", "test"):
+            raise ValueError(f"which must be 'train' or 'test'; got {which!r}")
         idx = self.train_idx if which == "train" else self.test_idx
         return self.X[idx], self.Y[idx], self.sample_indicator[idx]
 
@@ -209,7 +212,14 @@ def _induce_selection(
     rng: np.random.Generator,
     eps: float = 1e-6,
 ) -> np.ndarray:
-    """Return a 0/1 indicator selecting ``sample_size`` units with outcome-dependent bias."""
+    """Return a 0/1 indicator selecting ``sample_size`` units with outcome-dependent bias.
+
+    The product of per-outcome odds weights targets each outcome's sample
+    prevalence in expectation, but with several outcomes (and sampling without
+    replacement) the realized margins drift toward the population prevalence
+    (~4-10% relative on middle outcomes). The targets are approximate, hence
+    the name ``target_sample_prevalence``.
+    """
     n, q = Y.shape
     weights = np.ones((n, q))
     for i in range(q):

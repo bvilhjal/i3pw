@@ -89,15 +89,15 @@ def one_rep(delta_E, delta_Y, seed):
 def main():
     t0 = time.time()
     methods = ("truth", "naive", "prev_calib", "model_ipw", "oracle")
-    for delta_E, tag in ((0.0, "outcome-only selection (δ_E=0)"),
-                         (0.8, "collider: exposure + outcome (δ_E=0.8)")):
+    for delta_E, tag in ((0.0, "outcome-only selection (delta_E=0)"),
+                         (0.8, "collider: exposure + outcome (delta_E=0.8)")):
         acc = {m: [] for m in methods}
         for rep in range(N_REPS):
             for m, v in one_rep(delta_E, -1.5, 1234 + rep).items():
                 acc[m].append(v)
-        print(f"--- {tag};  true β={BETA} on the liability scale ---")
+        print(f"--- {tag};  true beta={BETA} on the liability scale ---")
         for m in methods:
-            print(f"   β_{m:<11} = {np.mean(acc[m]):+.3f}")
+            print(f"   beta_{m:<11} = {np.mean(acc[m]):+.3f}")
         print()
     print("prev_calib fixes marginals, not the exposure-outcome joint selection, so it\n"
           "does NOT correct collider effect-size bias; a participation model including the\n"

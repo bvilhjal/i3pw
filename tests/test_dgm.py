@@ -73,3 +73,12 @@ def test_config_validation():
 
     with pytest.raises(ValueError):
         SimConfig(n_outcomes=3, target_population_prevalence=(0.4, 0.1))
+
+
+def test_split_rejects_unknown_fold():
+    import pytest
+
+    ds = make_dataset(seed=0, population_size=500, n_features=5, n_outcomes=1,
+                      predictors_per_outcome=3, sample_size=100)
+    with pytest.raises(ValueError, match="train"):
+        ds.split("trian")
