@@ -72,6 +72,42 @@ is on the outcome alone (no covariates in the base), the two agree exactly — t
 is a per-class constant either way, which is why the liability-model `K/P` weights [below](#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
 are exact IPW, not an approximation.
 
+## Where this sits: density ratios, I-projection, and label shift
+
+The construction is not ad hoc — it is one object seen through three established literatures,
+and that is where its guarantees (and its boundary) come from.
+
+- **An exponential-tilt density-ratio model.** Writing
+  `log dP_population/dP_sample = a(X) + θ·g(Y)` is exactly the semiparametric *density-ratio*
+  (exponential-tilt) model of Qin (1998) — the same tilt that underlies retrospective
+  case-control sampling, where only the intercept shifts between prospective and separate-sample
+  logistic fits (Anderson 1972; Prentice & Pyke 1979). The liability `K/P` weights are its
+  one-outcome special case.
+- **Calibration is an I-projection.** The "minimum-divergence weights" are the *information
+  projection* of the base weights onto the set of distributions meeting the moment constraints
+  `E_w[g(Y)] = target`: minimize Kullback–Leibler divergence subject to linear constraints
+  (Csiszár 1975; the minimum-discrimination-information principle, Kullback 1959). Its convex
+  dual is precisely the exponential tilt `w ∝ d(X)·exp(λ·g(Y))` that `entropy_balance` solves,
+  so entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
+  1994) are two views of the same optimization. Matching population moments by reweighting is
+  also what kernel mean matching does for covariate shift (Gretton et al. 2009).
+- **This is label shift.** With no covariates in the base — pure
+  `outcome_calibration_weights(Y, [K])` — i3pw *is* the classic correction for **prior
+  probability shift / label shift**: sample and population differ only in the label marginal
+  `P(Y)`, and the fix is to reweight the sample to the known priors (Saerens et al. 2002;
+  Storkey 2009; Lipton et al. 2018). i3pw generalises it two ways: (i) it tilts an arbitrary
+  base weight `d(X)` from a participation model rather than uniform weights, and (ii) where
+  black-box label-shift estimators must *infer* `P(Y)` from a classifier, i3pw takes `P(Y)` as
+  a **known register quantity** — the regime where the correction is exact rather than estimated.
+
+The placement also re-derives the honesty boundary. Label shift assumes the class-conditional
+`P(X | Y)` is stable between sample and population — selection acts only *through* `Y` — which is
+the exact analogue of "the density ratio lies in the tilt family" above. When selection also acts
+*within* outcome classes, that assumption fails and so does the guarantee: this is precisely the
+[case-mix](#prevalence-sets-the-scale-not-the-case-mix) caution (selection on severity within
+cases) and the [collider](#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)
+boundary (selection on the exposure alongside the outcome), stated in a second language.
+
 ## Two separable tasks: predict selection, then anchor to the population
 
 It clarifies everything to split selection-bias correction into two tasks that i3pw
@@ -732,6 +768,37 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 - Manski, C. F. & Lerman, S. R. (1977). The estimation of choice probabilities from
   choice based samples. *Econometrica* 45(8), 1977–1988.
 - Kish, L. (1965). *Survey Sampling.* Wiley. *(effective sample size / design effect)*
+- Csiszár, I. (1975). I-divergence geometry of probability distributions and
+  minimization problems. *Annals of Probability* 3(1), 146–158. *(the I-projection /
+  minimum-KL-subject-to-moment-constraints that calibration solves)*
+- Kullback, S. (1959). *Information Theory and Statistics.* Wiley (Dover reprint 1968).
+  *(the minimum-discrimination-information principle)*
+- Qin, J. & Lawless, J. (1994). Empirical likelihood and general estimating equations.
+  *Annals of Statistics* 22(1), 300–325. *(calibration as empirical likelihood under
+  moment constraints)*
+- Qin, J. (1998). Inferences for case-control and semiparametric two-sample density
+  ratio models. *Biometrika* 85(3), 619–630. *(the exponential-tilt density-ratio model
+  the identification section uses)*
+- Anderson, J. A. (1972). Separate sample logistic discrimination. *Biometrika* 59(1),
+  19–35. *(logistic participation under retrospective / separate sampling)*
+
+**Distribution shift: density-ratio and label-shift correction (the same problem in
+machine learning):**
+
+- Saerens, M., Latinne, P., Decaestecker, C. (2002). Adjusting the outputs of a
+  classifier to new a priori probabilities: a simple procedure. *Neural Computation*
+  14(1), 21–41. *(prior-probability / label-shift correction — the covariate-free case
+  of calibrating to known `P(Y)`)*
+- Storkey, A. (2009). When training and test sets are different: characterizing learning
+  transfer. In *Dataset Shift in Machine Learning*, eds. Quiñonero-Candela et al., ch. 1,
+  3–28. MIT Press. *(the taxonomy naming "prior probability shift")*
+- Lipton, Z. C., Wang, Y.-X., Smola, A. (2018). Detecting and correcting for label shift
+  with black box predictors. *ICML*, PMLR 80, 3128–3136. *(estimating `P(Y)` from a
+  classifier — the regime where i3pw instead takes it as known)*
+- Gretton, A., Smola, A., Huang, J., Schmittfull, M., Borgwardt, K., Schölkopf, B.
+  (2009). Covariate shift by kernel mean matching. In *Dataset Shift in Machine
+  Learning*, ch. 8, 131–160. MIT Press. *(moment-matching reweighting, the covariate-shift
+  analogue)*
 
 **Doubly-robust and nonprobability-sample inference:**
 
@@ -741,6 +808,10 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
   inference models. *Biometrics* 61(4), 962–973.
 - Chen, Y., Li, P., Wu, C. (2020). Doubly robust inference with nonprobability survey
   samples. *JASA* 115(532), 2011–2021.
+- Yang, S., Kim, J. K., Song, R. (2020). Doubly robust inference when combining
+  probability and non-probability samples with high-dimensional data. *JRSS-B* 82(2),
+  445–465. *(data integration: a non-probability sample anchored to population
+  quantities)*
 - Chernozhukov, V. et al. (2018). Double/debiased machine learning for treatment and
   structural parameters. *Econometrics Journal* 21(1), C1–C68. *(cross-fitting)*
 

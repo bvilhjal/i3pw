@@ -38,8 +38,12 @@ moments ``g(Y)``. These *coincide* with the true inverse-probability weights
 ``1/pi(X, Y)`` only when that density ratio genuinely lies in the tilt family — the
 base weights span the covariate-driven part and ``g(Y)`` the outcome-driven part —
 and positivity holds; otherwise they are simply the closest reweighting (in KL) to
-the base that reproduces the known moments. Using covariate-model weights as the
-``base`` keeps the part of selection that *is* covariate-driven. (Under logistic
+the base that reproduces the known moments. Equivalently, this is the exponential-tilt
+density-ratio model of Qin (1998); the weights are the information projection
+(I-projection) of the base onto the moment-constrained set (Csiszar 1975); and with a
+uniform base and ``g(Y) = Y`` it is exactly the classic **label-shift** correction to a
+known population prior ``P(Y)`` (Saerens et al. 2002). Using covariate-model weights as
+the ``base`` keeps the part of selection that *is* covariate-driven. (Under logistic
 participation the *inverse-odds* weight ``(1-pi)/pi`` is exactly log-linear and so
 composes exactly with the tilt, whereas ``1/pi`` does so only as inclusion becomes
 rare — hence ``calibration_ipw``'s ``base_scheme`` choice.)
@@ -58,6 +62,11 @@ References
 - Kott & Chang (2010), *JASA* 105, 1265–1275 — calibration for nonignorable
   nonresponse (the ``base_weights`` + known-prevalence construction).
 - Horvitz & Thompson (1952), *JASA* 47, 663–685 — the underlying IPW estimator.
+- Csiszar (1975), *Ann. Probab.* 3, 146–158 — I-projection (minimum KL subject to
+  moment constraints), the geometry the calibration solves.
+- Qin (1998), *Biometrika* 85, 619–630 — the exponential-tilt density-ratio model.
+- Saerens, Latinne & Decaestecker (2002), *Neural Computation* 14, 21–41 — the
+  covariate-free case: label-shift / prior-probability correction to a known ``P(Y)``.
 """
 
 from __future__ import annotations
