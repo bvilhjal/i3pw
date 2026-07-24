@@ -24,6 +24,7 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
+from ._links import clip_prob
 from .dgm import Dataset
 from .metrics import percent_difference, weighted_prevalence
 
@@ -133,7 +134,7 @@ def lasso_propensity(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=FutureWarning)
         model.fit(X_train, s_train)
-    return np.clip(model.predict_proba(X_eval)[:, 1], 1e-6, 1 - 1e-6)
+    return clip_prob(model.predict_proba(X_eval)[:, 1])
 
 
 def no_correction(dataset: Dataset) -> MethodResult:

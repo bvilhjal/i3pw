@@ -229,6 +229,8 @@ def entropy_balance(
     d = np.ones(n) if base_weights is None else np.asarray(base_weights, dtype=float)
     if np.any(d < 0):
         raise ValueError("base_weights must be non-negative.")
+    if d.sum() == 0:
+        raise ValueError("base_weights sum to zero; cannot form calibration weights.")
     d = d / d.sum()
     H = F - t  # centered constraints; we want the weighted mean of H to be 0
 
@@ -418,6 +420,8 @@ def stratified_calibration_weights(
         raise ValueError("strata labels must lie in 0..A-1 (A = len(stratum_share)).")
     if np.any(share < 0):
         raise ValueError("stratum_share must be non-negative.")
+    if share.sum() == 0:
+        raise ValueError("stratum_share sums to zero; cannot normalize stratum shares.")
     share = share / share.sum()
 
     onehot = (labels[:, None] == np.arange(A)[None, :]).astype(float)  # (n, A)

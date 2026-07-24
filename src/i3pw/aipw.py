@@ -117,6 +117,8 @@ def aipw_mean(
         raise ValueError("V_sample and weights must have length sample_mask.sum().")
     if np.any(w < 0):
         raise ValueError("weights must be non-negative.")
+    if w.sum() == 0:
+        raise ValueError("weights sum to zero; cannot form a weighted estimate.")
     if crossfit < 1:
         raise ValueError("crossfit must be a positive integer.")
     w = w / w.sum()

@@ -65,6 +65,15 @@ def test_ascertainment_corrections_beat_naive():
     assert np.mean(naive) > truth + 0.5
 
 
+def test_moment_slope_raises_on_degenerate_matrix():
+    # A single unit has no off-diagonal pairs, so the denominator is zero and the
+    # slope is undefined -> a clear error rather than a silent nan/inf.
+    A = np.array([[1.0]])
+    y = np.array([0.5])
+    with pytest.raises(ValueError, match="off-diagonal"):
+        moment_slope(A, y)
+
+
 def test_estimate_invalid_method():
     smp = simulate_case_control(100, 100, 50, 0.5, 0.1, np.random.default_rng(2))
     with pytest.raises(ValueError):

@@ -102,6 +102,11 @@ def moment_slope(A: np.ndarray, y: np.ndarray, weights: np.ndarray | None = None
         u = w * y
         num = u @ A @ u - np.sum(d * u * u)
         den = w @ (A * A) @ w - np.sum((w * w) * (d * d))
+    if den == 0:
+        raise ValueError(
+            "moment_slope: no off-diagonal similarity mass (denominator is zero); "
+            "need at least two units with non-zero predictor similarity."
+        )
     return float(num / den)
 
 
