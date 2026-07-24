@@ -2,7 +2,21 @@ import numpy as np
 import pytest
 
 from i3pw import logit, sigmoid
+from i3pw._links import EPS, clip_prob
 from i3pw.metrics import percent_difference, weighted_prevalence
+
+
+def test_clip_prob_bounds_and_passthrough():
+    # 0/1 are clamped into the open interval; interior values pass through.
+    out = clip_prob(np.array([0.0, 0.5, 1.0]))
+    assert out[0] == pytest.approx(EPS)
+    assert out[1] == pytest.approx(0.5)
+    assert out[2] == pytest.approx(1.0 - EPS)
+
+
+def test_logit_uses_the_shared_clamp():
+    # logit(0)/logit(1) are finite because they share clip_prob's epsilon clamp.
+    assert np.isfinite(logit(np.array([0.0, 1.0]))).all()
 
 
 def test_sigmoid_logit_inverse():

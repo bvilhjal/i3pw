@@ -20,12 +20,17 @@ def sigmoid(z: np.ndarray) -> np.ndarray:
     return out
 
 
+def clip_prob(p: np.ndarray, eps: float = EPS) -> np.ndarray:
+    """Clip probabilities into the open interval ``(0, 1)`` at ``[eps, 1-eps]``.
+
+    The single place the ``epsilon = 1e-6`` guard used throughout the package is
+    applied, so :func:`logit` and the participation-model probabilities share one
+    source of truth for the clamp.
+    """
+    return np.clip(np.asarray(p, dtype=float), eps, 1.0 - eps)
+
+
 def logit(p: np.ndarray, eps: float = EPS) -> np.ndarray:
     """Inverse of :func:`sigmoid`, with probabilities clipped to ``[eps, 1-eps]``."""
-    p = np.clip(np.asarray(p, dtype=float), eps, 1.0 - eps)
+    p = clip_prob(p, eps)
     return np.log(p / (1.0 - p))
-
-
-def clip_prob(p: np.ndarray, eps: float = EPS) -> np.ndarray:
-    """Clip probabilities into the open interval ``(0, 1)``."""
-    return np.clip(np.asarray(p, dtype=float), eps, 1.0 - eps)

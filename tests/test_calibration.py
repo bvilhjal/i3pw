@@ -449,3 +449,23 @@ def test_interaction_needs_cooccurrence_constraint():
         joint_d.append(abs(_joint_estimate(y1, y2, zj, m, use_joint=True) - oracle))
     assert np.mean(joint_d) < 0.015               # joint calibration ~ oracle
     assert np.mean(joint_d) * 2 < np.mean(marg_d)  # and clearly closer than marginal
+
+
+def test_entropy_balance_zero_base_weights_raises():
+    # All-zero base weights would normalize to nan; a clear error is raised instead.
+    rng = np.random.default_rng(0)
+    Y = (rng.uniform(size=(50, 1)) < 0.3).astype(float)
+    with pytest.raises(ValueError, match="sum to zero"):
+        entropy_balance(Y, [0.4], base_weights=np.zeros(50))
+
+
+def test_stratified_zero_share_raises():
+    # Stratum shares that sum to zero cannot be normalized -> a clear error.
+    rng = np.random.default_rng(0)
+    Y = (rng.uniform(size=(40, 1)) < 0.3).astype(float)
+    strata = rng.integers(0, 2, size=40)
+    with pytest.raises(ValueError, match="sums to zero"):
+        stratified_calibration_weights(
+            Y, strata, within_stratum_prevalence=np.array([[0.3], [0.3]]),
+            stratum_share=np.zeros(2),
+        )

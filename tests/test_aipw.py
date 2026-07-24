@@ -56,6 +56,8 @@ def test_input_validation():
         aipw_mean(X, S, Vs[:-1], w)            # length mismatch
     with pytest.raises(ValueError):
         aipw_mean(X, S, Vs, -w)                # negative weights
+    with pytest.raises(ValueError, match="sum to zero"):
+        aipw_mean(X, S, Vs, np.zeros_like(w))  # weights sum to zero
     with pytest.raises(ValueError):
         aipw_mean(X, S, Vs, w, crossfit=0)     # crossfit must be positive
 
