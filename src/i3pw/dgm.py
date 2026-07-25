@@ -200,7 +200,9 @@ def make_dataset(config: SimConfig | None = None, **overrides) -> Dataset:
     #    its target sample prevalence; the overall weight is their product.
     # Optional covariate channel: without it selection depends on the outcomes alone,
     # so a participation model has nothing to learn (see SimConfig docs).
-    selection_coef = np.zeros(p)
+    # Annotated because the rescale below produces a differently-shaped static type
+    # under shape-typed numpy stubs, which a bare inferred binding would reject.
+    selection_coef: np.ndarray = np.zeros(p)
     if config.selection_covariate_strength != 0.0:
         m = min(config.n_selection_covariates, p)
         idx = rng.choice(p, size=m, replace=False)
