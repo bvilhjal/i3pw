@@ -123,6 +123,10 @@ most readers need only two of them. Follow the links rather than reading straigh
    Skippable unless you doubt a specific claim, in which case there is probably a table for it.
 4. **Reference** — [layout](#package-layout), [tests](#tests), [bibliography](#references).
 
+In a hurry? [**Conclusions and recommendations**](#conclusions-and-recommendations)
+condenses the whole document into a five-step recipe, a list of things not to do, and the
+reason for each — with links back to the evidence, so you can check any of it.
+
 A warning about reading order that applies throughout: several sections report a `0.00`
 or an exact match, and *every one of those is an identity rather than a finding*. The
 interesting numbers in this document are all elsewhere.
@@ -921,6 +925,81 @@ delta   truth      lee   ipw_simple   ipw_fitted   ipw_oracle
 The lesson: a closed-form transform is stuck with the selection model it assumes, but
 IPW is only as good as the sampling probabilities you can supply — and if you can
 *estimate* or *know* them, it keeps working where the transform cannot.
+
+## Conclusions and recommendations
+
+Everything above, condensed. Each recommendation is followed by the reason for it, and
+the reason links to the section that establishes it — if you disagree with a
+recommendation, the disagreement is really with the evidence behind it, so go there.
+
+### The recipe
+
+1. **Fit a participation model on whatever predicts participation** — demographic,
+   socioeconomic, clinical, genetic, or outcomes observed frame-wide — and invert it for
+   base weights.
+   *Why:* it corrects the part of selection that is visible in covariates, and it is the
+   only ingredient that can. On a population where participation genuinely depends on a
+   covariate, dropping this step costs a factor of 2.7 in held-out balance
+   ([benchmark](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
+2. **Calibrate those weights to known register quantities** rather than trusting the
+   model alone — `entropy_balance(Y, targets, base_weights=1/P̂)`.
+   *Why:* participation depends on *having the disease*, which the covariates barely
+   proxy, so the covariate model alone leaves the ascertainment uncorrected. The two
+   ingredients are complementary and the combination is best in **every** channel mix
+   tested ([Study D](#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
+3. **Calibrate within strata — sex, birth year, ancestry, severity — not just the pooled
+   margin** (`stratified_calibration_weights`).
+   *Why:* a known prevalence fixes the *number* of cases, not their *type*. If the
+   sampled cases are milder than the population's, matching the margin leaves that
+   uncorrected ([case mix](#prevalence-sets-the-scale-not-the-case-mix)). For psychiatric
+   cohorts this is usually the single most important step.
+4. **Hold back some known margins and test against them** (`balance_report`).
+   *Why:* a just-identified calibration reproduces its constraints whatever the truth, so
+   nothing it reports can refute it. Held-out moments are the only thing that can
+   ([falsifiability](#what-makes-this-falsifiable)) — and in a worked case every other
+   diagnostic *preferred* the broken weighting, whose ESS looked 3× healthier
+   ([demonstration](#checking-the-weights-balance-as-a-falsification-test)).
+5. **Report the effective sample size, a sensitivity sweep over `K`, and an interval that
+   accounts for the estimated weights** (`calibration_mean_se`, or the bootstrap).
+   *Why:* the correction costs variance, register prevalences are not exact constants, and
+   the fixed-weight SE is not a bound in either direction ([uncertainty](#uncertainty)).
+
+### What not to do
+
+- **Do not use known prevalences to fix effect sizes.** Selection on the outcome alone
+  does not bias a logistic slope (Prentice & Pyke 1979), so there is nothing to correct;
+  and the bias that *does* matter — collider bias, from participation depending on
+  exposure and outcome together — is untouched by calibration, which moved the estimate
+  from 1.274 to 1.313 against a truth of 1.096. Only a participation model including the
+  exposure recovers it
+  ([evidence](#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
+  Known prevalences are the right information for prevalences, absolute risks and means,
+  and the wrong information for associations.
+- **Do not expect calibrating on one disease to help with another.** Anchoring outcome 1
+  left outcome 2 at 77.2% error against 78.4% for no correction at all. Marginal
+  calibration fixes marginal quantities; anchor what you need corrected
+  ([transfer](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
+- **Do not quote a `0.00` as evidence.** An anchored margin is reproduced by construction.
+  This is worth repeating because the package's own headline table invites the mistake.
+- **Do not reach for the analytic Lee-style product weight unless you know the mechanism
+  is case-control on known-prevalence disorders.** It is excellent when selection really
+  is one latent factor cleanly proxied by every outcome, and barely better than naive when
+  a few correlated outcomes drive selection — a high-variance bet either way
+  ([Study A](#study-a--the-regime-decides-and-lee-style-weights-are-a-bet)).
+
+### The one risk that outranks the others
+
+Everything here assumes the population-to-sample density ratio lies in the tilt family —
+that the base weights span the covariate-driven part of selection and the supplied moments
+span the outcome-driven part. That assumption is not testable from the calibration itself,
+and no robustness property covers it: if the moments miss the outcome-driven part, the
+outcome model and the propensity model fail *together*
+([what is identified](#what-is-identified)).
+
+The practical consequence is recommendation 4, which is why it is not optional. Passing an
+overidentification test is not proof — it never is — but it is the difference between an
+assumption and a checked assumption, and it is the strongest positive evidence this
+framework can produce.
 
 ## Package layout
 
