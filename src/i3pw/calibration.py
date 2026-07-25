@@ -143,6 +143,16 @@ class CalibrationDiagnostics:
     min_weight: float
     top1pct_weight_mass: float
     message: str = ""
+    tilt: np.ndarray | None = None
+    """The fitted dual coefficients ``lambda``, one per calibration constraint.
+
+    These *are* the estimated outcome-driven part of the selection log-odds: the weights
+    are ``base_i * exp(lambda . (g_i - target))``, so ``lambda`` is the ``theta`` of the
+    package's ``a(X) + theta . g(Y)`` decomposition, on the log-odds scale and identified
+    up to the constraints supplied. Large components mean the sample needed a hard push
+    on that moment. Pass them to :func:`apply_tilt` to weight a fresh set of rows under
+    the same fitted calibration.
+    """
 
     def summary(self) -> str:
         ok = "converged" if self.converged else "DID NOT CONVERGE"
@@ -158,11 +168,13 @@ class CalibrationDiagnostics:
 
 
 def _diagnostics(weights: np.ndarray, converged: bool, n_iter: int,
-                 max_abs_residual: float, message: str = "") -> CalibrationDiagnostics:
+                 max_abs_residual: float, message: str = "",
+                 tilt: np.ndarray | None = None) -> CalibrationDiagnostics:
     ess, wmax, wmin, top = _weight_concentration(weights)
     return CalibrationDiagnostics(
         converged=converged, n_iter=n_iter, max_abs_residual=max_abs_residual,
         ess=ess, max_weight=wmax, min_weight=wmin, top1pct_weight_mass=top, message=message,
+        tilt=tilt,
     )
 
 
@@ -264,7 +276,7 @@ def entropy_balance(
         # No constraints: the base weights already solve the problem exactly. Skip the
         # dual solve, which would otherwise report a spurious "ERROR: N <= 0" failure.
         if return_diagnostics:
-            return d, _diagnostics(d, True, 0, 0.0, "")
+            return d, _diagnostics(d, True, 0, 0.0, "", tilt=np.zeros(0))
         return d
 
     H = F - t  # centered constraints; we want the weighted mean of H to be 0
@@ -308,8 +320,149 @@ def entropy_balance(
             )
 
     if return_diagnostics:
-        return w, _diagnostics(w, res.success, int(res.nit), max_abs_residual, message)
+        return w, _diagnostics(w, res.success, int(res.nit), max_abs_residual, message,
+                               tilt=np.asarray(res.x, dtype=float))
     return w
+
+
+def apply_tilt(
+    features: npt.ArrayLike,
+    tilt: npt.ArrayLike,
+    targets: npt.ArrayLike,
+    *,
+    base_weights: np.ndarray | None = None,
+    normalize: bool = True,
+) -> np.ndarray:
+    """Apply an already-fitted calibration to new rows.
+
+    :func:`entropy_balance` solves for the dual coefficients ``lambda`` on one sample.
+    Those coefficients *are* the fitted density-ratio model, so they transfer: this
+    evaluates ``base_i * exp(lambda . (g_i - target))`` on any rows carrying the same
+    calibration functions ``g``.
+
+    Use it to weight a held-out fold, to score newly recruited participants without
+    re-solving, or to check a calibration fitted on one wave against another. Note that
+    the transferred weights reproduce the targets only insofar as the new rows follow the
+    same density ratio — they are *not* re-calibrated, so their achieved moments will
+    differ from ``targets`` by ordinary sampling error (which is exactly what makes this
+    a usable check rather than a tautology).
+
+    Parameters
+    ----------
+    features:
+        ``(m, k)`` calibration functions evaluated on the new rows, in the same column
+        order used when the tilt was fitted.
+    tilt:
+        Length-``k`` dual coefficients, i.e. ``CalibrationDiagnostics.tilt``.
+    targets:
+        The length-``k`` targets the tilt was fitted against (the centring constants).
+    base_weights:
+        Optional length-``m`` base weights for the new rows; defaults to uniform.
+    normalize:
+        If ``True`` (default) the returned weights sum to 1.
+    """
+    F = np.atleast_2d(np.asarray(features, dtype=float))
+    lam = np.atleast_1d(np.asarray(tilt, dtype=float))
+    t = np.atleast_1d(np.asarray(targets, dtype=float))
+    if F.shape[0] == 1 and F.shape[1] != lam.shape[0]:
+        F = F.T
+    if F.shape[1] != lam.shape[0]:
+        raise ValueError("features must have one column per tilt coefficient.")
+    if t.shape[0] != lam.shape[0]:
+        raise ValueError("targets must have one entry per tilt coefficient.")
+    _require_finite(F, "features")
+    _require_finite(lam, "tilt")
+
+    d = np.ones(F.shape[0]) if base_weights is None else np.asarray(base_weights, dtype=float)
+    _require_finite(d, "base_weights")
+    if np.any(d < 0):
+        raise ValueError("base_weights must be non-negative.")
+    z = (F - t) @ lam
+    w = d * np.exp(z - z.max())  # shift is absorbed by the normalization
+    if normalize:
+        total = w.sum()
+        if total == 0:
+            raise ValueError("tilted weights sum to zero; the tilt underflowed.")
+        w = w / total
+    return w
+
+
+def calibration_mean_se(
+    values: npt.ArrayLike,
+    weights: npt.ArrayLike,
+    features: npt.ArrayLike,
+    *,
+    level: float = 0.95,
+):
+    """Standard error of a weighted mean that accounts for the *estimated* calibration.
+
+    :func:`i3pw.weighted_mean_se` conditions on the weights, which is wrong for a
+    calibration estimate in both directions — most starkly on an anchored margin, where
+    it reports a positive SE for a quantity calibration reproduces exactly (true
+    sampling variability zero).
+
+    The calibration estimator is asymptotically a regression (GREG) estimator, so its
+    influence function is the *residual* of the outcome on the calibration functions:
+
+        e_i = y_i - mu - beta . (g_i - gbar),   beta = weighted LS of y on g
+        Var(mu) = sum_i w_i^2 e_i^2 / (sum_i w_i)^2
+
+    Constraining ``g`` removes exactly the part of ``y`` that ``g`` explains. An anchored
+    outcome is itself a column of ``g``, so its residual is identically zero and the SE
+    correctly collapses to ~0; an estimand orthogonal to the constraints reduces to the
+    fixed-weight formula; anything in between is shrunk by the variance the calibration
+    absorbed. This is the closed-form counterpart of
+    :func:`i3pw.bootstrap_calibration_ipw`, without re-solving the dual per replicate.
+
+    Parameters
+    ----------
+    values:
+        Length-``n`` outcome whose weighted mean is being estimated.
+    weights:
+        Length-``n`` calibration weights.
+    features:
+        ``(n, k)`` calibration functions actually constrained when the weights were
+        solved (for :func:`calibration_ipw`, the anchored outcome columns).
+
+    Returns
+    -------
+    Estimate
+        Point estimate, SE and normal-approximation interval.
+    """
+    from .uncertainty import Estimate  # local import: uncertainty imports this module
+
+    y = np.asarray(values, dtype=float).ravel()
+    w = np.asarray(weights, dtype=float).ravel()
+    G = np.atleast_2d(np.asarray(features, dtype=float))
+    if G.shape[0] != y.shape[0] and G.shape[1] == y.shape[0]:
+        G = G.T
+    if y.shape != w.shape:
+        raise ValueError("values and weights must have the same length.")
+    if G.shape[0] != y.shape[0]:
+        raise ValueError("features must have one row per value.")
+    _require_finite(y, "values")
+    _require_finite(w, "weights")
+    _require_finite(G, "features")
+    if np.any(w < 0):
+        raise ValueError("weights must be non-negative.")
+    total = w.sum()
+    if total == 0:
+        raise ValueError("weights sum to zero.")
+
+    p = w / total
+    mu = float(p @ y)
+    gbar = p @ G
+    Gc = G - gbar
+    # Weighted least squares of y on the centered constraints (lstsq handles collinear
+    # or redundant constraint columns, which a normal-equation solve would not).
+    sw = np.sqrt(p)
+    beta, *_ = np.linalg.lstsq(Gc * sw[:, None], (y - mu) * sw, rcond=None)
+    resid = (y - mu) - Gc @ beta
+    var = float(np.sum(w**2 * resid**2) / total**2)
+    se = float(np.sqrt(max(var, 0.0)))
+    from scipy.stats import norm as _norm
+    z = float(_norm.ppf(1.0 - (1.0 - level) / 2.0))
+    return Estimate(value=mu, se=se, ci_low=mu - z * se, ci_high=mu + z * se, level=level)
 
 
 def outcome_calibration_weights(

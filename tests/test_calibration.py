@@ -9,12 +9,15 @@ from scipy.stats import norm
 from i3pw import (
     CalibrationDiagnostics,
     CalibrationWarning,
+    apply_tilt,
     calibration_ipw,
+    calibration_mean_se,
     effective_sample_size,
     entropy_balance,
     make_dataset,
     outcome_calibration_weights,
     stratified_calibration_weights,
+    weighted_mean_se,
 )
 
 
@@ -515,3 +518,68 @@ def test_calibration_result_survives_deepcopy_and_pickle(dataset):
         assert clone.name == res.name
         assert np.allclose(clone.percent_diff, res.percent_diff)
         assert clone.summary() == res.summary()
+
+
+def test_tilt_is_exposed_and_reproduces_the_weights():
+    # The dual coefficients are the fitted density-ratio model; apply_tilt re-derives
+    # exactly the same weights from them.
+    rng = np.random.default_rng(0)
+    Y = (rng.uniform(size=(300, 2)) < [0.3, 0.1]).astype(float)
+    targets = np.array([0.45, 0.2])
+    w, diag = entropy_balance(Y, targets, return_diagnostics=True, warn=False)
+    assert diag.tilt is not None and diag.tilt.shape == (2,)
+    assert np.allclose(apply_tilt(Y, diag.tilt, targets), w, atol=1e-12)
+
+
+def test_apply_tilt_transfers_to_held_out_rows():
+    # Weights fitted on one half, applied to the other, should bring the held-out
+    # half's moments close to the targets (not exactly — they are not re-calibrated).
+    rng = np.random.default_rng(2)
+    Y = (rng.uniform(size=(4000, 1)) < 0.3).astype(float)
+    fit, new = Y[:2000], Y[2000:]
+    target = np.array([0.5])
+    _, diag = entropy_balance(fit, target, return_diagnostics=True, warn=False)
+    w_new = apply_tilt(new, diag.tilt, target)
+    achieved = float((w_new * new[:, 0]).sum())
+    assert abs(achieved - 0.5) < 0.05      # close...
+    assert achieved != pytest.approx(0.5, abs=1e-9)   # ...but not by construction
+
+
+def test_apply_tilt_validation():
+    Y = np.zeros((10, 2))
+    with pytest.raises(ValueError, match="one column per tilt coefficient"):
+        apply_tilt(Y, [0.1], [0.2])
+    with pytest.raises(ValueError, match="one entry per tilt coefficient"):
+        apply_tilt(Y, [0.1, 0.2], [0.2])
+
+
+def test_calibration_se_is_zero_for_an_anchored_margin():
+    # The estimand IS a constraint, so its residual is identically zero: calibration
+    # reproduces it every time and its sampling variability is zero. The fixed-weight
+    # SE cannot see this and reports a positive number.
+    rng = np.random.default_rng(1)
+    Y = (rng.uniform(size=(500, 1)) < 0.3).astype(float)
+    w = entropy_balance(Y, [0.45], warn=False)
+    assert calibration_mean_se(Y[:, 0], w, Y).se == pytest.approx(0.0, abs=1e-9)
+    assert weighted_mean_se(Y[:, 0], w).se > 0.01
+
+
+def test_calibration_se_matches_a_bootstrap_on_a_held_out_estimand(dataset):
+    # For a quantity that is not constrained, the closed form should agree with the
+    # nonparametric bootstrap that re-solves the calibration each replicate.
+    X_test, Y_test, s_test = dataset.split("test")
+    sel = s_test == 1
+    Xs, Ys = X_test[sel], Y_test[sel]
+    targets = dataset.population_prevalence
+    w = entropy_balance(Ys, targets, warn=False)
+
+    closed = calibration_mean_se(Xs[:, 0], w, Ys).se
+    rng = np.random.default_rng(0)
+    n = Ys.shape[0]
+    reps = []
+    for _ in range(200):
+        i = rng.integers(0, n, n)
+        wb = entropy_balance(Ys[i], targets, warn=False)
+        reps.append(float((wb * Xs[i, 0]).sum() / wb.sum()))
+    boot = float(np.std(reps, ddof=1))
+    assert closed == pytest.approx(boot, rel=0.25)

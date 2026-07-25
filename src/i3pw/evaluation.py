@@ -39,6 +39,8 @@ def monte_carlo(
     weighting: str = "inverse",
     include_lasso: bool = True,
     include_calibration: bool = True,
+    calibration_base: str = "lasso",
+    anchor_outcomes=None,
 ) -> dict[str, MonteCarloSummary]:
     """Repeat the correction pipeline over ``n_reps`` random populations.
 
@@ -56,6 +58,21 @@ def monte_carlo(
         simulation-only diagnostic) — passed to :func:`i3pw.lasso_ipw`.
     include_calibration / include_lasso:
         Toggle each prevalence-informed / baseline method.
+    calibration_base:
+        ``base=`` passed to :func:`i3pw.calibration_ipw` (``"lasso"`` or ``"uniform"``).
+        Worth sweeping: when the simulation has no covariate selection channel
+        (``SimConfig.selection_covariate_strength == 0``, the default) the LASSO base has
+        no signal to fit and only adds estimation noise, so ``"uniform"`` is the fairer
+        reference point.
+    anchor_outcomes:
+        Which outcomes :func:`i3pw.calibration_ipw` may calibrate on. **Read this before
+        quoting a headline number.** With the default (``None`` = anchor everything) the
+        reported error for ``calibration_ipw`` is ``0.00`` *by construction* — the
+        estimator reproduces the very prevalences it was handed, which is an algebraic
+        identity, not evidence that the method works. Pass a strict subset (e.g. ``[0]``)
+        to leave the remaining outcomes unanchored: their error then measures the honest
+        quantity, namely how well calibrating on the diseases whose prevalence you know
+        *transfers* to one you do not.
     """
     sim_kwargs = dict(sim_kwargs or {})
     sim_kwargs.pop("seed", None)
@@ -72,7 +89,12 @@ def monte_carlo(
         if include_lasso:
             record("lasso_ipw", lasso_ipw(ds, weighting=weighting).percent_diff)
         if include_calibration:
-            record("calibration_ipw", calibration_ipw(ds, base="lasso").percent_diff)
+            record(
+                "calibration_ipw",
+                calibration_ipw(
+                    ds, base=calibration_base, anchor_outcomes=anchor_outcomes
+                ).percent_diff,
+            )
 
     summaries: dict[str, MonteCarloSummary] = {}
     for name, rows in errors.items():

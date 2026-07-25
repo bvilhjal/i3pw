@@ -95,6 +95,27 @@ class SimConfig:
     corr_high: float = 0.5
     test_size: float = 0.25
     seed: int | None = 97
+    selection_covariate_strength: float = 0.0
+    """How strongly the covariates ``X`` drive participation, on the log-odds scale.
+
+    The default ``0.0`` reproduces the original design, in which selection depends on
+    the **outcomes only**. That default is worth understanding before trusting a
+    benchmark run on it: with no covariate channel there is no direct ``a(X)`` for a
+    participation model to learn. What little signal remains is second-hand — ``X``
+    predicts ``Y`` and ``Y`` drives selection — so ``P(S | X)`` is weakly learnable
+    (cross-validated AUC ≈ 0.58 on the shipped settings, against 0.5 for pure noise)
+    but carries almost nothing a covariate model can act on. Consequently
+    :func:`i3pw.lasso_ipw` is close to guaranteed to be no better than no correction,
+    and ``calibration_ipw(base="lasso")`` mostly adds estimation noise to a base with
+    little to estimate. Comparisons on this setting cannot discriminate between the two
+    selection channels the package is *about*.
+
+    Set it positive (``0.5``–``1.5`` is a reasonable range) to add a covariate-driven
+    component to selection, so that the covariate model has real signal and the
+    contribution of the base weights becomes measurable.
+    """
+    n_selection_covariates: int = 5
+    """How many covariates participate in the selection model when the strength is > 0."""
 
     def __post_init__(self) -> None:
         q = self.n_outcomes
@@ -177,12 +198,26 @@ def make_dataset(config: SimConfig | None = None, **overrides) -> Dataset:
 
     # 3. Biased sampling. Per-outcome selection weights push each outcome toward
     #    its target sample prevalence; the overall weight is their product.
+    # Optional covariate channel: without it selection depends on the outcomes alone,
+    # so a participation model has nothing to learn (see SimConfig docs).
+    # Annotated because the rescale below produces a differently-shaped static type
+    # under shape-typed numpy stubs, which a bare inferred binding would reject.
+    selection_coef: np.ndarray = np.zeros(p)
+    if config.selection_covariate_strength != 0.0:
+        m = min(config.n_selection_covariates, p)
+        idx = rng.choice(p, size=m, replace=False)
+        selection_coef[idx] = rng.normal(0.0, 1.0, size=m)
+        norm = np.linalg.norm(selection_coef)
+        if norm > 0:  # unit-norm so `strength` alone sets the scale
+            selection_coef = selection_coef / norm * config.selection_covariate_strength
+
     sample_indicator = _induce_selection(
         Y,
         population_prevalence,
         np.asarray(config.target_sample_prevalence),
         config.sample_size,
         rng,
+        covariate_score=X @ selection_coef,
     )
 
     # 4. Train / test split of the whole population.
@@ -211,6 +246,7 @@ def _induce_selection(
     sample_size: int,
     rng: np.random.Generator,
     eps: float = 1e-6,
+    covariate_score: np.ndarray | None = None,
 ) -> np.ndarray:
     """Return a 0/1 indicator selecting ``sample_size`` units with outcome-dependent bias.
 
@@ -228,6 +264,12 @@ def _induce_selection(
         weights[:, i] = np.where(Y[:, i] == 1, pos, neg)
 
     overall = weights.prod(axis=1)
+    if covariate_score is not None and np.any(covariate_score != 0.0):
+        # Multiplicative on the probability scale == additive on the log-odds scale,
+        # so this is the `a(X)` term of `a(X) + theta.Y`. Centred so it changes *who*
+        # is sampled, not the overall sampling fraction.
+        z = np.asarray(covariate_score, dtype=float)
+        overall = overall * np.exp(z - z.max())
     overall = overall / overall.sum()
 
     selected = rng.choice(n, size=sample_size, replace=False, p=overall)
