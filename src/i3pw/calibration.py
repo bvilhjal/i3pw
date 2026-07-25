@@ -48,12 +48,30 @@ participation the *inverse-odds* weight ``(1-pi)/pi`` is exactly log-linear and 
 composes exactly with the tilt, whereas ``1/pi`` does so only as inclusion becomes
 rare — hence ``calibration_ipw``'s ``base_scheme`` choice.)
 
-This is therefore **not** doubly robust in the AIPW sense (where either the outcome
-model or the weights alone suffice). It is better stated as: the weights are
-consistent if the base weights capture the ignorable, covariate-driven part of
-selection *and* the supplied calibration functions ``g(Y)`` span the remaining
-outcome-driven part. The two ingredients cover different pieces of the selection
-mechanism; neither alone is enough.
+Be careful about *which* robustness is being claimed, because two true statements
+here look contradictory. Entropy balancing **is** doubly robust in a precise sense:
+Zhao & Percival (2017) show it is consistent if either a linear outcome regression
+or a logistic propensity model *in the balancing functions* is correct, attaining the
+semiparametric variance bound when both are. That is a statement about which of two
+models over a **given** ``g`` may be wrong.
+
+i3pw's open question is a different one: whether ``g`` is rich enough to span the
+outcome-driven part of selection at all. No robustness property covers that — if
+``g`` misses it, both models are wrong together. So the useful statement is *not*
+"either ingredient suffices" but: the weights are consistent if the base weights
+capture the ignorable, covariate-driven part of selection *and* the supplied
+calibration functions ``g(Y)`` span the remaining outcome-driven part. The two cover
+different pieces of the mechanism; neither alone is enough. Whether they do can be
+*tested* when more population moments are known than are constrained — see
+:func:`i3pw.balance_report`.
+
+Two classical results make the rest of the machinery work. All calibration
+estimators are asymptotically equivalent to the generalized regression (GREG)
+estimator and share its variance (Deville & Sarndal 1992) — the basis of
+:func:`calibration_mean_se`, and the reason an anchored margin's standard error is
+exactly zero rather than merely small. And calibration weighting attains the
+semiparametric efficiency bound globally, without nonparametric estimation of the
+propensity or outcome function (Chan, Yam & Zhang 2016).
 
 References
 ----------
@@ -67,6 +85,13 @@ References
 - Qin (1998), *Biometrika* 85, 619–630 — the exponential-tilt density-ratio model.
 - Saerens, Latinne & Decaestecker (2002), *Neural Computation* 14, 21–41 — the
   covariate-free case: label-shift / prior-probability correction to a known ``P(Y)``.
+- Zhao & Percival (2017), *J. Causal Inference* 5(1), 41–55 — entropy balancing is
+  doubly robust w.r.t. a linear outcome regression and a logistic propensity model.
+- Chan, Yam & Zhang (2016), *JRSS-B* 78(3), 673–700 — empirical balancing calibration
+  weighting is globally semiparametric-efficient.
+- Sargan (1958), *Econometrica* 26, 393–415; Hansen (1982), *Econometrica* 50,
+  1029–1054 — testing overidentifying restrictions, the logic of
+  :func:`i3pw.balance_report`.
 """
 
 from __future__ import annotations
