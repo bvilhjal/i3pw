@@ -28,6 +28,80 @@ does and does not identify is made precise in [What is identified?](#what-is-ide
 below: calibration recovers *minimum-divergence* weights matching the known moments,
 which coincide with the true inverse-probability weights under a stated condition.
 
+## Install
+
+```bash
+pip install -e .           # from a clone of this repo
+pip install -e '.[test]'   # with the test dependencies
+```
+
+Requires Python ≥ 3.10 and numpy / scipy / scikit-learn.
+
+## Quick start
+
+```python
+import i3pw
+
+# 1. Simulate a population and draw a biased sample.
+ds = i3pw.make_dataset(
+    seed=97,
+    population_size=20000,
+    n_features=15,
+    n_outcomes=2,
+    target_population_prevalence=(0.4, 0.05),
+    target_sample_prevalence=(0.2, 0.005),   # what the biased sample looks like
+    sample_size=4000,
+)
+
+print(ds.population_prevalence)   # truth we want to recover
+print(ds.sample_prevalence)       # biased, naive estimate
+
+# 2. Correct the bias by calibrating the weights to the known prevalences.
+naive = i3pw.no_correction(ds)
+cal   = i3pw.calibration_ipw(ds, base="lasso")   # the recommended estimator
+
+print(naive.summary())
+print(cal.summary())              # weighted prevalence, per outcome
+print("effective sample size:", round(cal.ess))
+
+# Anchor only the diseases whose prevalence you actually know; the rest are left
+# free, so evaluating them measures transfer rather than restating an input.
+cal = i3pw.calibration_ipw(ds, anchor_outcomes=[0], base="lasso")
+
+# Check the weighting against population quantities it was NOT given — the only
+# way it can fail, and so the only real evidence it worked.
+X, Y, s = ds.split("test")
+sel = s == 1
+print(i3pw.balance_report(
+    X[sel][:, :3], cal.extra["weight"][sel], X[:, :3].mean(axis=0),
+).summary())
+```
+
+Run the full benchmark comparison:
+
+```bash
+python examples/benchmark.py
+```
+
+Typical output (8k population, one common + one rare outcome; ~2s total):
+
+```
+method                       % diff Y1   % diff Y2
+--------------------------------------------------
+no_correction                    48.25       91.32
+lasso_ipw                        45.64       91.44
+calibration_ipw                   0.00        0.00
+--------------------------------------------------
+```
+
+**Read those two zeros carefully.** Every outcome here is anchored, so `calibration_ipw`
+is reproducing prevalences it was *handed* — an algebraic identity, not a result. And
+`lasso_ipw` looks useless because this simulation gives selection no covariate channel to
+learn. `examples/honest_benchmark.py` measures the questions that can actually fail —
+transfer to an *unanchored* outcome, and balance against quantities never supplied — and
+[its section](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) is
+the one to trust.
+
 ## What is identified?
 
 Be precise about what the known prevalences buy you. Write the **population-to-sample
@@ -289,60 +363,6 @@ per-anchor case/control support, the Kish **effective sample size**, and how muc
 the top 1% of units carry. It warns (`CalibrationWarning`) when the solve fails to
 converge, a target is unreachable, or `trim=` breaks the exact calibration.
 
-## Install
-
-```bash
-pip install -e .           # from a clone of this repo
-pip install -e '.[test]'   # with the test dependencies
-```
-
-Requires Python ≥ 3.10 and numpy / scipy / scikit-learn.
-
-## Quick start
-
-```python
-import i3pw
-
-# 1. Simulate a population and draw a biased sample.
-ds = i3pw.make_dataset(
-    seed=97,
-    population_size=20000,
-    n_features=15,
-    n_outcomes=2,
-    target_population_prevalence=(0.4, 0.05),
-    target_sample_prevalence=(0.2, 0.005),   # what the biased sample looks like
-    sample_size=4000,
-)
-
-print(ds.population_prevalence)   # truth we want to recover
-print(ds.sample_prevalence)       # biased, naive estimate
-
-# 2. Correct the bias by calibrating the weights to the known prevalences.
-naive = i3pw.no_correction(ds)
-cal   = i3pw.calibration_ipw(ds, base="lasso")   # the recommended estimator
-
-print(naive.summary())
-print(cal.summary())              # weighted prevalence, per outcome
-print("effective sample size:", round(cal.ess))
-```
-
-Run the full benchmark comparison:
-
-```bash
-python examples/benchmark.py
-```
-
-Typical output (8k population, one common + one rare outcome; ~2s total):
-
-```
-method                       % diff Y1   % diff Y2
---------------------------------------------------
-no_correction                    48.25       91.32
-lasso_ipw                        45.64       91.44   <- covariate model barely helps
-calibration_ipw                   0.00        0.00   <- uses the known prevalences
---------------------------------------------------
-```
-
 ## What the headline benchmark does *not* show (`examples/honest_benchmark.py`)
 
 The 0.00% row above is an **algebraic identity**, not a result: every outcome is anchored,
@@ -381,41 +401,24 @@ component* — 2.7× better balance and 2.6× lower error on a held-out covariat
 looked useless only because the simulation gave it nothing to learn. Benchmark on a
 setting with the channel enabled before drawing conclusions about the base model.
 
-## Why the covariate model fails and calibration works
-
-Run `python examples/monte_carlo.py` — it repeats the whole pipeline over 20 random
-populations and reports mean absolute % error (± SD) for each method, using the
-deployable sample-only estimator:
+Across 20 populations (`python examples/monte_carlo.py`), mean absolute % error ± SD:
 
 ```
 method                     Y1 %err         Y2 %err
 no_correction        46.81±5.70      79.53±6.49
-lasso_ipw            44.66±5.93      78.50±6.61      <- covariate model, barely helps
-calibration_ipw       0.00±0.00       0.00±0.00      <- uses the known prevalences
+lasso_ipw            44.66±5.93      78.50±6.61      <- see the caveat above
+calibration_ipw       0.00±0.00       0.00±0.00      <- by construction
                                     (Kish effective sample size: 155 ± 32)
 ```
 
-The covariate-only participation model (`lasso_ipw`) barely dents the bias, because
-selection here is driven by the *outcomes* and the covariates are only a weak proxy
-— exactly the situation that motivated the project. `calibration_ipw` reproduces the
-known prevalences essentially exactly, because it is *given* them and enforces them
-as constraints. That is the point: the known prevalences carry information the
-covariate model cannot recover.
+The value of calibration is *not* that it "predicts" a prevalence it was told. It is
+that the resulting **weights** are correct along the ascertained dimensions, which
+de-biases downstream estimands correlated with those outcomes. That correction costs
+variance — hence the effective sample size, which shrinks as ascertainment strengthens.
 
-Two honest caveats:
-
-- **The anchored outcomes are recovered by construction.** The value is not that
-  calibration "predicts" a prevalence it was told, but that it produces *weights*
-  that are correct along the ascertained dimensions — which then de-bias downstream
-  estimands (associations, coefficients) that are correlated with those outcomes.
-- **Transfer is not automatic.** Calibrating on outcome A helps estimands correlated
-  with A; for a target driven by factors independent of the anchored outcomes there
-  is little to transfer. And the correction costs variance — `calibration_ipw`
-  reports the Kish effective sample size, which shrinks as ascertainment strengthens.
-- **Feasibility.** A target prevalence is reachable only if the ascertained sample
-  contains cases of that outcome. For a very rare outcome in a small sample the
-  cases can be absent, and no reweighting reaches the target; `shrinkage=` (or
-  pooling outcomes) helps degrade gracefully.
+One feasibility limit: a target is reachable only if the sample contains cases of that
+outcome. For a very rare outcome the cases can be absent, and no reweighting gets there;
+`shrinkage=` (or pooling outcomes) degrades gracefully instead of failing.
 
 ### Weighting schemes for the IPW baseline
 
@@ -860,39 +863,19 @@ IPW is only as good as the sampling probabilities you can supply — and if you 
 
 ```
 src/i3pw/
-├── dgm.py          # data-generating mechanism + biased sampling
-├── calibration.py  # calibration_ipw, entropy_balance, outcome/stratified calibration, diagnostics
-├── uncertainty.py  # bootstrap, linearization SEs, prevalence-sensitivity
+├── calibration.py  # the core: entropy_balance, calibration_ipw, apply_tilt,
+│                   #   calibration_mean_se, stratified/joint calibration, diagnostics
+├── balance.py      # balance_report: the falsification test (held-out moments)
+├── uncertainty.py  # bootstrap, fixed-weight SE, prevalence-sensitivity
 ├── aipw.py         # aipw_mean: doubly-robust downstream estimation (+ cross-fitting)
 ├── liability.py    # probit / liability-threshold model: Lee et al. transform vs IPW
 ├── methods.py      # baselines: no_correction, lasso_ipw / lasso_propensity
+├── dgm.py          # simulated population + biased sampling
 ├── evaluation.py   # Monte Carlo comparison across many replications
 ├── metrics.py      # weighted (Hájek) prevalence, % difference
-└── _links.py       # stable sigmoid / logit
-tests/              # pytest suite (calibration, AIPW, liability, DGM, methods)
-examples/           # benchmark.py, monte_carlo.py, doubly_robust_trait.py,
-                    #   probit_selection_lee_vs_ipw.py, complex_selection_ipw.py,
-                    #   multi_outcome_calibration.py, ukb_participation.py,
-                    #   schoeler_plus_prevalence.py, selection_inference_extensive.py
-```
-
-## Calibration in one snippet
-
-```python
-import i3pw
-
-ds = i3pw.make_dataset(seed=0, n_outcomes=2)
-
-# Covariate model alone barely corrects an outcome-driven selection...
-print(i3pw.lasso_ipw(ds, weighting="inverse").summary())
-
-# ...so inject the known population prevalences as calibration constraints.
-res = i3pw.calibration_ipw(ds, base="lasso")   # base weights from the covariate model
-print(res.summary())
-print("effective sample size:", round(res.ess))
-
-# Anchor only the diseases whose prevalence you actually know:
-res = i3pw.calibration_ipw(ds, anchor_outcomes=[0], base="lasso", shrinkage=0.0)
+└── _links.py       # stable sigmoid / logit / probability clamp
+tests/              # pytest suite
+examples/           # honest_benchmark.py is the one to read first
 ```
 
 ## Tests
