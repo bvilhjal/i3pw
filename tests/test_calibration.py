@@ -583,3 +583,25 @@ def test_calibration_se_matches_a_bootstrap_on_a_held_out_estimand(dataset):
         reps.append(float((wb * Xs[i, 0]).sum() / wb.sum()))
     boot = float(np.std(reps, ddof=1))
     assert closed == pytest.approx(boot, rel=0.25)
+
+
+def test_single_outcome_tilt_matches_the_documented_closed_form():
+    """The worked example in the README, pinned.
+
+    One binary outcome, uniform base, sample prevalence P, target K. The dual has a
+    closed form -- the log odds-ratio between the two -- and the weights reduce to the
+    classical choice-based-sample weights K/P and (1-K)/(1-P) (Manski & Lerman 1977).
+    """
+    n, P, K = 10_000, 0.20, 0.40
+    Y = np.zeros((n, 1))
+    Y[: int(P * n), 0] = 1.0
+
+    w, diag = entropy_balance(Y, [K], return_diagnostics=True, warn=False)
+
+    expected_lambda = np.log((K / (1 - K)) / (P / (1 - P)))
+    assert diag.tilt[0] == pytest.approx(expected_lambda, abs=1e-6)
+
+    # Weights (normalized to sum to 1) times n recover the textbook factors.
+    assert w[Y[:, 0] == 1][0] * n == pytest.approx(K / P, rel=1e-6)
+    assert w[Y[:, 0] == 0][0] * n == pytest.approx((1 - K) / (1 - P), rel=1e-6)
+    assert float((w * Y[:, 0]).sum()) == pytest.approx(K, abs=1e-9)

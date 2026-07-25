@@ -102,9 +102,67 @@ transfer to an *unanchored* outcome, and balance against quantities never suppli
 [its section](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) is
 the one to trust.
 
+## How to read the rest of this
+
+What follows is long. It contains four *kinds* of material, somewhat interleaved, and
+most readers need only two of them. Follow the links rather than reading straight through.
+
+1. **Theory** — [what is identified](#what-is-identified), [where the construction comes
+   from](#where-this-sits-density-ratios-i-projection-and-label-shift), [why the standard
+   errors behave as they do](#calibration-is-a-regression-estimator-and-why-the-ses-look-the-way-they-do),
+   and [what could prove the whole thing wrong](#what-makes-this-falsifiable). Read this
+   before quoting a number from the package in a paper. It is also the part that says, at
+   some length, what the method *cannot* do.
+2. **Practice** — the [two tasks](#two-separable-tasks-predict-selection-then-anchor-to-the-population)
+   the package deliberately keeps apart, a [ladder of weights](#a-ladder-of-prevalence-informed-weights)
+   from crude to defensible, and how to [check](#checking-the-weights-balance-as-a-falsification-test)
+   and [put error bars on](#uncertainty) the result. If you have a real cohort and want a
+   recipe, start at the ladder and ignore everything else.
+3. **Evidence** — simulation studies, beginning with the
+   [one that tries hardest to make the method look bad](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy).
+   Skippable unless you doubt a specific claim, in which case there is probably a table for it.
+4. **Reference** — [layout](#package-layout), [tests](#tests), [bibliography](#references).
+
+A warning about reading order that applies throughout: several sections report a `0.00`
+or an exact match, and *every one of those is an identity rather than a finding*. The
+interesting numbers in this document are all elsewhere.
+
 ## What is identified?
 
-Be precise about what the known prevalences buy you. Write the **population-to-sample
+### A case small enough to check by hand
+
+Before the general statement, the simplest instance, which the reader can verify with a
+pencil. One binary outcome, no covariates, a sample that is 20% cases, and a population
+known to be 40% cases. Calibration solves for a single number `λ` and assigns weights
+proportional to `exp(λ·Y)`. Working the constraint through gives
+
+```
+λ = log[ odds(K) / odds(P) ] = log[ (0.40/0.60) / (0.20/0.80) ] = 0.9808
+```
+
+and therefore weights proportional to `K/P = 2.00` for each case and
+`(1−K)/(1−P) = 0.75` for each control. Those are exactly the classical weights for a
+choice-based sample with known population shares (Manski & Lerman 1977), which is
+reassuring: the machinery had better reproduce what was already correct.
+Running `entropy_balance(Y, [0.40])` returns `λ = 0.980829` and precisely those two
+weights.
+
+Two things are worth noticing, because both generalize:
+
+- **`λ` is interpretable.** It is the log odds-ratio between the population prevalence and
+  the sample prevalence — a measure of how hard the sample had to be pushed. It is the `θ`
+  of the selection model, recovered rather than assumed, and `CalibrationDiagnostics.tilt`
+  reports it.
+- **Nothing was estimated.** Given `K`, the answer is a closed form. The sample supplied
+  `P`; the register supplied `K`; no model intervened. This is why the anchored margin
+  later turns out to have *zero* sampling variance — there was never anything to estimate.
+
+Everything below is this calculation with more moments, an arbitrary base weight, and
+consequently no closed form.
+
+### The general statement
+
+Write the **population-to-sample
 density ratio** — the reweighting that turns the biased sample back into the population —
 as log-linear in the covariates and outcomes:
 
@@ -146,6 +204,42 @@ is on the outcome alone (no covariates in the base), the two agree exactly — t
 is a per-class constant either way, which is why the liability-model `K/P` weights [below](#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
 are exact IPW, not an approximation.
 
+## Where this sits: density ratios, I-projection, and label shift
+
+The construction is not ad hoc — it is one object seen through three established literatures,
+and that is where its guarantees (and its boundary) come from.
+
+- **An exponential-tilt density-ratio model.** Writing
+  `log dP_population/dP_sample = a(X) + θ·g(Y)` is exactly the semiparametric *density-ratio*
+  (exponential-tilt) model of Qin (1998) — the same tilt that underlies retrospective
+  case-control sampling, where only the intercept shifts between prospective and separate-sample
+  logistic fits (Anderson 1972; Prentice & Pyke 1979). The liability `K/P` weights are its
+  one-outcome special case.
+- **Calibration is an I-projection.** The "minimum-divergence weights" are the *information
+  projection* of the base weights onto the set of distributions meeting the moment constraints
+  `E_w[g(Y)] = target`: minimize Kullback–Leibler divergence subject to linear constraints
+  (Csiszár 1975; the minimum-discrimination-information principle, Kullback 1959). Its convex
+  dual is precisely the exponential tilt `w ∝ d(X)·exp(λ·g(Y))` that `entropy_balance` solves,
+  so entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
+  1994) are two views of the same optimization. Matching population moments by reweighting is
+  also what kernel mean matching does for covariate shift (Gretton et al. 2009).
+- **This is label shift.** With no covariates in the base — pure
+  `outcome_calibration_weights(Y, [K])` — i3pw *is* the classic correction for **prior
+  probability shift / label shift**: sample and population differ only in the label marginal
+  `P(Y)`, and the fix is to reweight the sample to the known priors (Saerens et al. 2002;
+  Storkey 2009; Lipton et al. 2018). i3pw generalises it two ways: (i) it tilts an arbitrary
+  base weight `d(X)` from a participation model rather than uniform weights, and (ii) where
+  black-box label-shift estimators must *infer* `P(Y)` from a classifier, i3pw takes `P(Y)` as
+  a **known register quantity** — the regime where the correction is exact rather than estimated.
+
+The placement also re-derives the honesty boundary. Label shift assumes the class-conditional
+`P(X | Y)` is stable between sample and population — selection acts only *through* `Y` — which is
+the exact analogue of "the density ratio lies in the tilt family" above. When selection also acts
+*within* outcome classes, that assumption fails and so does the guarantee: this is precisely the
+[case-mix](#prevalence-sets-the-scale-not-the-case-mix) caution (selection on severity within
+cases) and the [collider](#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)
+boundary (selection on the exposure alongside the outcome), stated in a second language.
+
 ## Calibration is a regression estimator (and why the SEs look the way they do)
 
 One classical result does more practical work here than any other, and it is what
@@ -184,16 +278,21 @@ globally — without nonparametric estimation of either the propensity or the ou
 regression, whose finite-sample behaviour is the usual weak point of efficient estimators.
 The moment constraints inherit what the unknown propensity function would have supplied.
 
-**A correction to the "not doubly robust" line below.** Zhao & Percival (2017) prove that
+**Two robustness claims that look contradictory.** Zhao & Percival (2017) prove that
 entropy balancing *is* doubly robust — with respect to a **linear outcome regression** and
 a **logistic propensity model** in the balancing functions — and attains the semiparametric
-variance bound when both hold. This does not rescue i3pw's identification problem, because
-that problem lives on a different axis: their double robustness is about which of two
-*models over a given `g`* may be misspecified, whereas i3pw's open question is whether `g`
-is **rich enough** to span the outcome-driven part of selection at all. If `g` misses it,
-both models are wrong together and no robustness property helps. Both statements are true;
-they answer different questions, and the [next section](#what-is-identified) is about the
-second.
+variance bound when both hold. Elsewhere this package says it is *not* doubly robust. Both
+are true, because they answer different questions, and it is worth being exact about which:
+
+| | the question | answer |
+| --- | --- | --- |
+| Zhao & Percival | given the balancing functions `g`, may one of the two models over them be wrong? | **yes, either may be** |
+| [What is identified?](#what-is-identified) | is `g` rich enough to span the outcome-driven part of selection at all? | **no guarantee** |
+
+Their result buys robustness *within* a chosen `g`; it says nothing about choosing `g`
+badly. If `g` misses the outcome-driven part, both models are wrong together and no
+robustness property rescues either. That second question is the one this package cannot
+settle by assumption — which is what the next section is about.
 
 ## What makes this falsifiable
 
@@ -217,42 +316,6 @@ corrected, and **hold back** register margins (age, sex, region, birth cohort) a
 large held-out `|SMD|` refutes the tilt family; a small one is the strongest positive
 evidence this framework can produce. It is not proof — passing an overidentification test
 never is — but it is the difference between an assumption and a checked assumption.
-
-## Where this sits: density ratios, I-projection, and label shift
-
-The construction is not ad hoc — it is one object seen through three established literatures,
-and that is where its guarantees (and its boundary) come from.
-
-- **An exponential-tilt density-ratio model.** Writing
-  `log dP_population/dP_sample = a(X) + θ·g(Y)` is exactly the semiparametric *density-ratio*
-  (exponential-tilt) model of Qin (1998) — the same tilt that underlies retrospective
-  case-control sampling, where only the intercept shifts between prospective and separate-sample
-  logistic fits (Anderson 1972; Prentice & Pyke 1979). The liability `K/P` weights are its
-  one-outcome special case.
-- **Calibration is an I-projection.** The "minimum-divergence weights" are the *information
-  projection* of the base weights onto the set of distributions meeting the moment constraints
-  `E_w[g(Y)] = target`: minimize Kullback–Leibler divergence subject to linear constraints
-  (Csiszár 1975; the minimum-discrimination-information principle, Kullback 1959). Its convex
-  dual is precisely the exponential tilt `w ∝ d(X)·exp(λ·g(Y))` that `entropy_balance` solves,
-  so entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
-  1994) are two views of the same optimization. Matching population moments by reweighting is
-  also what kernel mean matching does for covariate shift (Gretton et al. 2009).
-- **This is label shift.** With no covariates in the base — pure
-  `outcome_calibration_weights(Y, [K])` — i3pw *is* the classic correction for **prior
-  probability shift / label shift**: sample and population differ only in the label marginal
-  `P(Y)`, and the fix is to reweight the sample to the known priors (Saerens et al. 2002;
-  Storkey 2009; Lipton et al. 2018). i3pw generalises it two ways: (i) it tilts an arbitrary
-  base weight `d(X)` from a participation model rather than uniform weights, and (ii) where
-  black-box label-shift estimators must *infer* `P(Y)` from a classifier, i3pw takes `P(Y)` as
-  a **known register quantity** — the regime where the correction is exact rather than estimated.
-
-The placement also re-derives the honesty boundary. Label shift assumes the class-conditional
-`P(X | Y)` is stable between sample and population — selection acts only *through* `Y` — which is
-the exact analogue of "the density ratio lies in the tilt family" above. When selection also acts
-*within* outcome classes, that assumption fails and so does the guarantee: this is precisely the
-[case-mix](#prevalence-sets-the-scale-not-the-case-mix) caution (selection on severity within
-cases) and the [collider](#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)
-boundary (selection on the exposure alongside the outcome), stated in a second language.
 
 ## Two separable tasks: predict selection, then anchor to the population
 
