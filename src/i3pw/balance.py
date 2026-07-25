@@ -19,7 +19,7 @@ calibrate on, and the surplus becomes evidence. Concretely, for a biobank: calib
 the known disease prevalences, then check the reweighted sample against register margins
 you held back — age, sex, region, education. A large post-weighting discrepancy on a
 held-out margin says the tilt family does not contain the true selection mechanism, which
-is exactly the assumption the README's "What is identified?" section rests on.
+is exactly the assumption that "What is identified?" in ``docs/theory.md`` rests on.
 
 The standardized mean difference (SMD) is the usual currency — the gap between the
 weighted sample mean and the population target, in sample standard deviations, so

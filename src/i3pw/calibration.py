@@ -230,8 +230,8 @@ def base_weights(
     ``base="uniform"`` returns ones (pure calibration). ``base="lasso"`` fits
     :func:`i3pw.methods.lasso_propensity` ``P(selected | X)`` on the training frame and
     inverts it, using ``base_scheme="inverse"`` (``1/P``) or ``"odds"`` (``(1-P)/P``,
-    which composes exactly with the exponential-tilt calibration; see the README's
-    "What is identified?"). Shared by :func:`calibration_ipw` and the bootstrap so the
+    which composes exactly with the exponential-tilt calibration; see "What is
+    identified?" in ``docs/theory.md``). Shared by :func:`calibration_ipw` and the bootstrap so the
     two cannot drift.
     """
     if base not in ("lasso", "uniform"):
