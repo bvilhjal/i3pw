@@ -171,6 +171,18 @@ class CalibrationDiagnostics:
     tilt: np.ndarray | None = None
     """The fitted dual coefficients ``lambda``, one per calibration constraint.
 
+    For the simplest case these have a closed form worth carrying in your head. With one
+    binary outcome, a uniform base, sample prevalence ``P`` and target ``K``, the single
+    coefficient is the log odds-ratio between the two::
+
+        lambda = log[ (K/(1-K)) / (P/(1-P)) ]
+
+    which yields weights proportional to ``K/P`` for cases and ``(1-K)/(1-P)`` for
+    controls — the classical choice-based-sample weights (Manski & Lerman 1977). So
+    ``lambda`` measures how hard the sample had to be pushed to reach the register, in
+    log-odds. With several constraints or a non-uniform base there is no closed form, but
+    the reading is the same.
+
     These *are* the estimated outcome-driven part of the selection log-odds: the weights
     are ``base_i * exp(lambda . (g_i - target))``, so ``lambda`` is the ``theta`` of the
     package's ``a(X) + theta . g(Y)`` decomposition, on the log-odds scale and identified
