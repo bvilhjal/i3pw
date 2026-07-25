@@ -20,12 +20,15 @@ from __future__ import annotations
 
 from ._links import logit, sigmoid
 from .aipw import AIPWResult, aipw_mean
+from .balance import BalanceReport, balance_report
 from .calibration import (
     CalibrationDiagnostics,
     CalibrationResult,
     CalibrationWarning,
+    apply_tilt,
     base_weights,
     calibration_ipw,
+    calibration_mean_se,
     effective_sample_size,
     entropy_balance,
     outcome_calibration_weights,
@@ -78,6 +81,10 @@ __all__ = [
     "CalibrationDiagnostics",
     "CalibrationWarning",
     "entropy_balance",
+    "apply_tilt",
+    "calibration_mean_se",
+    "balance_report",
+    "BalanceReport",
     "outcome_calibration_weights",
     "stratified_calibration_weights",
     "base_weights",

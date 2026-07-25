@@ -271,6 +271,44 @@ calibration_ipw                   0.00        0.00   <- uses the known prevalenc
 --------------------------------------------------
 ```
 
+## What the headline benchmark does *not* show (`examples/honest_benchmark.py`)
+
+The 0.00% row above is an **algebraic identity**, not a result: every outcome is anchored,
+so the estimator reproduces the prevalences it was handed. Two things follow, and both
+are measured by `examples/honest_benchmark.py` rather than asserted.
+
+**Transfer is the honest question.** Anchor outcome 1, evaluate outcome 2 — a disease
+whose prevalence you never supplied. Mean absolute % error over 12 replications:
+
+| | unanchored outcome | no correction |
+| --- | --- | --- |
+| `calibration_ipw(base="lasso")` | 77.2 ± 6.1 | — |
+| `calibration_ipw(base="uniform")` | 78.5 ± 6.2 | — |
+| naive sample prevalence | — | 78.4 ± 6.8 |
+
+Calibrating on one disease does essentially **nothing** for another. That is not a bug —
+it is the [case-mix caution](#prevalence-sets-the-scale-not-the-case-mix) and the
+marginal-vs-joint boundary showing up as a number. Marginal calibration fixes marginal
+quantities; anchor what you want corrected.
+
+**The default's benefit depends on the simulation.** The shipped DGM had *no covariate
+channel at all* — selection was a function of `Y` alone, so `P(S|X)` was only weakly
+learnable second-hand through `X → Y → S` (AUC ≈ 0.58). On that setting a covariate base
+model has nothing to fit and merely adds noise, and no comparison run there can
+discriminate between the two channels the package is about.
+`SimConfig.selection_covariate_strength` adds the missing channel, and with it the base
+model earns its place — on worst held-out `|SMD|`, lower is better:
+
+| | no covariate channel (default) | channel on (`strength=1.5`) |
+| --- | --- | --- |
+| `base="lasso"` | 0.084 ± 0.029 | **0.211 ± 0.115** |
+| `base="uniform"` | 0.078 ± 0.037 | 0.566 ± 0.236 |
+
+So the `base="lasso"` default is right *when selection actually has a covariate
+component* — 2.7× better balance and 2.6× lower error on a held-out covariate mean. It
+looked useless only because the simulation gave it nothing to learn. Benchmark on a
+setting with the channel enabled before drawing conclusions about the base model.
+
 ## Why the covariate model fails and calibration works
 
 Run `python examples/monte_carlo.py` — it repeats the whole pipeline over 20 random
@@ -319,6 +357,48 @@ Two honest caveats:
 
 Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
+## Checking the weights: balance as a falsification test
+
+Every diagnostic in the section above describes the **solve** — did it converge, did it
+hit the targets, how concentrated are the weights. None of them can tell you the weights
+are *wrong*, because a calibration matches its constraints exactly whether or not the
+underlying density-ratio model is right. A broken run can even look healthier: a base
+model that misses a real participation driver can leave the residual at machine precision
+with a **larger** effective sample size than the correct one.
+
+`balance_report` supplies the missing test. Check the reweighted sample against
+population quantities the calibration **did not** use:
+
+```python
+rep = i3pw.balance_report(
+    features,                       # (n, k) quantities on the sampled units
+    weights,                        # calibration weights
+    population_means,               # what they should average to
+    constrained=[True, False, ...], # which ones were calibration targets
+)
+print(rep.summary())
+print(rep.worst_held_out, rep.passed())   # verdict uses ONLY the held-out columns
+```
+
+Constrained moments match by construction and carry no information — they are excluded
+from the verdict. *Unconstrained* ones do not have to match, so when they do the model
+has survived a test it could have failed. This is an **overidentification test**: supply
+more known population quantities than you calibrate on, and the surplus becomes evidence.
+For a biobank, calibrate to known disease prevalences and check against register margins
+you held back (age, sex, region). A large held-out `|SMD|` refutes the tilt-family
+assumption that [What is identified?](#what-is-identified) rests on.
+
+Measured on a population where participation depends on a covariate `X0` *and* the
+outcome, with the prevalence anchored either way:
+
+| | converged | residual | ESS | worst held-out \|SMD\| |
+| --- | --- | --- | --- | --- |
+| base model sees `X0` | ✔ | 4e-11 | 3165 | **0.17** |
+| base model misses `X0` | ✔ | 6e-11 | **10405** | **1.11** |
+
+Every shipped diagnostic prefers the broken run — its ESS is 3× "healthier". Only the
+held-out covariate separates them.
+
 ## Uncertainty
 
 Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces:
@@ -332,6 +412,20 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
   returns ≈0.04); on an estimand uncorrelated with the anchors it is about right; it can
   understate when the weights are noisy. Use the bootstrap when the weights were
   estimated.
+- `calibration_mean_se(values, weights, features)` — the SE that **does** account for the
+  estimated calibration, in closed form. The calibration estimator is asymptotically a
+  regression (GREG) estimator, so its influence function is the residual of the outcome
+  on the constrained functions, `e = y − μ − β·(g − ḡ)`. Constraining `g` removes exactly
+  the part of `y` that `g` explains, which gets the anchored case right for the right
+  reason: an anchored outcome *is* a column of `g`, so its residual is identically zero
+  and the SE collapses to 0. Validated against the bootstrap on a held-out estimand
+  (0.0759 closed-form vs 0.0785 from 400 replicates) — same answer, no re-solving.
+- `apply_tilt(features, tilt, targets)` — the fitted dual `λ` is exposed on
+  `CalibrationDiagnostics.tilt`; it *is* the estimated `θ` of `a(X) + θ·g(Y)`. Feed it
+  here to weight a held-out fold or newly recruited participants under the same
+  calibration without re-solving. Transferred weights are *not* re-calibrated, so their
+  achieved moments miss the targets by ordinary sampling error — which is what makes this
+  a usable check rather than a tautology.
 - `bootstrap_calibration_ipw(dataset, ...)` — a nonparametric bootstrap over the sampled
   units that re-solves the calibration each replicate, so it captures the
   weight-*estimation* variability the linearization SE omits; `refit_base=True` also

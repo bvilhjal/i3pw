@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from i3pw import make_dataset, nearest_pd_correlation, random_correlation
 from i3pw.dgm import SimConfig
@@ -69,16 +70,56 @@ def test_nearest_pd_is_positive_definite():
 
 
 def test_config_validation():
-    import pytest
 
     with pytest.raises(ValueError):
         SimConfig(n_outcomes=3, target_population_prevalence=(0.4, 0.1))
 
 
 def test_split_rejects_unknown_fold():
-    import pytest
 
     ds = make_dataset(seed=0, population_size=500, n_features=5, n_outcomes=1,
                       predictors_per_outcome=3, sample_size=100)
     with pytest.raises(ValueError, match="train"):
         ds.split("trian")
+
+
+def test_selection_covariate_strength_creates_a_learnable_participation_signal():
+    """Without a covariate channel a participation model has almost nothing to learn.
+
+    The package default (strength 0) makes selection a function of the outcomes alone.
+    P(S|X) is then only weakly learnable, and only second-hand — through X -> Y -> S —
+    so `lasso_ipw` failing to beat `no_correction` on that setting is a property of the
+    simulation, not a discovery about the method. Turning the channel on makes selection
+    directly predictable from X, which is what lets a benchmark tell the two channels
+    apart.
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import cross_val_score
+
+    def auc(strength):
+        ds = make_dataset(seed=0, population_size=4000, n_features=10, n_outcomes=2,
+                          predictors_per_outcome=5,
+                          target_population_prevalence=(0.4, 0.15),
+                          target_sample_prevalence=(0.2, 0.05), sample_size=1500,
+                          selection_covariate_strength=strength)
+        return cross_val_score(
+            LogisticRegression(max_iter=300), ds.X, ds.sample_indicator,
+            cv=3, scoring="roc_auc",
+        ).mean()
+
+    # At strength 0 the only path from X to S is the indirect one through Y, so a
+    # participation model finds only weak, second-hand signal.
+    assert auc(0.0) < 0.65
+    # With the channel on, selection is directly and strongly predictable from X.
+    assert auc(2.0) > 0.85
+
+
+def test_selection_covariate_strength_preserves_sample_size_and_outcome_bias():
+    ds = make_dataset(seed=1, population_size=3000, n_features=8, n_outcomes=2,
+                      predictors_per_outcome=4,
+                      target_population_prevalence=(0.4, 0.15),
+                      target_sample_prevalence=(0.2, 0.05), sample_size=800,
+                      selection_covariate_strength=1.0)
+    assert ds.sample_indicator.sum() == 800
+    # outcome-dependent selection still bites: the sample is still biased downward
+    assert ds.sample_prevalence[0] < ds.population_prevalence[0]
