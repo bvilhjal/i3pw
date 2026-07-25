@@ -72,6 +72,78 @@ is on the outcome alone (no covariates in the base), the two agree exactly — t
 is a per-class constant either way, which is why the liability-model `K/P` weights [below](#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
 are exact IPW, not an approximation.
 
+## Calibration is a regression estimator (and why the SEs look the way they do)
+
+One classical result does more practical work here than any other, and it is what
+`calibration_mean_se` implements. Deville & Särndal (1992) showed that **every** member of
+the calibration family — raking, linear calibration, the entropy tilt used here — is
+asymptotically equivalent to the **generalized regression (GREG)** estimator, to
+`O(n^-3/2)`. They therefore all share one asymptotic variance, and the GREG variance
+formula can be used for all of them. That is what rescues a package whose weights come
+from a solve with no closed form.
+
+Concretely, calibrating on `g` and then taking a weighted mean of `y` is asymptotically
+the same as *regressing `y` on `g` and correcting the prediction*. So the influence
+function is a **residual**:
+
+```
+e_i = y_i − μ − β·(g_i − ḡ),     β = weighted least squares of y on g
+Var(μ̂) = Σ wᵢ² eᵢ² / (Σ wᵢ)²
+```
+
+Three consequences, all visible in the package's output:
+
+- **An anchored margin gets SE exactly 0, for the right reason.** If `y` is itself a
+  column of `g`, the regression fits it perfectly, the residual is identically zero, and
+  the variance vanishes. That is not a numerical accident — it is the correct answer:
+  conditional on a known prevalence, the reweighted margin has no sampling variability.
+  The fixed-weight formula cannot see this and reports ≈0.04 instead.
+- **An estimand orthogonal to the constraints is unaffected.** Then `β = 0`, the residual
+  is `y − μ`, and the calibration SE reduces to the ordinary Hájek one.
+- **Everything in between is shrunk** by exactly the variance the constraints absorbed —
+  which is also why calibration *reduces* variance for quantities correlated with the
+  anchors, not just corrects bias.
+
+**Efficiency.** This is not merely convenient. Chan, Yam & Zhang (2016) show that
+empirical balancing calibration weighting attains the **semiparametric efficiency bound**
+globally — without nonparametric estimation of either the propensity or the outcome
+regression, whose finite-sample behaviour is the usual weak point of efficient estimators.
+The moment constraints inherit what the unknown propensity function would have supplied.
+
+**A correction to the "not doubly robust" line below.** Zhao & Percival (2017) prove that
+entropy balancing *is* doubly robust — with respect to a **linear outcome regression** and
+a **logistic propensity model** in the balancing functions — and attains the semiparametric
+variance bound when both hold. This does not rescue i3pw's identification problem, because
+that problem lives on a different axis: their double robustness is about which of two
+*models over a given `g`* may be misspecified, whereas i3pw's open question is whether `g`
+is **rich enough** to span the outcome-driven part of selection at all. If `g` misses it,
+both models are wrong together and no robustness property helps. Both statements are true;
+they answer different questions, and the [next section](#what-is-identified) is about the
+second.
+
+## What makes this falsifiable
+
+An identification assumption that cannot fail is not doing scientific work. The one above
+— the density ratio lies in the tilt family — is **untestable when the system is
+just-identified**: supply exactly as many known moments as you calibrate on, and the
+weights reproduce them by construction, whatever the truth. Every diagnostic the solve
+emits (convergence, residual, ESS) is then a statement about the optimizer, not the world.
+
+Supply **more** known population quantities than you constrain, and the surplus becomes
+evidence. The unconstrained ones did not have to match; that they do is a test the model
+could have failed. This is exactly the logic of a test of **overidentifying restrictions**
+(Sargan 1958; Hansen 1982), transplanted from GMM: the constraints identify, the surplus
+moments test. `balance_report` implements it, and deliberately bases its verdict *only* on
+the held-out columns — see [balance as a falsification
+test](#checking-the-weights-balance-as-a-falsification-test) for the demonstration where
+every other diagnostic prefers the broken weighting.
+
+The practical reading for a biobank: calibrate to the disease prevalences you need
+corrected, and **hold back** register margins (age, sex, region, birth cohort) as tests. A
+large held-out `|SMD|` refutes the tilt family; a small one is the strongest positive
+evidence this framework can produce. It is not proof — passing an overidentification test
+never is — but it is the difference between an assumption and a checked assumption.
+
 ## Where this sits: density ratios, I-projection, and label shift
 
 The construction is not ad hoc — it is one object seen through three established literatures,
@@ -880,6 +952,21 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
   the identification section uses)*
 - Anderson, J. A. (1972). Separate sample logistic discrimination. *Biometrika* 59(1),
   19–35. *(logistic participation under retrospective / separate sampling)*
+- Zhao, Q. & Percival, D. (2017). Entropy balancing is doubly robust. *Journal of Causal
+  Inference* 5(1), 41–55. *(double robustness w.r.t. a linear outcome regression and a
+  logistic propensity model — the axis i3pw's caveat is **not** about)*
+- Chan, K. C. G., Yam, S. C. P., Zhang, Z. (2016). Globally efficient non-parametric
+  inference of average treatment effects by empirical balancing calibration weighting.
+  *JRSS-B* 78(3), 673–700. [doi:10.1111/rssb.12129](https://doi.org/10.1111/rssb.12129)
+  *(calibration weighting attains the semiparametric efficiency bound)*
+- Sargan, J. D. (1958). The estimation of economic relationships using instrumental
+  variables. *Econometrica* 26(3), 393–415.
+- Hansen, L. P. (1982). Large sample properties of generalized method of moments
+  estimators. *Econometrica* 50(4), 1029–1054. *(the overidentification test whose logic
+  `balance_report` transplants)*
+- Austin, P. C. (2009). Balance diagnostics for comparing the distribution of baseline
+  covariates between treatment groups in propensity-score matched samples. *Statistics in
+  Medicine* 28(25), 3083–3107. *(standardized mean differences; the |SMD| < 0.1 rule)*
 
 **Distribution shift: density-ratio and label-shift correction (the same problem in
 machine learning):**
