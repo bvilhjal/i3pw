@@ -1,3 +1,5 @@
+import copy
+import pickle
 import warnings
 
 import numpy as np
@@ -469,3 +471,47 @@ def test_stratified_zero_share_raises():
             Y, strata, within_stratum_prevalence=np.array([[0.3], [0.3]]),
             stratum_share=np.zeros(2),
         )
+
+
+def test_non_finite_input_raises():
+    # A single NaN used to propagate silently into an all-NaN weight vector whose
+    # diagnostics reported "ESS 0.0" and blamed the optimizer.
+    Y = np.zeros((20, 1))
+    Y[:6, 0] = 1.0
+    bad = Y.copy()
+    bad[3, 0] = np.nan
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        entropy_balance(bad, [0.3])
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        entropy_balance(Y, [np.nan])
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        entropy_balance(Y, [0.3], base_weights=np.full(20, np.inf))
+
+
+def test_no_constraints_is_reported_as_converged():
+    # k == 0 is mathematically exact (the base weights already solve it); it must not
+    # be reported as an optimizer failure ("ERROR: N <= 0").
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any CalibrationWarning here fails the test
+        w, diag = entropy_balance(np.zeros((25, 0)), [], return_diagnostics=True)
+    assert diag.converged
+    assert diag.max_abs_residual == 0.0
+    assert w.sum() == pytest.approx(1.0)
+
+
+def test_unreachable_target_reports_the_convex_hull_diagnosis():
+    # An impossible target makes the optimizer fail *and* miss the target; the useful
+    # message is the convex-hull one, which used to be hidden behind res.success.
+    f = np.linspace(0.0, 1.0, 100).reshape(-1, 1)
+    with pytest.warns(CalibrationWarning, match="convex hull"):
+        entropy_balance(f, [2.0])
+
+
+def test_calibration_result_survives_deepcopy_and_pickle(dataset):
+    # A catch-all __getattr__ recursed forever when method_result was not yet set,
+    # which is exactly what deepcopy and unpickling do.
+    res = calibration_ipw(dataset, base="uniform")
+    for clone in (copy.deepcopy(res), pickle.loads(pickle.dumps(res))):
+        assert clone.name == res.name
+        assert np.allclose(clone.percent_diff, res.percent_diff)
+        assert clone.summary() == res.summary()

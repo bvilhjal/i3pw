@@ -18,10 +18,15 @@ keywords = [
     "causal-inference",
 ]
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=1.24",
@@ -31,10 +36,12 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
-dev = ["pytest>=7", "ruff>=0.5"]
+dev = ["pytest>=7", "ruff>=0.5", "mypy>=1.8"]
 
 [project.urls]
 Homepage = "https://github.com/bvilhjal/i3pw"
+Source = "https://github.com/bvilhjal/i3pw"
+Issues = "https://github.com/bvilhjal/i3pw/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

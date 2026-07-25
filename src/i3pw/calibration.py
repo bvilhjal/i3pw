@@ -75,6 +75,7 @@ import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
+import numpy.typing as npt
 from scipy.optimize import minimize
 
 from .dgm import Dataset
@@ -84,6 +85,20 @@ from .metrics import percent_difference, weighted_prevalence
 
 class CalibrationWarning(UserWarning):
     """Warned when calibration weights are unreliable (non-convergence, infeasible target)."""
+
+
+def _require_finite(a: np.ndarray, name: str) -> None:
+    """Raise if ``a`` holds NaN or infinity.
+
+    Without this, a single missing value silently propagates through the exponential
+    tilt and yields an all-NaN weight vector whose diagnostics report ``ESS 0.0`` and
+    blame the optimizer — a confusing failure a long way from its cause.
+    """
+    if not np.all(np.isfinite(a)):
+        raise ValueError(
+            f"{name} contains NaN or infinite values; drop or impute them before "
+            "calibrating (missing values cannot be reweighted)."
+        )
 
 
 def effective_sample_size(weights: np.ndarray) -> float:
@@ -181,8 +196,8 @@ def base_weights(
 
 
 def entropy_balance(
-    features: np.ndarray,
-    targets: np.ndarray,
+    features: npt.ArrayLike,
+    targets: npt.ArrayLike,
     *,
     base_weights: np.ndarray | None = None,
     ridge: float = 0.0,
@@ -234,13 +249,24 @@ def entropy_balance(
     n, k = F.shape
     if k != t.shape[0]:
         raise ValueError("features must have one column per target.")
+    _require_finite(F, "features")
+    _require_finite(t, "targets")
 
     d = np.ones(n) if base_weights is None else np.asarray(base_weights, dtype=float)
+    _require_finite(d, "base_weights")
     if np.any(d < 0):
         raise ValueError("base_weights must be non-negative.")
     if d.sum() == 0:
         raise ValueError("base_weights sum to zero; cannot form calibration weights.")
     d = d / d.sum()
+
+    if k == 0:
+        # No constraints: the base weights already solve the problem exactly. Skip the
+        # dual solve, which would otherwise report a spurious "ERROR: N <= 0" failure.
+        if return_diagnostics:
+            return d, _diagnostics(d, True, 0, 0.0, "")
+        return d
+
     H = F - t  # centered constraints; we want the weighted mean of H to be 0
 
     def objective(lam):
@@ -264,17 +290,20 @@ def entropy_balance(
     max_abs_residual = float(np.max(np.abs(w @ F - t))) if k else 0.0
     message = "" if res.success else str(res.message)
     if warn:
-        if not res.success:
-            warnings.warn(
-                f"entropy_balance: optimizer did not converge ({message!r}); "
-                "weights may be unreliable.",
-                CalibrationWarning, stacklevel=2,
-            )
-        elif ridge == 0.0 and max_abs_residual > tol:
+        # The unmet-target diagnosis is the *informative* one — an unreachable target
+        # is exactly the case where the optimizer also fails to converge, so it must
+        # not be hidden behind `res.success`.
+        if ridge == 0.0 and max_abs_residual > tol:
             warnings.warn(
                 f"entropy_balance: calibration targets not met (max residual "
                 f"{max_abs_residual:.2e} > tol {tol:.1e}); the target likely lies outside "
                 "the sample's convex hull (e.g. an anchored outcome with no cases sampled).",
+                CalibrationWarning, stacklevel=2,
+            )
+        elif not res.success:
+            warnings.warn(
+                f"entropy_balance: optimizer did not converge ({message!r}); "
+                "weights may be unreliable.",
                 CalibrationWarning, stacklevel=2,
             )
 
@@ -485,8 +514,35 @@ class CalibrationResult:
     pre_trim_residual: float = 0.0   # max |achieved - target| before weight trimming
     post_trim_residual: float = 0.0  # ...and after (differs only when trim= is used)
 
-    def __getattr__(self, item):  # delegate weighted_prevalence/percent_diff/summary/...
-        return getattr(self.method_result, item)
+    # The MethodResult surface is forwarded explicitly rather than through
+    # ``__getattr__``. A catch-all delegator recursed infinitely whenever
+    # ``method_result`` was not yet set on the instance — which is exactly what
+    # ``copy.deepcopy`` and unpickling do — raising RecursionError on the package's
+    # headline return type. Explicit properties also keep the surface type-checkable.
+
+    @property
+    def name(self) -> str:
+        return self.method_result.name
+
+    @property
+    def weighted_prevalence(self) -> np.ndarray:
+        return self.method_result.weighted_prevalence
+
+    @property
+    def percent_diff(self) -> np.ndarray:
+        return self.method_result.percent_diff
+
+    @property
+    def population_prevalence(self) -> np.ndarray:
+        return self.method_result.population_prevalence
+
+    @property
+    def extra(self) -> dict:
+        return self.method_result.extra
+
+    def summary(self) -> str:
+        """Per-outcome estimate table (delegates to the underlying :class:`MethodResult`)."""
+        return self.method_result.summary()
 
     def diagnostics_summary(self) -> str:
         """Human-readable convergence / support / stability report."""

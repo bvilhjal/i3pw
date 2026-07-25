@@ -53,10 +53,10 @@ def random_correlation(
     high: float = 0.5,
 ) -> np.ndarray:
     """Random correlation matrix with off-diagonals drawn uniformly from ``[low, high]``."""
-    corr = np.zeros((n_features, n_features))
+    upper = np.zeros((n_features, n_features))
     iu = np.triu_indices(n_features, k=1)
-    corr[iu] = rng.uniform(low, high, size=iu[0].size)
-    corr = corr + corr.T
+    upper[iu] = rng.uniform(low, high, size=iu[0].size)
+    corr = upper + upper.T
     np.fill_diagonal(corr, 1.0)
     return nearest_pd_correlation(corr)
 
