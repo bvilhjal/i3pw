@@ -24,9 +24,10 @@ Knowing `Pr(Y_q)` a priori (from a registry or census) is exactly the informatio
 the covariate model lacks, and injecting it as a **calibration constraint** — force
 the reweighted sample to reproduce the known prevalences — supplies the
 disease-driven part of the reweighting that the covariate model cannot. What that
-does and does not identify is made precise in [What is identified?](docs/theory.md#what-is-identified)
-below: calibration recovers *minimum-divergence* weights matching the known moments,
-which coincide with the true inverse-probability weights under a stated condition.
+does and does not identify is made precise in
+[What is identified?](docs/theory.md#what-is-identified): calibration recovers
+*minimum-divergence* weights matching the known moments, which coincide with the true
+inverse-probability weights under a stated condition.
 
 ## Install
 
@@ -109,7 +110,7 @@ of them.
 
 | | | |
 | --- | --- | --- |
-| [**docs/theory.md**](docs/theory.md) | what the method identifies, where the construction comes from, why the standard errors behave as they do, and [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable) | read before quoting a number in a paper |
+| [**docs/theory.md**](docs/theory.md) | what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
 | [**docs/guide.md**](docs/guide.md) | the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-balance-as-a-falsification-test), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
 | [**docs/studies.md**](docs/studies.md) | the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
 
@@ -123,8 +124,8 @@ elsewhere.
 
 ## Conclusions and recommendations
 
-Everything above, condensed. Each recommendation is followed by the reason for it, and
-the reason links to the section that establishes it — if you disagree with a
+All three documents, condensed to a page. Each recommendation is followed by the reason
+for it, and the reason links to the section that establishes it — if you disagree with a
 recommendation, the disagreement is really with the evidence behind it, so go there.
 
 ### The recipe

@@ -1,8 +1,15 @@
 # i3pw — user guide
 
-The estimators, how to check a weighting, and how to put error bars on it. The recipe
-these support is in the [README](../README.md#conclusions-and-recommendations); the
-justification is in [theory.md](theory.md).
+The estimators, how to [check a weighting](#checking-the-weights-balance-as-a-falsification-test),
+and how to [put error bars on it](#uncertainty).
+
+The recipe these support is in the
+[README](../README.md#conclusions-and-recommendations), and the menu of what you might
+calibrate on — from a single prevalence up to comorbidity and severity — is the
+[ladder](theory.md#a-ladder-of-prevalence-informed-weights) in `theory.md`, which is worth
+reading first if you have a real cohort and are deciding what to constrain. Justification
+for any of it is in [theory.md](theory.md); sources are in its
+[bibliography](theory.md#references).
 
 
 ## Methods
@@ -106,7 +113,9 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
   and the SE collapses to 0. Validated against the bootstrap on a held-out estimand
   (0.0759 closed-form vs 0.0785 from 400 replicates) — same answer, no re-solving.
 - `apply_tilt(features, tilt, targets)` — the fitted dual `λ` is exposed on
-  `CalibrationDiagnostics.tilt`; it *is* the estimated `θ` of `a(X) + θ·g(Y)`. Feed it
+  `CalibrationDiagnostics.tilt`; it *is* the estimated `θ` of the selection decomposition
+  `a(X) + θ·g(Y)` ([what that means](theory.md#what-is-identified), and for one binary
+  outcome it is just the log odds-ratio between register and sample). Feed it
   here to weight a held-out fold or newly recruited participants under the same
   calibration without re-solving. Transferred weights are *not* re-calibrated, so their
   achieved moments miss the targets by ordinary sampling error — which is what makes this

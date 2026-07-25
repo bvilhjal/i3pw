@@ -1,8 +1,18 @@
 # i3pw — theory
 
-What the method identifies, where the construction comes from, what follows for
-estimation and for testing, and what it cannot do. Start at the
-[README](../README.md) if you have not.
+Start at the [README](../README.md) if you have not.
+
+In order: [what the method identifies](#what-is-identified) — beginning with a case small
+enough to check by hand — [where the construction comes from](#where-this-sits-density-ratios-i-projection-and-label-shift),
+what follows for [estimation](#calibration-is-a-regression-estimator-and-why-the-ses-look-the-way-they-do)
+and for [testing](#what-makes-this-falsifiable), the
+[two tasks](#two-separable-tasks-predict-selection-then-anchor-to-the-population) the
+package keeps apart with a [ladder of weights](#a-ladder-of-prevalence-informed-weights)
+built on them, and the [bibliography](#references) for all three documents.
+
+A reader who wants only one thing from this file probably wants
+[what makes it falsifiable](#what-makes-this-falsifiable): it is the section that says
+what would have to happen for the method to be wrong.
 
 
 ## What is identified?
@@ -79,7 +89,8 @@ the tilt family as inclusion becomes rare (`π → 0`, where `1/π ≈ (1−π)/
 `calibration_ipw(base_scheme="odds")` uses the exactly-composing form; `"inverse"` (the
 default) is the standard IPW weight and is very close under strong selection. When selection
 is on the outcome alone (no covariates in the base), the two agree exactly — the reweighting
-is a per-class constant either way, which is why the liability-model `K/P` weights [below](studies.md#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
+is a per-class constant either way, which is why the `K/P` weights of the
+[liability-threshold study](studies.md#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
 are exact IPW, not an approximation.
 
 ## Where this sits: density ratios, I-projection, and label shift
