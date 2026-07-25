@@ -1,15 +1,21 @@
 # i3pw — simulation studies
 
 The evidence behind the claims in the [README](../README.md) and
-[theory.md](theory.md). Read the first section before any of the others: it is the one
-that tries hardest to make the method look bad.
+[theory.md](theory.md). Every study here is a simulation with a known truth, run by a
+script in `examples/`, so any number can be reproduced by running it.
+
+Read the [first section](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)
+before any of the others: it is the one that tries hardest to make the method look bad,
+and it is where the front page's `0.00` gets its caveat. Sources for the methods compared
+here are in the [bibliography](theory.md#references).
 
 
 ## What the headline benchmark does *not* show (`examples/honest_benchmark.py`)
 
-The 0.00% row above is an **algebraic identity**, not a result: every outcome is anchored,
-so the estimator reproduces the prevalences it was handed. Two things follow, and both
-are measured by `examples/honest_benchmark.py` rather than asserted.
+The benchmark table on the [front page](../README.md#quick-start) reports `0.00` for
+`calibration_ipw`. That row is an **algebraic identity**, not a result: every outcome
+there is anchored, so the estimator reproduces the prevalences it was handed. Two things
+follow, and both are measured by `examples/honest_benchmark.py` rather than asserted.
 
 **Transfer is the honest question.** Anchor outcome 1, evaluate outcome 2 — a disease
 whose prevalence you never supplied. Mean absolute % error over 12 replications:
@@ -48,7 +54,7 @@ Across 20 populations (`python examples/monte_carlo.py`), mean absolute % error 
 ```
 method                     Y1 %err         Y2 %err
 no_correction        46.81±5.70      79.53±6.49
-lasso_ipw            44.66±5.93      78.50±6.61      <- see the caveat above
+lasso_ipw            44.66±5.93      78.50±6.61      <- no covariate channel to learn
 calibration_ipw       0.00±0.00       0.00±0.00      <- by construction
                                     (Kish effective sample size: 155 ± 32)
 ```
