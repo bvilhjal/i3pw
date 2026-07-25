@@ -325,8 +325,13 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
 
 - `weighted_mean_se(values, weights)` — the design-based linearization (sandwich) SE of a
   Hájek weighted mean or prevalence, `Var = Σ wᵢ²(yᵢ−μ)² / (Σ wᵢ)²`. Exact for
-  independent units but treats the weights as *fixed*, so it is a lower bound on the
-  uncertainty of a calibration estimate.
+  independent units, but it treats the weights as *fixed*, so it does not describe the
+  uncertainty of a calibration estimate — and it is **not a bound in either direction**.
+  On an anchored margin it badly *overstates* (calibration reproduces the known
+  prevalence exactly, so the true sampling variability is zero while the formula still
+  returns ≈0.04); on an estimand uncorrelated with the anchors it is about right; it can
+  understate when the weights are noisy. Use the bootstrap when the weights were
+  estimated.
 - `bootstrap_calibration_ipw(dataset, ...)` — a nonparametric bootstrap over the sampled
   units that re-solves the calibration each replicate, so it captures the
   weight-*estimation* variability the linearization SE omits; `refit_base=True` also

@@ -1,6 +1,9 @@
+import warnings
+
 import numpy as np
 import pytest
 
+import i3pw
 from i3pw import (
     bootstrap_calibration_ipw,
     make_dataset,
@@ -67,3 +70,53 @@ def test_prevalence_sensitivity_tracks_anchored_target(dataset):
     assert r.spread[0] == pytest.approx(pop0 * 0.2, abs=2e-3)
     assert np.all(r.ess > 0)
     assert "sensitivity" in r.summary()
+
+
+def test_bootstrap_discards_uncalibrated_replicates():
+    """Replicates whose calibration cannot meet the targets must not enter the interval.
+
+    A resample containing no cases of a rare anchored outcome puts the target outside
+    its convex hull; the tilt then runs to a corner. Those replicates used to be
+    recorded unconditionally, widening (and skewing) the interval — including for
+    *other*, well-supported outcomes sharing the solve.
+    """
+    ds = i3pw.make_dataset(
+        seed=9, population_size=6000, n_features=10, n_outcomes=3,
+        predictors_per_outcome=5,
+        target_population_prevalence=(0.40, 0.15, 0.06),
+        target_sample_prevalence=(0.20, 0.04, 0.004), sample_size=1200,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = i3pw.bootstrap_calibration_ipw(ds, base="uniform", n_boot=60, seed=1)
+
+    # Accounting is exposed rather than hidden.
+    assert res.n_boot == 60
+    assert res.n_failed == res.n_boot - res.replicates.shape[0]
+    assert 0.0 <= res.failure_rate <= 1.0
+    # Every surviving replicate actually hit each anchored target.
+    for a in res.anchor_outcomes:
+        target = ds.population_prevalence[a]
+        assert np.allclose(res.replicates[:, a], target, atol=1e-5)
+    # No surviving replicate is a degenerate corner solution.
+    assert not np.any((res.replicates <= 1e-9) | (res.replicates >= 1.0 - 1e-9))
+
+
+def test_bootstrap_reports_failures_in_summary_and_warns():
+    """A discarded replicate is warned about and shown in the summary, never silent."""
+    rng = np.random.default_rng(0)
+    n = 400
+    Y = np.zeros((n, 1))
+    Y[:3, 0] = 1.0  # 3 cases: many resamples will contain none
+
+    class _Stub:  # minimal duck-typed stand-in for a Dataset
+        population_prevalence = np.array([0.10])
+
+        def split(self, which):
+            X = rng.standard_normal((n, 2))
+            return X, Y, np.ones(n, dtype=int)
+
+    with pytest.warns(i3pw.CalibrationWarning, match="discarded"):
+        res = i3pw.bootstrap_calibration_ipw(_Stub(), base="uniform", n_boot=40, seed=3)
+    assert res.n_failed > 0
+    assert "discarded" in res.summary()

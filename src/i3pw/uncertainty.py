@@ -20,12 +20,18 @@ package. This module adds three complementary pieces:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
 from scipy.stats import norm
 
-from .calibration import base_weights, effective_sample_size, entropy_balance
+from .calibration import (
+    CalibrationWarning,
+    base_weights,
+    effective_sample_size,
+    entropy_balance,
+)
 from .methods import _test_arrays
 from .metrics import weighted_prevalence
 
@@ -55,9 +61,16 @@ def weighted_mean_se(values: np.ndarray, weights: np.ndarray, *, level: float = 
         Var(mu) = sum_i w_i^2 (y_i - mu)^2 / (sum_i w_i)^2,
 
     the standard ratio-estimator variance for independent units. Works for a mean or a
-    0/1 prevalence. Because it conditions on the weights, it is a *lower bound* on the
-    uncertainty of a calibration estimate — use :func:`bootstrap_calibration_ipw` when
-    the weights were themselves estimated.
+    0/1 prevalence.
+
+    It conditions on the weights, so it does not describe the uncertainty of a
+    *calibration* estimate — and, importantly, it is **not a bound in either
+    direction**. On an anchored margin it badly *overstates*: calibration reproduces the
+    known prevalence exactly every time, so that quantity's true sampling variability is
+    zero while this formula still returns a positive SE (~0.04 on the package's own
+    demo). On an estimand uncorrelated with the anchors it is about right, and it can
+    understate when the weights are noisy. Use :func:`bootstrap_calibration_ipw`, which
+    re-solves the calibration each replicate, whenever the weights were estimated.
     """
     y = np.asarray(values, dtype=float).ravel()
     w = np.asarray(weights, dtype=float).ravel()
@@ -83,9 +96,16 @@ class BootstrapResult:
     se: np.ndarray         # (Q,) bootstrap standard error
     ci_low: np.ndarray     # (Q,) percentile lower bound
     ci_high: np.ndarray    # (Q,) percentile upper bound
-    replicates: np.ndarray  # (n_boot, Q)
+    replicates: np.ndarray  # (n_kept, Q) — only the replicates that calibrated successfully
     anchor_outcomes: tuple[int, ...]
     level: float = 0.95
+    n_boot: int = 0      # replicates attempted
+    n_failed: int = 0    # ...of which discarded for failing to meet the calibration targets
+
+    @property
+    def failure_rate(self) -> float:
+        """Fraction of attempted replicates discarded as uncalibrated."""
+        return self.n_failed / self.n_boot if self.n_boot else 0.0
 
     def summary(self) -> str:
         pct = int(round(100 * self.level))
@@ -95,6 +115,12 @@ class BootstrapResult:
             lines.append(
                 f"  Y{q + 1}: {self.estimate[q]:.4f} ± {self.se[q]:.4f} "
                 f"[{self.ci_low[q]:.4f}, {self.ci_high[q]:.4f}]{tag}"
+            )
+        if self.n_failed:
+            lines.append(
+                f"  ({self.n_failed}/{self.n_boot} replicates discarded — "
+                f"{100 * self.failure_rate:.1f}% could not meet the calibration targets, "
+                "typically resamples with no cases of a rare anchored outcome)"
             )
         return "\n".join(lines)
 
@@ -135,18 +161,35 @@ def bootstrap_calibration_ipw(
     n_train = X_train.shape[0]
     anchor_targets = pop[list(anchors)]
 
-    def estimate_from(Yb: np.ndarray, bw: np.ndarray) -> np.ndarray:
-        w = entropy_balance(Yb[:, anchors], anchor_targets, base_weights=bw,
-                            ridge=shrinkage, warn=False)
+    def estimate_from(Yb: np.ndarray, bw: np.ndarray) -> np.ndarray | None:
+        """Estimates for one resample, or ``None`` if its calibration did not solve.
+
+        A resample that happens to contain no cases of a rare anchored outcome puts the
+        target outside its convex hull; the tilt then runs to a corner instead of meeting
+        the constraint. Such a replicate is not a draw from the estimator's sampling
+        distribution, and one infeasible constraint corrupts the *other* outcomes'
+        estimates too — so it is discarded rather than folded into the interval.
+        """
+        w, diag = entropy_balance(Yb[:, anchors], anchor_targets, base_weights=bw,
+                                  ridge=shrinkage, warn=False, return_diagnostics=True)
+        if shrinkage == 0.0 and (not diag.converged or diag.max_abs_residual > 1e-6):
+            return None
         return np.array([weighted_prevalence(w, Yb[:, j]) for j in range(q)])
 
     bw_full = base_weights(base, base_scheme, X_train, s_train, X_sel,
                            interactions=interactions, cv=cv)
     point = estimate_from(Y_sel, bw_full)
+    if point is None:
+        raise ValueError(
+            "bootstrap_calibration_ipw: the calibration does not solve on the full "
+            "sample, so there is no point estimate to bootstrap. Check anchor support "
+            "with calibration_ipw(...).diagnostics_summary()."
+        )
 
     rng = np.random.default_rng(seed)
-    reps = np.empty((n_boot, q))
-    for b in range(n_boot):
+    kept: list[np.ndarray] = []
+    n_failed = 0
+    for _ in range(n_boot):
         idx = rng.integers(0, n, size=n)
         Yb = Y_sel[idx]
         if refit_base and base == "lasso":
@@ -155,7 +198,27 @@ def bootstrap_calibration_ipw(
                               interactions=interactions, cv=cv)
         else:
             bw = bw_full[idx]
-        reps[b] = estimate_from(Yb, bw)
+        rep = estimate_from(Yb, bw)
+        if rep is None:
+            n_failed += 1
+        else:
+            kept.append(rep)
+
+    if len(kept) < 2:
+        raise ValueError(
+            f"bootstrap_calibration_ipw: only {len(kept)} of {n_boot} replicates "
+            "calibrated successfully; the anchored outcome(s) are too rare in this "
+            "sample to bootstrap. Anchor fewer outcomes, or use shrinkage > 0."
+        )
+    reps = np.vstack(kept)
+    if n_failed:
+        warnings.warn(
+            f"bootstrap_calibration_ipw: discarded {n_failed}/{n_boot} "
+            f"({100 * n_failed / n_boot:.1f}%) replicates whose calibration did not "
+            "meet the targets (typically resamples with no cases of a rare anchored "
+            "outcome). Intervals are computed from the remaining replicates.",
+            CalibrationWarning, stacklevel=2,
+        )
 
     alpha = 1.0 - level
     return BootstrapResult(
@@ -166,6 +229,8 @@ def bootstrap_calibration_ipw(
         replicates=reps,
         anchor_outcomes=anchors,
         level=level,
+        n_boot=n_boot,
+        n_failed=n_failed,
     )
 
 
