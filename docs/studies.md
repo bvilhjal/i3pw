@@ -12,7 +12,7 @@ here are in the [bibliography](theory.md#references).
 
 ## What the headline benchmark does *not* show (`examples/honest_benchmark.py`)
 
-The benchmark table on the [front page](../README.md#quick-start) reports `0.00` for
+The benchmark table on the [front page](../README.md#quick-start--the-simulations) reports `0.00` for
 `calibration_ipw`. That row is an **algebraic identity**, not a result: every outcome
 there is anchored, so the estimator reproduces the prevalences it was handed. Two things
 follow, and both are measured by `examples/honest_benchmark.py` rather than asserted.

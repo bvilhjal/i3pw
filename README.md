@@ -1,8 +1,14 @@
 # i3pw — Informed Inference of Inverse Probability Weights
 
-Correcting **outcome-dependent selection (ascertainment) bias** by
-**inverse-probability weighting (IPW)** when the population prevalences of the
-outcomes are known a priori.
+Correcting **outcome-dependent selection (ascertainment) bias** by reweighting a biased
+sample, when the population prevalences of the outcomes are known a priori.
+
+What it computes, stated exactly: not a recovered per-unit inclusion probability, but the
+**minimum-divergence weights that reproduce the known population moments**. Those equal
+the true inverse-probability weights under a condition that is stated, not assumed —
+[What is identified?](docs/theory.md#what-is-identified) — and are the closest reweighting
+to your starting weights otherwise. The package name predates the precision; the docs are
+the authority on what it does.
 
 ## The problem, and the idea
 
@@ -38,7 +44,37 @@ pip install -e '.[test]'   # with the test dependencies
 
 Requires Python ≥ 3.10 and numpy / scipy / scikit-learn.
 
-## Quick start
+## Quick start — a real cohort
+
+`calibrate` takes what a cohort actually has: outcomes for the people who participated,
+prevalences from a register, and optionally base weights from your own participation
+model. No simulation object, no ground truth.
+
+```python
+import i3pw
+
+fit = i3pw.calibrate(
+    Y=case_status[:, None],          # outcomes, participants only
+    targets=[0.012],                 # what the register says the prevalence is
+    base_weights=i3pw.inverse_probability_weights(p_hat),   # your participation model
+    holdout={"mean age": (age, 41.7), "% female": (female, 0.508)},   # NOT calibrated on
+)
+
+print(fit.summary())              # diagnostics, then the falsification verdict
+print(fit.mean(bmi).summary())    # weighted mean, SE that accounts for the tilt
+fit.weights                       # or just take the weights
+```
+
+`holdout=` is the argument that matters. Constrained margins match by construction and
+cannot refute anything; held-out register margins can, and are the only positive evidence
+this framework produces. Omit it and `fit.summary()` says so rather than implying a pass.
+Add `strata=` to calibrate prevalence *within* sex / birth year / ancestry / severity —
+usually the most important step for psychiatric cohorts, because a known prevalence fixes
+the number of cases and not their type.
+
+Full walkthrough: [the guide](docs/guide.md#if-you-have-a-cohort-start-here-calibrate).
+
+## Quick start — the simulations
 
 ```python
 import i3pw
@@ -59,7 +95,7 @@ print(ds.sample_prevalence)       # biased, naive estimate
 
 # 2. Correct the bias by calibrating the weights to the known prevalences.
 naive = i3pw.no_correction(ds)
-cal   = i3pw.calibration_ipw(ds, base="lasso")   # the recommended estimator
+cal   = i3pw.calibration_ipw(ds, base="lasso")   # `calibrate` with a Dataset around it
 
 print(naive.summary())
 print(cal.summary())              # weighted prevalence, per outcome
@@ -111,7 +147,7 @@ of them.
 | | | |
 | --- | --- | --- |
 | [**docs/theory.md**](docs/theory.md) | what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
-| [**docs/guide.md**](docs/guide.md) | the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-balance-as-a-falsification-test), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
+| [**docs/guide.md**](docs/guide.md) | [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-balance-as-a-falsification-test), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
 | [**docs/studies.md**](docs/studies.md) | the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
@@ -130,35 +166,45 @@ recommendation, the disagreement is really with the evidence behind it, so go th
 
 ### The recipe
 
+Steps 1–4 are one `calibrate` call — `base_weights=` for step 1's output, `targets=` for
+step 2, `strata=` for step 3, `holdout=` for step 4 — so the reasons below are the reasons
+for each argument.
+
 1. **Fit a participation model on whatever predicts participation** — demographic,
    socioeconomic, clinical, genetic, or outcomes observed frame-wide — and invert it for
-   base weights.
+   base weights (`inverse_probability_weights(p_hat)` → `base_weights=`).
    *Why:* it corrects the part of selection that is visible in covariates, and it is the
    only ingredient that can. On a population where participation genuinely depends on a
    covariate, dropping this step costs a factor of 2.7 in held-out balance
    ([benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
 2. **Calibrate those weights to known register quantities** rather than trusting the
-   model alone — `entropy_balance(Y, targets, base_weights=1/P̂)`.
+   model alone — `targets=`.
    *Why:* participation depends on *having the disease*, which the covariates barely
    proxy, so the covariate model alone leaves the ascertainment uncorrected. The two
    ingredients are complementary and the combination is best in **every** channel mix
    tested ([Study D](docs/studies.md#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
 3. **Calibrate within strata — sex, birth year, ancestry, severity — not just the pooled
-   margin** (`stratified_calibration_weights`).
+   margin** (`strata=` with `stratum_share=`).
    *Why:* a known prevalence fixes the *number* of cases, not their *type*. If the
    sampled cases are milder than the population's, matching the margin leaves that
    uncorrected ([case mix](docs/theory.md#prevalence-sets-the-scale-not-the-case-mix)). For psychiatric
-   cohorts this is usually the single most important step.
-4. **Hold back some known margins and test against them** (`balance_report`).
+   cohorts this is usually the single most important step. Watch the constraint count as
+   the strata get finer — `A` strata by `Q` outcomes outgrows the cells backing them, and
+   the solve reports success either way, so the package warns below ten units per
+   constraint.
+4. **Hold back some known margins and test against them** (`holdout=`, which returns a
+   `balance_report`).
    *Why:* a just-identified calibration reproduces its constraints whatever the truth, so
    nothing it reports can refute it. Held-out moments are the only thing that can
    ([falsifiability](docs/theory.md#what-makes-this-falsifiable)) — and in a worked case every other
    diagnostic *preferred* the broken weighting, whose ESS looked 3× healthier
    ([demonstration](docs/guide.md#checking-the-weights-balance-as-a-falsification-test)).
 5. **Report the effective sample size, a sensitivity sweep over `K`, and an interval that
-   accounts for the estimated weights** (`calibration_mean_se`, or the bootstrap).
+   accounts for the estimated weights** (`fit.mean(values)`, or the bootstrap).
    *Why:* the correction costs variance, register prevalences are not exact constants, and
    the fixed-weight SE is not a bound in either direction ([uncertainty](docs/guide.md#uncertainty)).
+   If you bootstrap, read its `failure_rate` first: discarded replicates are dropped
+   selectively from the tail, so a non-zero rate means the interval is too narrow.
 
 ### What not to do
 
@@ -201,6 +247,8 @@ framework can produce.
 
 ```
 src/i3pw/
+├── fit.py          # calibrate: the entry point for a real cohort (arrays in, weights,
+│                   #   diagnostics and the held-out balance test out)
 ├── calibration.py  # the core: entropy_balance, calibration_ipw, apply_tilt,
 │                   #   calibration_mean_se, stratified/joint calibration, diagnostics
 ├── balance.py      # balance_report: the falsification test (held-out moments)
@@ -214,7 +262,8 @@ src/i3pw/
 └── _links.py       # stable sigmoid / logit / probability clamp
 docs/               # theory.md, guide.md, studies.md
 tests/              # pytest suite
-examples/           # honest_benchmark.py is the one to read first
+examples/           # real_cohort_workflow.py if you have a cohort;
+                    #   honest_benchmark.py if you are judging the method
 ```
 
 ## Tests
