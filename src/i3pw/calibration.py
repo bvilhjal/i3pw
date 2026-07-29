@@ -501,7 +501,7 @@ def calibration_mean_se(
 
 
 def _marginal_design(
-    Y: np.ndarray,
+    Y: npt.ArrayLike,
     prevalences,
     joint_prevalences=None,
     *,
@@ -547,10 +547,10 @@ def _marginal_design(
 
 
 def _stratified_design(
-    Y: np.ndarray,
-    strata: np.ndarray,
-    within_stratum_prevalence: np.ndarray,
-    stratum_share: np.ndarray,
+    Y: npt.ArrayLike,
+    strata: npt.ArrayLike,
+    within_stratum_prevalence: npt.ArrayLike,
+    stratum_share: npt.ArrayLike,
     *,
     labels: list[str] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
