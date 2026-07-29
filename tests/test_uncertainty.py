@@ -120,3 +120,8 @@ def test_bootstrap_reports_failures_in_summary_and_warns():
         res = i3pw.bootstrap_calibration_ipw(_Stub(), base="uniform", n_boot=40, seed=3)
     assert res.n_failed > 0
     assert "discarded" in res.summary()
+    # The count alone reads as bookkeeping. Discarding is selective — it drops the
+    # resamples poorest in rare cases, i.e. the tail — so the summary has to say that
+    # the interval is narrower than the truth, not merely that replicates went missing.
+    assert "too NARROW" in res.summary()
+    assert res.failure_rate > 0

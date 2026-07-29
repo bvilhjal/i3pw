@@ -1,7 +1,9 @@
 # i3pw — user guide
 
-The estimators, how to [check a weighting](#checking-the-weights-balance-as-a-falsification-test),
-and how to [put error bars on it](#uncertainty).
+If you have a real cohort, [`calibrate`](#if-you-have-a-cohort-start-here-calibrate) is
+the entry point and the rest of this page is background. Then: the estimators, how to
+[check a weighting](#checking-the-weights-balance-as-a-falsification-test), and how to
+[put error bars on it](#uncertainty).
 
 The recipe these support is in the
 [README](../README.md#conclusions-and-recommendations), and the menu of what you might
@@ -12,7 +14,82 @@ for any of it is in [theory.md](theory.md); sources are in its
 [bibliography](theory.md#references).
 
 
-## Methods
+## If you have a cohort, start here: `calibrate`
+
+Everything else on this page takes a `Dataset` — a *simulated* population carrying
+ground-truth coefficients, with its population prevalence computed from outcomes observed
+on everybody. Your cohort has none of that, and does not need it. `calibrate` takes what
+you actually have:
+
+```python
+import i3pw
+
+fit = i3pw.calibrate(
+    Y=case_status[:, None],              # outcomes for participants only
+    targets=[0.012],                     # register prevalence
+    base_weights=i3pw.inverse_probability_weights(p_hat),   # your participation model
+    holdout={"mean age": (age, 41.7),    # register margins you did NOT calibrate on
+             "% female": (female, 0.508)},
+)
+
+print(fit.summary())            # diagnostics, then the falsification verdict
+print(fit.mean(bmi).summary())  # a weighted mean, with an SE that knows about the tilt
+fit.weights                     # if you would rather take the weights and go
+```
+
+Four arguments carry the recipe, and it is worth knowing which does what.
+
+**`base_weights=`** is the covariate-driven half of the correction, and it comes from your
+participation model — any model, fitted however you like on whatever sampling frame you
+have. Pass `1/P̂`, or hand the predicted probabilities to `inverse_probability_weights`
+(which also offers `scheme="odds"`, the `(1−P)/P` form that composes exactly with the
+tilt). Omit it and you get pure calibration from uniform weights: correct when selection
+acts only through the outcome, silent about the covariate channel when it does not.
+
+**`targets=`** are the known population prevalences — the outcome-driven half.
+
+**`strata=`** calibrates prevalence *within* sex, birth year, ancestry or severity instead
+of only the pooled margin, and pins the stratum shares as well. Pass integer labels plus
+`stratum_share`, and give `targets` as the `(A, Q)` within-stratum prevalences. A known
+prevalence fixes the *number* of cases, not their *type*
+([case mix](theory.md#prevalence-sets-the-scale-not-the-case-mix)); for psychiatric
+cohorts this is usually the step that matters most.
+
+**`holdout=`** is the only part of the output that can tell you the weighting is wrong.
+Name quantities whose population value you know and are deliberately *not* constraining;
+they become a [balance report](#checking-the-weights-balance-as-a-falsification-test)
+whose verdict ignores the constrained columns. Leave it out and `fit.summary()` will say,
+in as many words, that nothing was tested — which is not the same as a pass.
+
+`fit.mean(values)` gives a weighted mean whose standard error accounts for the estimated
+tilt (a constrained margin correctly gets ~0; see [Uncertainty](#uncertainty)), and
+`fit.apply_to(...)` re-weights fresh rows under the already-fitted tilt without re-solving.
+
+### The recipe, run end to end
+
+`examples/real_cohort_workflow.py` walks the whole thing on a population where
+participation depends on the disease *and* on age, so each half of the correction has
+something only it can fix. Scored on a trait no weighting was given (truth 25.112):
+
+| weighting | disease | held-out age | trait mean | ESS |
+| --- | --- | --- | --- | --- |
+| naive | 0.1738 | 51.02 | 25.650 | 45099 |
+| participation model only | 0.1615 | 45.03 | 25.322 | 34139 |
+| calibration only | 0.0519 | 50.81 | 25.389 | 40865 |
+| **both** | 0.0519 | **44.79** | **25.083** | 30861 |
+| *truth* | *0.0519* | *44.97* | *25.112* | |
+
+The disease column is exact for anything calibrated — it was the constraint — and is not
+evidence of anything. The model alone corrects age and leaves the disease at 0.16; the
+calibration alone corrects the disease and leaves age at 50.8. Only the combination gets
+both, and it cuts the trait error from 0.54 to 0.03. The cost is visible in the last
+column: the ESS falls from 45k to 31k, which is what the correction is paying.
+
+## Methods (the simulation harness)
+
+These take a `Dataset` from `make_dataset` and exist to compare estimators against a known
+truth. `calibration_ipw` is a thin wrapper over `calibrate` — same estimator, different
+front door.
 
 | Method | Function | Idea |
 | --- | --- | --- |
@@ -20,7 +97,7 @@ for any of it is in [theory.md](theory.md); sources are in its
 | LASSO IPW | `lasso_ipw` | Covariate-only participation model (`cv.glmnet` analogue) — *the approach that fails for disease outcomes*. |
 | **Calibration IPW** | `calibration_ipw` | **The method.** Calibrate weights so the reweighted sample reproduces the known prevalences *exactly* (entropy balancing), optionally on top of the covariate model. |
 
-### Calibration IPW (the principled version)
+### What the solve actually does
 
 Given base weights `d_i` (uniform, or the covariate-model IPW weights), solve
 
@@ -32,14 +109,12 @@ s.t.   Σ_i w_i Y_iq / Σ_i w_i = Pr(Y_q)   for each anchored outcome q
 The solution is exponential tilting, `w_i ∝ d_i · exp(Σ_q λ_q Y_iq)`, with `λ` from
 a small convex dual (entropy balancing; Hainmueller 2012, Deville & Särndal 1992).
 Because that tilt is log-linear in `Y`, calibrating on the `Q` known prevalences supplies
-the disease-driven part of the reweighting a covariate model cannot — and it *equals* the
-true inverse-probability weights when the population-to-sample density ratio lies in this
-tilt family (base `d(X)` for the covariate-driven part, `exp(λ·Y)` for the outcome-driven
-part; see [What is identified?](theory.md#what-is-identified)). Otherwise it is the
-minimum-divergence weighting that matches the known moments. (This is **not** doubly
-robust in the AIPW sense; rather, it is consistent when the base weights capture the
-covariate-driven part of selection *and* the calibration functions span the
-remaining outcome-driven part — two ingredients covering different pieces.)
+the disease-driven part of the reweighting a covariate model cannot.
+
+What that buys and what it assumes — when these weights equal the true inverse-probability
+weights, why they are *not* doubly robust in the AIPW sense, and what has to be true
+instead — is [What is identified?](theory.md#what-is-identified). That section is the
+canonical statement; this page does not restate it.
 
 `shrinkage=` adds a ridge on the tilt (exact calibration → shrink toward the base
 weights, trading bias for variance). `calibration_ipw` returns **diagnostics**
@@ -47,7 +122,10 @@ weights, trading bias for variance). `calibration_ipw` returns **diagnostics**
 (non-zero flags an infeasible target — e.g. an anchored outcome with no cases sampled),
 per-anchor case/control support, the Kish **effective sample size**, and how much weight
 the top 1% of units carry. It warns (`CalibrationWarning`) when the solve fails to
-converge, a target is unreachable, or `trim=` breaks the exact calibration.
+converge, a target is unreachable, `trim=` breaks the exact calibration, or the design
+asks for more constraints than the sample can support (fewer than ten units per
+constraint — the trap a fine-grained `strata=` walks into, since `A` strata by `Q`
+outcomes grows much faster than the cells backing them).
 
 ## Checking the weights: balance as a falsification test
 
@@ -71,6 +149,12 @@ rep = i3pw.balance_report(
 print(rep.summary())
 print(rep.worst_held_out, rep.passed())   # verdict uses ONLY the held-out columns
 ```
+
+If you got your weights from [`calibrate`](#if-you-have-a-cohort-start-here-calibrate),
+pass `holdout={name: (values, population_mean)}` instead and skip the assembly: the
+constrained columns and their flags are already known, so the report comes back on
+`fit.balance` with the right ones excluded from the verdict. This is the same function,
+called for you.
 
 Constrained moments match by construction and carry no information — they are excluded
 from the verdict. *Unconstrained* ones do not have to match, so when they do the model
@@ -112,6 +196,8 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
   reason: an anchored outcome *is* a column of `g`, so its residual is identically zero
   and the SE collapses to 0. Validated against the bootstrap on a held-out estimand
   (0.0759 closed-form vs 0.0785 from 400 replicates) — same answer, no re-solving.
+  `fit.mean(values)` on a [`calibrate`](#if-you-have-a-cohort-start-here-calibrate) result
+  calls this with the constraints already filled in, which is the whole of the difference.
 - `apply_tilt(features, tilt, targets)` — the fitted dual `λ` is exposed on
   `CalibrationDiagnostics.tilt`; it *is* the estimated `θ` of the selection decomposition
   `a(X) + θ·g(Y)` ([what that means](theory.md#what-is-identified), and for one binary
@@ -133,6 +219,16 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
     Y1: 0.4085 ± 0.0000 [0.4085, 0.4085] (anchored)
     Y2: 0.0312 ± 0.0096 [0.0151, 0.0508]
   ```
+
+  **Read `failure_rate` before quoting the interval.** A replicate that draws no cases of
+  a rare anchored outcome cannot meet its target and is discarded rather than folded in
+  (one infeasible constraint corrupts the other outcomes' estimates too). But that rule
+  fires on exactly the resamples poorest in rare cases — the ones that would have
+  populated the tail — so a non-zero failure rate means the printed interval is **too
+  narrow**, and by more the higher the rate. It is a truncation the bootstrap cannot
+  correct for itself, only report. Treat the interval as a lower bound on the uncertainty,
+  or remove the cause: drop the rare anchor, or set `shrinkage > 0` so replicates stop
+  failing.
 
 - `prevalence_sensitivity(dataset, ...)` — registry prevalences are not exact constants
   (age/period, ascertainment, diagnostic, linkage error), so this scales the known `K`

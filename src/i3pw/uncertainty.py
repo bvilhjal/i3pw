@@ -104,7 +104,14 @@ class BootstrapResult:
 
     @property
     def failure_rate(self) -> float:
-        """Fraction of attempted replicates discarded as uncalibrated."""
+        """Fraction of attempted replicates discarded as uncalibrated.
+
+        Read this as a warning about the interval, not just a count. Discarded replicates
+        are the ones that could not reach an anchored target — overwhelmingly the
+        resamples that drew too few cases of a rare outcome. That is a *selective* loss
+        from the tail of the sampling distribution, so a non-zero failure rate means the
+        reported interval is too narrow, by more the higher this number climbs.
+        """
         return self.n_failed / self.n_boot if self.n_boot else 0.0
 
     def summary(self) -> str:
@@ -121,6 +128,14 @@ class BootstrapResult:
                 f"  ({self.n_failed}/{self.n_boot} replicates discarded — "
                 f"{100 * self.failure_rate:.1f}% could not meet the calibration targets, "
                 "typically resamples with no cases of a rare anchored outcome)"
+            )
+            lines.append(
+                "  NOTE: that discard is not random. It removes precisely the resamples "
+                "poorest in cases of the rare anchored outcome, which are the ones "
+                "carrying the tail of the sampling distribution, so the interval above "
+                "is too NARROW — anti-conservative, and most so for the rarest outcome. "
+                "Treat it as a lower bound on the uncertainty and widen it by hand, or "
+                "reduce the discard rate (drop the rare anchor, or set shrinkage > 0)."
             )
         return "\n".join(lines)
 
@@ -149,6 +164,17 @@ def bootstrap_calibration_ipw(
 
     Parameters mirror :func:`calibration_ipw`; ``n_boot`` replicates, ``seed`` for the
     resampling, ``level`` for the percentile interval.
+
+    **The interval is anti-conservative when replicates are discarded.** A resample that
+    draws no cases of a rare anchored outcome cannot meet its target, and is dropped
+    rather than folded in (see :func:`estimate_from` below for why keeping it would be
+    worse). But that rule fires on exactly the resamples poorest in rare cases — the ones
+    that would have populated the tail — so what is left is a truncated sampling
+    distribution and the percentile interval comes out too narrow. It is not a bias that
+    can be corrected here, only reported: check
+    :attr:`BootstrapResult.failure_rate`, and treat a non-zero one as saying the true
+    interval is wider than the printed one. To shrink the effect rather than live with
+    it, drop the rare anchor or set ``shrinkage > 0`` so replicates stop failing.
     """
     X_train, _, s_train = dataset.split("train")
     X_test, Y_test, s_test = _test_arrays(dataset)

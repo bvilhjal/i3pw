@@ -50,8 +50,10 @@ def test_entropy_balance_single_target():
 
 def test_entropy_balance_uniform_base_recovers_uniform_when_already_calibrated():
     # If the sample already matches the target, no tilt is needed -> uniform weights.
+    # warn=False only because four units trips the units-per-constraint guard, which is
+    # the right complaint about a four-unit sample and beside the point of this check.
     y = np.array([1.0, 1.0, 0.0, 0.0])
-    w = entropy_balance(y, np.array([0.5]))
+    w = entropy_balance(y, np.array([0.5]), warn=False)
     assert np.allclose(w, 0.25)
 
 

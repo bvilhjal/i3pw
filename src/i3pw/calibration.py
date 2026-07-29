@@ -21,77 +21,41 @@ This splits selection correction into two separable tasks the package keeps apar
 weights; the predictors may be demographic, clinical, or genetic), and (2) *anchor*
 the weighted sample to the target population by calibrating to known register
 quantities — the overall prevalence and, via :func:`stratified_calibration_weights`,
-prevalence within strata. A known marginal prevalence fixes the *number* of cases,
-not their *type*: if the sampled cases are systematically milder/more severe than the
-population's, matching the margin leaves that within-case selection uncorrected —
-calibrate within severity/comorbidity strata for that.
+prevalence within strata.
 
 The solution is exponential tilting, ``w_i ∝ base_i * exp(lambda . (Y_i - Pr))``,
 with ``lambda`` from a small convex dual (entropy balancing; Hainmueller 2012,
 Deville & Sarndal 1992).
 
-What this identifies (be precise). The result is a **density-ratio** model, not a
-recovered per-unit inclusion probability. Writing the population-to-sample density
-ratio as ``log dP_pop/dP_sample = a(X) + theta . g(Y)``, calibration returns the
-minimum-divergence weights ``base(X) * exp(lambda . g(Y))`` that match the supplied
-moments ``g(Y)``. These *coincide* with the true inverse-probability weights
-``1/pi(X, Y)`` only when that density ratio genuinely lies in the tilt family — the
-base weights span the covariate-driven part and ``g(Y)`` the outcome-driven part —
-and positivity holds; otherwise they are simply the closest reweighting (in KL) to
-the base that reproduces the known moments. Equivalently, this is the exponential-tilt
-density-ratio model of Qin (1998); the weights are the information projection
-(I-projection) of the base onto the moment-constrained set (Csiszar 1975); and with a
-uniform base and ``g(Y) = Y`` it is exactly the classic **label-shift** correction to a
-known population prior ``P(Y)`` (Saerens et al. 2002). Using covariate-model weights as
-the ``base`` keeps the part of selection that *is* covariate-driven. (Under logistic
-participation the *inverse-odds* weight ``(1-pi)/pi`` is exactly log-linear and so
-composes exactly with the tilt, whereas ``1/pi`` does so only as inclusion becomes
-rare — hence ``calibration_ipw``'s ``base_scheme`` choice.)
+What this identifies, in one paragraph
+--------------------------------------
+The result is a **density-ratio** model, not a recovered per-unit inclusion
+probability: calibration returns the minimum-divergence weights
+``base(X) * exp(lambda . g(Y))`` matching the supplied moments ``g(Y)``, which
+coincide with the true inverse-probability weights only when the population-to-sample
+density ratio genuinely lies in that tilt family. Two consequences drive the API: an
+anchored margin is reproduced *by construction* and is therefore not evidence, and the
+tilt-family assumption is testable only against population quantities the calibration
+did not use (:func:`i3pw.balance_report`, wired in as ``holdout=`` on
+:func:`i3pw.calibrate`).
 
-Be careful about *which* robustness is being claimed, because two true statements
-here look contradictory. Entropy balancing **is** doubly robust in a precise sense:
-Zhao & Percival (2017) show it is consistent if either a linear outcome regression
-or a logistic propensity model *in the balancing functions* is correct, attaining the
-semiparametric variance bound when both are. That is a statement about which of two
-models over a **given** ``g`` may be wrong.
+``docs/theory.md`` is the canonical statement of all of this and is the file to edit
+if it changes — the derivation, the placement among density-ratio / I-projection /
+label-shift results, why anchored margins get a zero standard error, and which
+robustness claim is and is not being made:
 
-i3pw's open question is a different one: whether ``g`` is rich enough to span the
-outcome-driven part of selection at all. No robustness property covers that — if
-``g`` misses it, both models are wrong together. So the useful statement is *not*
-"either ingredient suffices" but: the weights are consistent if the base weights
-capture the ignorable, covariate-driven part of selection *and* the supplied
-calibration functions ``g(Y)`` span the remaining outcome-driven part. The two cover
-different pieces of the mechanism; neither alone is enough. Whether they do can be
-*tested* when more population moments are known than are constrained — see
-:func:`i3pw.balance_report`.
-
-Two classical results make the rest of the machinery work. All calibration
-estimators are asymptotically equivalent to the generalized regression (GREG)
-estimator and share its variance (Deville & Sarndal 1992) — the basis of
-:func:`calibration_mean_se`, and the reason an anchored margin's standard error is
-exactly zero rather than merely small. And calibration weighting attains the
-semiparametric efficiency bound globally, without nonparametric estimation of the
-propensity or outcome function (Chan, Yam & Zhang 2016).
-
-References
-----------
-- Deville & Särndal (1992), *JASA* 87, 376–382 — calibration estimators.
-- Hainmueller (2012), *Political Analysis* 20, 25–46 — entropy balancing.
-- Kott & Chang (2010), *JASA* 105, 1265–1275 — calibration for nonignorable
-  nonresponse (the ``base_weights`` + known-prevalence construction).
-- Horvitz & Thompson (1952), *JASA* 47, 663–685 — the underlying IPW estimator.
-- Csiszar (1975), *Ann. Probab.* 3, 146–158 — I-projection (minimum KL subject to
-  moment constraints), the geometry the calibration solves.
-- Qin (1998), *Biometrika* 85, 619–630 — the exponential-tilt density-ratio model.
-- Saerens, Latinne & Decaestecker (2002), *Neural Computation* 14, 21–41 — the
-  covariate-free case: label-shift / prior-probability correction to a known ``P(Y)``.
-- Zhao & Percival (2017), *J. Causal Inference* 5(1), 41–55 — entropy balancing is
-  doubly robust w.r.t. a linear outcome regression and a logistic propensity model.
-- Chan, Yam & Zhang (2016), *JRSS-B* 78(3), 673–700 — empirical balancing calibration
-  weighting is globally semiparametric-efficient.
-- Sargan (1958), *Econometrica* 26, 393–415; Hansen (1982), *Econometrica* 50,
-  1029–1054 — testing overidentifying restrictions, the logic of
-  :func:`i3pw.balance_report`.
+- what the weights identify and when they equal true IPW:
+  ``docs/theory.md#what-is-identified``
+- why ``base_scheme="odds"`` composes exactly with the tilt and ``"inverse"`` only
+  approximately: same section, "Inverse vs odds base weights"
+- the GREG equivalence behind :func:`calibration_mean_se`, and the Zhao & Percival
+  double-robustness claim i3pw's caveat is *not* about:
+  ``docs/theory.md#calibration-is-a-regression-estimator-and-why-the-ses-look-the-way-they-do``
+- why held-out moments are the only falsification available:
+  ``docs/theory.md#what-makes-this-falsifiable``
+- why a known prevalence fixes the number of cases but not their type:
+  ``docs/theory.md#prevalence-sets-the-scale-not-the-case-mix``
+- the bibliography for every result named above: ``docs/theory.md#references``
 """
 
 from __future__ import annotations
@@ -110,6 +74,16 @@ from .metrics import percent_difference, weighted_prevalence
 
 class CalibrationWarning(UserWarning):
     """Warned when calibration weights are unreliable (non-convergence, infeasible target)."""
+
+
+_MIN_UNITS_PER_CONSTRAINT = 10
+"""Below this many units per calibration constraint, :func:`entropy_balance` warns.
+
+A rule of thumb, not a threshold with theory behind it: the tilt is a ``k``-parameter
+fit to ``n`` units, and the survey-calibration convention is to want many units backing
+each constraint. Ten is the round number that flags a stratified design whose cells have
+outrun its sample without firing on ordinary use.
+"""
 
 
 def _require_finite(a: np.ndarray, name: str) -> None:
@@ -316,6 +290,30 @@ def entropy_balance(
             return d, _diagnostics(d, True, 0, 0.0, "", tilt=np.zeros(0))
         return d
 
+    # The tilt spends one free parameter per constraint. Past k == n it can reproduce
+    # any target vector whatever the data, so the calibration carries no information;
+    # well before that the weights start resting on a handful of units per constraint
+    # and the effective sample size collapses. Neither is visible in the residual --
+    # the solve reports success either way -- so it has to be said here. This is the
+    # failure mode a stratified design walks into: A strata x Q outcomes plus A - 1
+    # share constraints grows much faster than the cells that support it.
+    if k >= n:
+        raise ValueError(
+            f"entropy_balance: {k} constraints for {n} units. The tilt has at least one "
+            "free parameter per unit, so it reproduces any target exactly regardless of "
+            "the data and identifies nothing. Coarsen the constraints (fewer strata, "
+            "margins instead of cells) so that constraints are far fewer than units."
+        )
+    if warn and n < _MIN_UNITS_PER_CONSTRAINT * k:
+        warnings.warn(
+            f"entropy_balance: {k} constraints for {n} units "
+            f"(< {_MIN_UNITS_PER_CONSTRAINT} units per constraint). The targets will be "
+            "met, but on very little data per constraint — expect a small effective "
+            "sample size and unstable weights. Coarsen the constraints or set a positive "
+            "ridge/shrinkage.",
+            CalibrationWarning, stacklevel=2,
+        )
+
     H = F - t  # centered constraints; we want the weighted mean of H to be 0
 
     def objective(lam):
@@ -502,6 +500,108 @@ def calibration_mean_se(
     return Estimate(value=mu, se=se, ci_low=mu - z * se, ci_high=mu + z * se, level=level)
 
 
+def _marginal_design(
+    Y: npt.ArrayLike,
+    prevalences,
+    joint_prevalences=None,
+    *,
+    labels: list[str] | None = None,
+) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
+    """Build the ``(features, targets, names, unreachable)`` design for outcome margins.
+
+    Shared by :func:`outcome_calibration_weights` and :func:`i3pw.calibrate` so the two
+    front doors cannot drift into building different constraint matrices from the same
+    arguments. ``unreachable`` names the targets no reweighting can meet (an outcome with
+    no sampled cases, a co-occurrence never observed); the caller decides how to report
+    them, since it knows what to call the columns.
+    """
+    Y = np.atleast_2d(np.asarray(Y, dtype=float))
+    prev = np.asarray(list(prevalences), dtype=float)
+    if Y.shape[0] == 1 and Y.shape[1] != prev.shape[0]:
+        Y = Y.T
+    if Y.shape[1] != prev.shape[0]:
+        raise ValueError("prevalences must have one entry per outcome column of Y.")
+    names = list(labels) if labels is not None else [f"Y{q}" for q in range(Y.shape[1])]
+    if len(names) != Y.shape[1]:
+        raise ValueError("labels must have one name per outcome column of Y.")
+
+    counts = Y.sum(axis=0)
+    unreachable = [
+        names[q] for q in range(Y.shape[1])
+        if (counts[q] == 0 and prev[q] > 0) or (counts[q] == Y.shape[0] and prev[q] < 1)
+    ]
+
+    cols = [Y]
+    targets = list(prev)
+    out_names = list(names)
+    if joint_prevalences:
+        for (q, qp), value in joint_prevalences.items():
+            pattern = Y[:, q] * Y[:, qp]
+            label = f"{names[q]}&{names[qp]}"
+            if value > 0 and pattern.sum() == 0:
+                unreachable.append(label)
+            cols.append(pattern[:, None])
+            targets.append(value)
+            out_names.append(label)
+    return np.hstack(cols), np.asarray(targets, dtype=float), out_names, unreachable
+
+
+def _stratified_design(
+    Y: npt.ArrayLike,
+    strata: npt.ArrayLike,
+    within_stratum_prevalence: npt.ArrayLike,
+    stratum_share: npt.ArrayLike,
+    *,
+    labels: list[str] | None = None,
+) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
+    """``(features, targets, names, unreachable)`` for within-stratum calibration.
+
+    Companion to :func:`_marginal_design`; see there for why these are shared.
+    """
+    Y = np.atleast_2d(np.asarray(Y, dtype=float))
+    lab = np.asarray(strata).ravel()
+    within = np.atleast_2d(np.asarray(within_stratum_prevalence, dtype=float))
+    share = np.asarray(stratum_share, dtype=float).ravel()
+    n, Q = Y.shape
+    A = share.shape[0]
+    if lab.shape[0] != n:
+        raise ValueError("strata must have one label per row of Y.")
+    if within.shape != (A, Q):
+        raise ValueError("within_stratum_prevalence must have shape (A, Q).")
+    if lab.min() < 0 or lab.max() >= A:
+        raise ValueError("strata labels must lie in 0..A-1 (A = len(stratum_share)).")
+    if np.any(share < 0):
+        raise ValueError("stratum_share must be non-negative.")
+    if share.sum() == 0:
+        raise ValueError("stratum_share sums to zero; cannot normalize stratum shares.")
+    share = share / share.sum()
+    names = list(labels) if labels is not None else [f"Y{q}" for q in range(Q)]
+    if len(names) != Q:
+        raise ValueError("labels must have one name per outcome column of Y.")
+
+    onehot = (lab[:, None] == np.arange(A)[None, :]).astype(float)  # (n, A)
+    counts = onehot.sum(axis=0)
+    joint = share[:, None] * within  # (A, Q) population joint P(Y_q = 1, A = a)
+
+    unreachable = [f"stratum {a}" for a in range(A) if counts[a] == 0]
+    unreachable += [
+        f"{names[q]}|stratum {a}" for a in range(A) for q in range(Q)
+        if joint[a, q] > 0 and float((onehot[:, a] * Y[:, q]).sum()) == 0.0
+    ]
+
+    # Drop the last stratum indicator: its share is implied by the others plus the
+    # sum-to-one constraint, so keeping it would make the dual singular.
+    cols = [onehot[:, :-1]]
+    targets = list(share[:-1])
+    out_names = [f"stratum {a}" for a in range(A - 1)]
+    for a in range(A):
+        for q in range(Q):
+            cols.append((onehot[:, a] * Y[:, q])[:, None])
+            targets.append(joint[a, q])
+            out_names.append(f"{names[q]}|stratum {a}")
+    return np.hstack(cols), np.asarray(targets, dtype=float), out_names, unreachable
+
+
 def outcome_calibration_weights(
     Y: np.ndarray,
     prevalences,
@@ -545,42 +645,16 @@ def outcome_calibration_weights(
         Calibration weights for the sampled units, summing to 1 (and diagnostics if
         requested).
     """
-    Y = np.atleast_2d(np.asarray(Y, dtype=float))
-    prev = np.asarray(list(prevalences), dtype=float)
-    if Y.shape[0] == 1 and Y.shape[1] != prev.shape[0]:
-        Y = Y.T
-    if Y.shape[1] != prev.shape[0]:
-        raise ValueError("prevalences must have one entry per outcome column of Y.")
-
-    if warn:
-        counts = Y.sum(axis=0)
-        unreachable = [
-            q for q in range(Y.shape[1])
-            if (counts[q] == 0 and prev[q] > 0) or (counts[q] == Y.shape[0] and prev[q] < 1)
-        ]
-        if unreachable:
-            warnings.warn(
-                f"outcome_calibration_weights: outcome(s) {unreachable} have no "
-                "cases (or no controls) in the sample; their marginal target cannot be met.",
-                CalibrationWarning, stacklevel=2,
-            )
-
-    cols = [Y]
-    targets = list(prev)
-    if joint_prevalences:
-        for (q, qp), value in joint_prevalences.items():
-            pattern = Y[:, q] * Y[:, qp]
-            if warn and value > 0 and pattern.sum() == 0:
-                warnings.warn(
-                    f"outcome_calibration_weights: co-occurrence {(q, qp)} is never "
-                    "observed in the sample; its joint target cannot be met.",
-                    CalibrationWarning, stacklevel=2,
-                )
-            cols.append(pattern[:, None])
-            targets.append(value)
-    features = np.hstack(cols)
+    features, targets, _, unreachable = _marginal_design(Y, prevalences, joint_prevalences)
+    if warn and unreachable:
+        warnings.warn(
+            f"outcome_calibration_weights: target(s) {unreachable} have no support in the "
+            "sample (an outcome with no cases or no controls, or a co-occurrence never "
+            "observed); no reweighting can meet them.",
+            CalibrationWarning, stacklevel=2,
+        )
     return entropy_balance(
-        features, np.asarray(targets, dtype=float), base_weights=base_weights,
+        features, targets, base_weights=base_weights,
         ridge=shrinkage, warn=warn, return_diagnostics=return_diagnostics,
     )
 
@@ -634,59 +708,18 @@ def stratified_calibration_weights(
         Calibration weights for the sampled units, summing to 1 (and diagnostics if
         requested).
     """
-    Y = np.atleast_2d(np.asarray(Y, dtype=float))
-    labels = np.asarray(strata).ravel()
-    within = np.atleast_2d(np.asarray(within_stratum_prevalence, dtype=float))
-    share = np.asarray(stratum_share, dtype=float).ravel()
-    n, Q = Y.shape
-    A = share.shape[0]
-    if labels.shape[0] != n:
-        raise ValueError("strata must have one label per row of Y.")
-    if within.shape != (A, Q):
-        raise ValueError("within_stratum_prevalence must have shape (A, Q).")
-    if labels.min() < 0 or labels.max() >= A:
-        raise ValueError("strata labels must lie in 0..A-1 (A = len(stratum_share)).")
-    if np.any(share < 0):
-        raise ValueError("stratum_share must be non-negative.")
-    if share.sum() == 0:
-        raise ValueError("stratum_share sums to zero; cannot normalize stratum shares.")
-    share = share / share.sum()
-
-    onehot = (labels[:, None] == np.arange(A)[None, :]).astype(float)  # (n, A)
-    counts = onehot.sum(axis=0)
-    joint = share[:, None] * within  # (A, Q) population joint P(Y_q = 1, A = a)
-
-    if warn:
-        empty = [a for a in range(A) if counts[a] == 0]
-        if empty:
-            warnings.warn(
-                f"stratified_calibration_weights: stratum/strata {empty} have no sampled "
-                "units; their shares and within-stratum prevalences cannot be matched.",
-                CalibrationWarning, stacklevel=2,
-            )
-        unreachable = [
-            (a, q) for a in range(A) for q in range(Q)
-            if joint[a, q] > 0 and float((onehot[:, a] * Y[:, q]).sum()) == 0.0
-        ]
-        if unreachable:
-            warnings.warn(
-                f"stratified_calibration_weights: (stratum, outcome) cells {unreachable} "
-                "have a positive known prevalence but no sampled case; unreachable.",
-                CalibrationWarning, stacklevel=2,
-            )
-
-    # Drop the last stratum indicator: its share is implied by the others plus the
-    # sum-to-one constraint, so keeping it would make the dual singular.
-    cols = [onehot[:, :-1]]
-    targets = list(share[:-1])
-    for a in range(A):
-        for q in range(Q):
-            cols.append((onehot[:, a] * Y[:, q])[:, None])
-            targets.append(joint[a, q])
-
-    features = np.hstack(cols)
+    features, targets, _, unreachable = _stratified_design(
+        Y, strata, within_stratum_prevalence, stratum_share
+    )
+    if warn and unreachable:
+        warnings.warn(
+            f"stratified_calibration_weights: target(s) {unreachable} have no support in "
+            "the sample (an empty stratum, or a cell with positive known prevalence but no "
+            "sampled case); no reweighting can meet them.",
+            CalibrationWarning, stacklevel=2,
+        )
     return entropy_balance(
-        features, np.asarray(targets, dtype=float), base_weights=base_weights,
+        features, targets, base_weights=base_weights,
         ridge=shrinkage, warn=warn, return_diagnostics=return_diagnostics,
     )
 
@@ -758,12 +791,18 @@ def calibration_ipw(
     interactions: bool = False,
     cv: int = 5,
 ) -> CalibrationResult:
-    """Prevalence-calibrated IPW: reweight the sample to the known population prevalences.
+    """Prevalence-calibrated IPW on a simulated :class:`~i3pw.Dataset`.
 
     Fits (optionally) a covariate participation model on the training fold to get
     base weights, then calibrates the sampled test units so their weighted
     prevalence matches the known population prevalence of each anchored outcome.
     The estimator is deployable — it uses the sampled units only.
+
+    **This is the simulation front door.** It needs a :class:`~i3pw.Dataset`, which
+    carries ground-truth coefficients and computes ``population_prevalence`` from
+    outcomes observed on the whole population — things a real cohort does not have. It
+    is a thin wrapper over :func:`i3pw.calibrate`, which does the same work from plain
+    arrays and is what to call on real data.
 
     Parameters
     ----------
@@ -795,35 +834,31 @@ def calibration_ipw(
     q = len(pop)
     anchors = tuple(range(q)) if anchor_outcomes is None else tuple(anchor_outcomes)
 
+    from .fit import calibrate  # local import: fit builds on this module
+
     sel = s_test == 1
     Y_sel = Y_test[sel]
 
     # Positivity / support: each anchored binary outcome needs both classes present
     # in the sample, or its interior prevalence target is unreachable by reweighting.
+    # Counted here because CalibrationResult reports it per anchor in the *dataset's*
+    # outcome numbering; the warning itself comes from calibrate(), which is told the
+    # same numbering via outcome_names so it can name the outcome rather than a column.
     support = {}
     for a in anchors:
         n_case = int(np.round(Y_sel[:, a].sum()))
         support[a] = (n_case, int(Y_sel.shape[0] - n_case))
-    infeasible = [
-        a for a, (n_case, n_ctrl) in support.items()
-        if (n_case == 0 and pop[a] > 0) or (n_ctrl == 0 and pop[a] < 1)
-    ]
-    if infeasible:
-        warnings.warn(
-            f"calibration_ipw: anchored outcome(s) {infeasible} lack both classes in the "
-            "sample; their population prevalence cannot be matched by reweighting.",
-            CalibrationWarning, stacklevel=2,
-        )
 
     base_w = base_weights(
         base, base_scheme, X_train, s_train, X_test[sel], interactions=interactions, cv=cv
     )
 
-    w_sel, diag = entropy_balance(
-        Y_sel[:, anchors], pop[list(anchors)], base_weights=base_w, ridge=shrinkage,
-        return_diagnostics=True,
-    )
     anchor_targets = pop[list(anchors)]
+    fit = calibrate(
+        Y_sel[:, anchors], anchor_targets, base_weights=base_w, shrinkage=shrinkage,
+        outcome_names=[f"Y{a + 1}" for a in anchors],
+    )
+    w_sel, diag = fit.weights, fit.diagnostics
     pre = np.array([weighted_prevalence(w_sel, Y_sel[:, a]) for a in anchors])
     pre_trim_residual = float(np.max(np.abs(pre - anchor_targets))) if anchors else 0.0
 

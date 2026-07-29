@@ -1,7 +1,7 @@
 """i3pw — Informed Inference of Inverse Probability Weights.
 
-Correcting outcome-dependent selection (ascertainment) bias by inverse-probability
-weighting, when the population prevalences of the outcomes are known a priori.
+Correcting outcome-dependent selection (ascertainment) bias by reweighting, when the
+population prevalences of the outcomes are known a priori.
 
 The motivating problem: the standard approach predicts participation probabilities
 ``P(selected | X)`` from covariates (e.g. socioeconomic features via LASSO) — but
@@ -9,11 +9,20 @@ that works poorly for many *disease* outcomes, because participation depends on
 having the disease, a signal the covariates barely capture. i3pw instead
 **leverages the known population prevalences** to inform the weights.
 
-The estimator: :func:`calibration_ipw` — calibrate the weights so the reweighted
-sample reproduces the known prevalences exactly (entropy balancing), optionally on
-top of a covariate participation model. Baselines for comparison:
-:func:`no_correction` and :func:`lasso_ipw` (the covariate propensity model that
-motivated the whole exercise).
+What it computes, stated exactly: not a recovered per-unit inclusion probability, but
+the **minimum-divergence weights that reproduce the known population moments** — which
+equal the true inverse-probability weights when the population-to-sample density ratio
+is spanned by the base weights plus those moments, and are the closest reweighting to
+the base otherwise. ``docs/theory.md#what-is-identified`` is the canonical statement.
+
+Two front doors, and they are not interchangeable:
+
+- :func:`calibrate` — **for a real cohort.** Plain arrays: outcomes on the participants,
+  register prevalences, optional base weights from your own participation model, and a
+  ``holdout=`` of register margins to test against.
+- :func:`calibration_ipw` — **for the simulations.** Needs a :class:`Dataset`, which
+  carries ground truth. Baselines to compare against it: :func:`no_correction` and
+  :func:`lasso_ipw` (the covariate propensity model that motivated the exercise).
 """
 
 from __future__ import annotations
@@ -36,6 +45,7 @@ from .calibration import (
 )
 from .dgm import Dataset, SimConfig, make_dataset, nearest_pd_correlation, random_correlation
 from .evaluation import MonteCarloSummary, format_summary, monte_carlo
+from .fit import CalibrationFit, calibrate, inverse_probability_weights
 from .liability import (
     AscertainedSample,
     SelectionPopulation,
@@ -73,6 +83,9 @@ __all__ = [
     "make_dataset",
     "random_correlation",
     "nearest_pd_correlation",
+    "calibrate",
+    "CalibrationFit",
+    "inverse_probability_weights",
     "no_correction",
     "lasso_ipw",
     "lasso_propensity",
