@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 — 2026-08-11
+
+- Add a rendered PDF of the statistical-genetics report, with a vector workflow
+  diagram and a three-panel summary of the frozen synthetic benchmarks.
+- Correct report float ordering and pagination, and link the rendered report from
+  the README.
+
 ## 0.3.0 — 2026-08-11
 
 - Correct the interpretation of the calibration tilt and distinguish full-population

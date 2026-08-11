@@ -9,7 +9,16 @@
 \usepackage{array}
 \usepackage{tabularx}
 \usepackage{xcolor}
+\usepackage{pgfplots}
+\usepackage{float}
+\usetikzlibrary{arrows.meta,calc}
+\pgfplotsset{compat=1.18}
 \usepackage[hidelinks]{hyperref}
+
+\definecolor{i3Blue}{HTML}{356D91}
+\definecolor{i3Teal}{HTML}{4B9188}
+\definecolor{i3Gold}{HTML}{C68A3D}
+\definecolor{i3Gray}{HTML}{747C82}
 
 \hypersetup{
   pdftitle={Prevalence-Calibrated Weighting for Selected Genetic Cohorts},
@@ -55,7 +64,7 @@ necessarily with survey sampling or epidemiologic terminology.
 \end{abstract}
 
 \textbf{Review scope.}
-This report describes the local version-0.3.0 worktree reviewed on the date above.
+This report describes the local version-0.3.1 worktree reviewed on the date above.
 It evaluates the scientific contract as well as the code structure.  Numerical
 results reported below were regenerated after the simulator corrections and frozen
 in \code{report/validation\_results.tsv}; the exact local runtime is recorded in
@@ -114,26 +123,50 @@ reported external-cohort validation; its evidential base is simulation-only. \\
 
 \begin{figure}[htbp]
 \centering
-\fbox{\begin{minipage}{0.91\textwidth}
-\centering
-\begin{tabularx}{0.95\linewidth}{
->{\centering\arraybackslash}X c >{\centering\arraybackslash}X}
-sampling-frame model & & register moments \(t\) \\
-\(\Prb(S=1\mid X)\to d(X)\) & \(\searrow\quad\swarrow\) &
-\(\E_T\{g(Y)\}\) \\
-\multicolumn{3}{c}{
-\(\boxed{w_i\propto d_i\exp\{\lambda^\mathsf{T}(g_i-t)\}}\)} \\
-\multicolumn{3}{c}{\(\downarrow\)} \\
-\multicolumn{3}{c}{weighted participant outcomes and target estimands}
-\end{tabularx}
-
-\vspace{0.7em}
-Population margins deliberately withheld from the solve
-\(\longrightarrow\) balance diagnostics that can fail.
-\end{minipage}}
-\caption{The two information channels in prevalence-calibrated weighting.  The
-participation model supplies individual variation visible in frame covariates; the
-register anchors selected population moments.}
+\begin{tikzpicture}[
+  source/.style={draw=black!30, fill=black!3, rounded corners=2pt,
+    align=center, inner xsep=8pt, inner ysep=7pt, font=\small},
+  core/.style={draw=i3Blue!75, fill=i3Blue!9, rounded corners=2pt,
+    align=center, inner xsep=9pt, inner ysep=8pt, font=\small},
+  target/.style={draw=i3Teal!75, fill=i3Teal!9, rounded corners=2pt,
+    align=center, inner xsep=8pt, inner ysep=7pt, font=\small},
+  diagnostic/.style={draw=i3Gold!80, fill=i3Gold!10, rounded corners=2pt,
+    align=center, inner xsep=8pt, inner ysep=7pt, font=\small},
+  flow/.style={-{Stealth[length=2.2mm]}, line width=0.75pt, draw=black!55}
+]
+\node[source, text width=0.29\textwidth] (frame) at (-3.8,2.0) {
+  \textbf{Sampling-frame channel}\\[0.25em]
+  \(\Prb(S=1\mid X)\longrightarrow d(X)\)\\[0.25em]
+  {\footnotesize Person-level frame covariates observed before participation.}
+};
+\node[source, text width=0.29\textwidth] (register) at (3.8,2.0) {
+  \textbf{Register channel}\\[0.25em]
+  \(t=\E_T\{g(Y)\}\)\\[0.25em]
+  {\footnotesize Population moments unavailable from participants alone.}
+};
+\node[core, text width=0.48\textwidth] (calibration) at (0,0) {
+  \textbf{Entropy calibration}\\[0.35em]
+  \(\displaystyle
+    w_i=\frac{d_i\exp\{\lambda^\mathsf{T}(g_i-t)\}}
+    {\sum_j d_j\exp\{\lambda^\mathsf{T}(g_j-t)\}}\)
+};
+\node[target, text width=0.31\textwidth] (estimate) at (-3.8,-2.0) {
+  \textbf{Target estimation}\\[0.25em]
+  Weighted participant outcomes and population estimands.
+};
+\node[diagnostic, text width=0.31\textwidth] (diagnose) at (3.8,-2.0) {
+  \textbf{Falsification opportunity}\\[0.25em]
+  Compare the weights with margins deliberately withheld from the solve.
+};
+\draw[flow] (frame.south) -- (calibration.north west);
+\draw[flow] (register.south) -- (calibration.north east);
+\draw[flow] (calibration.south west) -- (estimate.north);
+\draw[flow] (calibration.south east) -- (diagnose.north);
+\end{tikzpicture}
+\caption{The two information channels and two uses of prevalence-calibrated
+weighting.  The participation model supplies individual variation visible in frame
+covariates; the register anchors selected population moments.  Target estimates use
+the resulting weights, whereas held-out margins provide a diagnostic that can fail.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -724,7 +757,7 @@ evidence whatsoever.
 
 \subsection{Architecture and public contract}
 
-The reviewed source declares version 0.3.0 and an alpha development status.  Its
+The reviewed source declares version 0.3.1 and an alpha development status.  Its
 design has a sensible separation between a real-cohort interface and simulation
 machinery.
 
@@ -916,6 +949,7 @@ tolerances and retained logs. \\
 \end{tabularx}
 \end{table}
 
+\clearpage
 \section{Evidence review}
 
 The mathematical ingredients of \pkg\ are well established.  What is new is their
@@ -949,7 +983,7 @@ Performance under an unknown real recruitment process. \\
 Example scripts and frozen local table &
 Illustrations of pure outcome selection, covariate-plus-outcome selection, collider
 settings, comorbidity, and liability models; selected corrected runs are recorded in
-\code{report/validation\_results.tsv}. &
+\path{report/validation_results.tsv}. &
 Prespecified, independently replicated benchmark evidence. \\
 Real-cohort study &
 None is included in the present evidence base. &
@@ -966,7 +1000,8 @@ run on 11 August 2026 using Python 3.11.15, NumPy 2.4.6, SciPy 1.17.1, and
 scikit-learn 1.9.0 with the corrected \pkg\ 0.3.0 worktree.  Replicated scripts
 use seeds \(0,\ldots,R-1\).  These are
 regression and plausibility checks, not a substitute for an independently designed
-validation study.
+validation study.  Figure~\ref{fig:fresh-benchmarks} visualizes the three contrasts
+that are most useful for interpreting those checks.
 
 \begin{table}[htbp]
 \centering
@@ -1004,7 +1039,190 @@ The zero error is the constraint, not validation; ESS quantifies its variance co
 \end{tabularx}
 \end{table}
 
-The results support the package's deliberately narrow messages: exact anchors are
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.485\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.96\linewidth,
+  height=5.0cm,
+  title={\textbf{A}\quad Unanchored disease error},
+  ylabel={Mean absolute error (\%)},
+  symbolic x coords={N,L,U},
+  xtick={N,L,U},
+  xticklabels={Naive,LASSO + cal.,Uniform + cal.},
+  x tick label style={font=\scriptsize, rotate=18, anchor=east},
+  tick label style={font=\scriptsize, text=black!75},
+  label style={font=\scriptsize},
+  title style={font=\small, yshift=3pt},
+  axis x line*=bottom,
+  axis y line*=left,
+  axis line style={draw=black!45, line width=0.5pt},
+  tick style={draw=black!45, line width=0.5pt},
+  ymajorgrids,
+  grid style={draw=black!10, line width=0.4pt},
+  ymin=0,
+  ymax=100,
+  ytick={0,25,50,75,100},
+  enlarge x limits=0.22,
+  clip=false,
+]
+\addplot+[
+  ybar, bar width=18pt, bar shift=0pt, draw=none, fill=i3Gray, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=1]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt},
+  error bars/.cd, y dir=both, y explicit,
+  error bar style={draw=black!65, line width=0.7pt},
+  error mark options={draw=black!65, rotate=90, mark size=2.5pt, line width=0.7pt}
+] coordinates {(N,80.779) +- (0,6.662)};
+\addplot+[
+  ybar, bar width=18pt, bar shift=0pt, draw=none, fill=i3Blue, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=1]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt},
+  error bars/.cd, y dir=both, y explicit,
+  error bar style={draw=black!65, line width=0.7pt},
+  error mark options={draw=black!65, rotate=90, mark size=2.5pt, line width=0.7pt}
+] coordinates {(L,81.611) +- (0,6.030)};
+\addplot+[
+  ybar, bar width=18pt, bar shift=0pt, draw=none, fill=i3Teal, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=1]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt},
+  error bars/.cd, y dir=both, y explicit,
+  error bar style={draw=black!65, line width=0.7pt},
+  error mark options={draw=black!65, rotate=90, mark size=2.5pt, line width=0.7pt}
+] coordinates {(U,82.239) +- (0,5.963)};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.485\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.96\linewidth,
+  height=5.0cm,
+  title={\textbf{B}\quad Held-out covariate balance},
+  ylabel={Worst held-out \(|\mathrm{SMD}|\)},
+  symbolic x coords={L,U},
+  xtick={L,U},
+  xticklabels={LASSO base,Uniform base},
+  x tick label style={font=\scriptsize},
+  tick label style={font=\scriptsize, text=black!75},
+  label style={font=\scriptsize},
+  title style={font=\small, yshift=3pt},
+  axis x line*=bottom,
+  axis y line*=left,
+  axis line style={draw=black!45, line width=0.5pt},
+  tick style={draw=black!45, line width=0.5pt},
+  ymajorgrids,
+  grid style={draw=black!10, line width=0.4pt},
+  ymin=0,
+  ymax=0.8,
+  ytick={0,0.2,0.4,0.6,0.8},
+  enlarge x limits=0.32,
+  clip=false,
+]
+\addplot+[
+  ybar, bar width=22pt, bar shift=0pt, draw=none, fill=i3Blue, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=3]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt},
+  error bars/.cd, y dir=both, y explicit,
+  error bar style={draw=black!65, line width=0.7pt},
+  error mark options={draw=black!65, rotate=90, mark size=2.5pt, line width=0.7pt}
+] coordinates {(L,0.209) +- (0,0.079)};
+\addplot+[
+  ybar, bar width=22pt, bar shift=0pt, draw=none, fill=i3Teal, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=3]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt},
+  error bars/.cd, y dir=both, y explicit,
+  error bar style={draw=black!65, line width=0.7pt},
+  error mark options={draw=black!65, rotate=90, mark size=2.5pt, line width=0.7pt}
+] coordinates {(U,0.482) +- (0,0.238)};
+\draw[black!50, densely dashed, line width=0.6pt]
+  (axis cs:L,0.1) -- (axis cs:U,0.1);
+\node[font=\tiny, text=black!60, anchor=south east]
+  at (axis cs:U,0.1) {0.1 heuristic};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+
+\vspace{0.7em}
+
+\begin{minipage}[t]{0.57\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.96\linewidth,
+  height=4.8cm,
+  title={\textbf{C}\quad Participant-only trait error},
+  ylabel={Mean absolute bias},
+  symbolic x coords={N,I,C,A},
+  xtick={N,I,C,A},
+  xticklabels={Naive,LASSO IPW,Calibration,AIPW},
+  x tick label style={font=\scriptsize, rotate=14, anchor=east},
+  tick label style={font=\scriptsize, text=black!75},
+  label style={font=\scriptsize},
+  title style={font=\small, yshift=3pt},
+  axis x line*=bottom,
+  axis y line*=left,
+  axis line style={draw=black!45, line width=0.5pt},
+  tick style={draw=black!45, line width=0.5pt},
+  ymajorgrids,
+  grid style={draw=black!10, line width=0.4pt},
+  ymin=0,
+  ymax=0.12,
+  ytick={0,0.03,0.06,0.09,0.12},
+  yticklabels={0,0.03,0.06,0.09,0.12},
+  enlarge x limits=0.16,
+  clip=false,
+]
+\addplot+[
+  ybar, bar width=17pt, bar shift=0pt, draw=none, fill=i3Gray, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=3]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt}
+] coordinates {(N,0.1008)};
+\addplot+[
+  ybar, bar width=17pt, bar shift=0pt, draw=none, fill=i3Blue, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=3]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt}
+] coordinates {(I,0.0636)};
+\addplot+[
+  ybar, bar width=17pt, bar shift=0pt, draw=none, fill=i3Teal, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=3]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt}
+] coordinates {(C,0.0864)};
+\addplot+[
+  ybar, bar width=17pt, bar shift=0pt, draw=none, fill=i3Gold, mark=none,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=3]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\scriptsize\bfseries, text=white,
+    anchor=north, yshift=-2pt}
+] coordinates {(A,0.0584)};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+
+\caption{Three fixed-seed synthetic contrasts from the frozen validation artifact.
+Panel A shows mean absolute percentage error
+for an outcome excluded from calibration when selection has no direct covariate
+channel (\(R=12\)).  Panel B compares base weights when covariates do affect selection
+(\(R=12\)); the dashed \(0.1\) line is only an SMD rule of thumb, not a hypothesis
+test.  Panel C shows mean absolute bias for a participant-only trait in one
+outcome-model-friendly design (\(R=20\)); it is not a general method ranking.
+Whiskers in A and B are \(\pm1\) across-seed standard deviation.  The frozen artifact
+does not retain an uncertainty summary for the mean absolute biases in C.}
+\label{fig:fresh-benchmarks}
+\end{figure}
+
+The table and figure support the package's deliberately narrow messages: exact anchors are
 tautologies, cross-outcome transfer is weak, and the covariate base matters when the
 data-generating process actually contains a covariate selection channel.  They do
 not establish bias correction in a real cohort, interval coverage, or robustness to
@@ -1021,7 +1239,7 @@ procedure, preferably in a later cohort wave or linked register.
 
 \subsection{Recommended validation matrix}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Minimum simulation and empirical validation matrix for a methods paper.}
 \label{tab:validation-matrix}
@@ -1153,11 +1371,10 @@ prevalences;
 and
 \item it makes the correction inspectable through the tilt and weight diagnostics.
 \end{itemize}
-Its main risks are equally clear: marginal prevalence cannot restore an unidentified
-joint distribution; exact anchors are tautologies; weak support creates extreme
-weights; and current validation is synthetic.  The next scientific milestone is not
-another zero calibration residual.  It is a prespecified external-cohort or held-out
-register study showing improved quantities the fit was never told.
+The risks are clear: marginal prevalences cannot identify a joint distribution;
+exact anchors are tautologies; weak support creates extreme weights; and validation
+remains synthetic.  The next milestone is a prespecified external-cohort or
+held-out-register study of quantities withheld from fitting.
 
 \clearpage
 \begin{thebibliography}{99}

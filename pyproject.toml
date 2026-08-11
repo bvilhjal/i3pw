@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "i3pw"
-version = "0.3.0"
+version = "0.3.1"
 description = "Informed Inference of Inverse Probability Weights: selection-bias correction by calibrating IPW weights to known population prevalences."
 readme = "README.md"
 requires-python = ">=3.10"
