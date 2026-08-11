@@ -28,7 +28,7 @@ from scipy.stats import norm
 
 from .calibration import (
     CalibrationWarning,
-    base_weights,
+    compute_base_weights,
     effective_sample_size,
     entropy_balance,
 )
@@ -202,7 +202,7 @@ def bootstrap_calibration_ipw(
             return None
         return np.array([weighted_prevalence(w, Yb[:, j]) for j in range(q)])
 
-    bw_full = base_weights(base, base_scheme, X_train, s_train, X_sel,
+    bw_full = compute_base_weights(base, base_scheme, X_train, s_train, X_sel,
                            interactions=interactions, cv=cv)
     point = estimate_from(Y_sel, bw_full)
     if point is None:
@@ -220,7 +220,7 @@ def bootstrap_calibration_ipw(
         Yb = Y_sel[idx]
         if refit_base and base == "lasso":
             tr = rng.integers(0, n_train, size=n_train)
-            bw = base_weights(base, base_scheme, X_train[tr], s_train[tr], X_sel[idx],
+            bw = compute_base_weights(base, base_scheme, X_train[tr], s_train[tr], X_sel[idx],
                               interactions=interactions, cv=cv)
         else:
             bw = bw_full[idx]
@@ -307,7 +307,7 @@ def prevalence_sensitivity(
     anchors = tuple(range(q)) if anchor_outcomes is None else tuple(anchor_outcomes)
     sel = s_test == 1
     X_sel, Y_sel = X_test[sel], Y_test[sel]
-    bw = base_weights(base, base_scheme, X_train, s_train, X_sel,
+    bw = compute_base_weights(base, base_scheme, X_train, s_train, X_sel,
                       interactions=interactions, cv=cv)
 
     deltas = np.asarray(rel_deltas, dtype=float)

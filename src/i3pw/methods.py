@@ -84,6 +84,31 @@ def _trim_weights(w: np.ndarray, trim: float | None) -> np.ndarray:
     return np.minimum(w, cap)
 
 
+def _logistic_cv_kwargs(Cs, cv: int, max_iter: int) -> dict:
+    """Keyword arguments for the cross-validated L1 logistic fit.
+
+    Two spellings of the same glmnet-style fit: liblinear with ``penalty="l1"``
+    while scikit-learn still accepts the (deprecated) ``penalty`` argument, and
+    the saga / elastic-net spelling that replaces it once ``penalty`` is removed.
+    Keeping both in one helper lets the test-suite exercise the saga recipe on
+    today's scikit-learn, before the day it becomes the only path (see
+    ``tests/test_methods.py::test_saga_fallback_recipe_fits``).
+    """
+    lr_kwargs = dict(Cs=Cs, cv=cv, scoring="neg_log_loss", max_iter=max_iter)
+    params = inspect.signature(LogisticRegressionCV).parameters
+    if "penalty" in params:
+        # liblinear runs glmnet-style coordinate descent: far faster than saga
+        # on these problem sizes. `penalty` is deprecated (but present) in recent
+        # scikit-learn; silence just that forward-compat notice at the fit site.
+        lr_kwargs.update(solver="liblinear", penalty="l1")
+    else:
+        # `penalty` removed in a future scikit-learn: use the elastic-net API.
+        lr_kwargs.update(solver="saga", l1_ratios=(1.0,))
+    if "use_legacy_attributes" in params:
+        lr_kwargs["use_legacy_attributes"] = False
+    return lr_kwargs
+
+
 def lasso_propensity(
     X_train: np.ndarray,
     s_train: np.ndarray,
@@ -115,22 +140,11 @@ def lasso_propensity(
     if Cs is None:
         Cs = np.logspace(-3, 1, 8)
 
-    lr_kwargs = dict(Cs=Cs, cv=cv, scoring="neg_log_loss", max_iter=max_iter)
-    params = inspect.signature(LogisticRegressionCV).parameters
-    if "penalty" in params:
-        # liblinear runs glmnet-style coordinate descent: far faster than saga
-        # on these problem sizes. `penalty` is deprecated (but present) in recent
-        # scikit-learn; silence just that forward-compat notice.
-        lr_kwargs.update(solver="liblinear", penalty="l1")
-    else:
-        # `penalty` removed in a future scikit-learn: use the elastic-net API.
-        lr_kwargs.update(solver="saga", l1_ratios=(1.0,))
-    if "use_legacy_attributes" in params:
-        lr_kwargs["use_legacy_attributes"] = False
-
     # Standardize first, as glmnet does internally: it puts the shared L1 penalty
     # on a comparable scale across covariates and speeds convergence.
-    model = make_pipeline(StandardScaler(), LogisticRegressionCV(**lr_kwargs))
+    model = make_pipeline(
+        StandardScaler(), LogisticRegressionCV(**_logistic_cv_kwargs(Cs, cv, max_iter))
+    )
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=FutureWarning)
         model.fit(X_train, s_train)

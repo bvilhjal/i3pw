@@ -136,6 +136,11 @@ def test_calibration_ipw_trim_breaks_calibration_and_is_reported(dataset):
     with pytest.warns(CalibrationWarning):
         r = calibration_ipw(dataset, base="uniform", trim=0.9)
     assert r.post_trim_residual > r.pre_trim_residual
+    # The diagnostics must describe the trimmed weights actually returned, so
+    # they agree with the result's ess and the returned weight vector.
+    w = r.method_result.extra["weight"]
+    assert r.diagnostics.ess == pytest.approx(r.ess)
+    assert r.diagnostics.max_weight == pytest.approx(w.max())
 
 
 def test_outcome_calibration_warns_on_unreachable_cooccurrence():

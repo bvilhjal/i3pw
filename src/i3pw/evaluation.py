@@ -8,6 +8,7 @@ summarizes each method's error distribution — the honest way to compare method
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -25,6 +26,7 @@ class MonteCarloSummary:
     mean_pct_error: np.ndarray  # (Q,) mean absolute % error per outcome
     sd_pct_error: np.ndarray    # (Q,) SD of absolute % error per outcome
     n_reps: int
+    n_nan: int = 0              # error values excluded as NaN (zero realised prevalence)
 
     def overall(self) -> float:
         """Mean absolute % error averaged over outcomes (a single headline number)."""
@@ -99,12 +101,33 @@ def monte_carlo(
     summaries: dict[str, MonteCarloSummary] = {}
     for name, rows in errors.items():
         stacked = np.vstack(rows)  # (n_reps, Q)
-        sd = stacked.std(axis=0, ddof=1) if len(rows) > 1 else np.zeros(stacked.shape[1])
+        # percent_difference is NaN when the realised population prevalence is 0
+        # (a rare outcome drew no cases). A plain mean would let one such
+        # replication turn the whole column NaN with no explanation; exclude the
+        # NaNs instead, count them, and say it happened.
+        n_nan = int(np.isnan(stacked).sum())
+        if n_nan:
+            warnings.warn(
+                f"monte_carlo: {n_nan} of {stacked.size} error value(s) for {name!r} "
+                "are NaN — a replication whose realised population prevalence was 0 "
+                "has no defined percent difference. Those values are excluded from "
+                "the mean/SD (see MonteCarloSummary.n_nan).",
+                stacklevel=2,
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                mean = np.nanmean(stacked, axis=0)
+                sd = (np.nanstd(stacked, axis=0, ddof=1) if len(rows) > 1
+                      else np.zeros(stacked.shape[1]))
+        else:
+            mean = stacked.mean(axis=0)
+            sd = stacked.std(axis=0, ddof=1) if len(rows) > 1 else np.zeros(stacked.shape[1])
         summaries[name] = MonteCarloSummary(
             method=name,
-            mean_pct_error=stacked.mean(axis=0),
+            mean_pct_error=mean,
             sd_pct_error=sd,
             n_reps=len(rows),
+            n_nan=n_nan,
         )
     return summaries
 

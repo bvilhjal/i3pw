@@ -61,7 +61,7 @@ robustness claim is and is not being made:
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import numpy.typing as npt
@@ -189,7 +189,7 @@ def _diagnostics(weights: np.ndarray, converged: bool, n_iter: int,
     )
 
 
-def base_weights(
+def compute_base_weights(
     base: str,
     base_scheme: str,
     X_train: np.ndarray,
@@ -200,6 +200,10 @@ def base_weights(
     cv: int = 5,
 ) -> np.ndarray:
     """Base weights for the sampled units: uniform, or a covariate participation model.
+
+    (Named ``compute_base_weights`` rather than ``base_weights`` so it cannot be
+    mistaken for — or shadowed by — the ``base_weights=`` parameter of
+    :func:`entropy_balance` and the calibration front doors.)
 
     ``base="uniform"`` returns ones (pure calibration). ``base="lasso"`` fits
     :func:`i3pw.methods.lasso_propensity` ``P(selected | X)`` on the training frame and
@@ -849,7 +853,7 @@ def calibration_ipw(
         n_case = int(np.round(Y_sel[:, a].sum()))
         support[a] = (n_case, int(Y_sel.shape[0] - n_case))
 
-    base_w = base_weights(
+    base_w = compute_base_weights(
         base, base_scheme, X_train, s_train, X_test[sel], interactions=interactions, cv=cv
     )
 
@@ -872,6 +876,16 @@ def calibration_ipw(
                 f"(max residual {pre_trim_residual:.2e} -> {post_trim_residual:.2e}).",
                 CalibrationWarning, stacklevel=2,
             )
+        # The solve diagnostics describe the untrimmed weights; refresh the
+        # concentration fields so the diagnostics describe the weights actually
+        # returned and agree with the result's ess (computed on w_sel below).
+        # Convergence, iteration count, residual and tilt stay from the solve —
+        # the pre/post-trim residual split is reported separately.
+        ess_t, wmax_t, wmin_t, top_t = _weight_concentration(w_sel)
+        diag = replace(
+            diag, ess=ess_t, max_weight=wmax_t, min_weight=wmin_t,
+            top1pct_weight_mass=top_t,
+        )
     else:
         post_trim_residual = pre_trim_residual
 

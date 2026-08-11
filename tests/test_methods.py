@@ -1,8 +1,11 @@
+import warnings
+
 import numpy as np
 import pytest
+from sklearn.linear_model import LogisticRegressionCV
 
 from i3pw import lasso_ipw, make_dataset, monte_carlo, no_correction
-from i3pw.methods import _ipw_weight, _trim_weights
+from i3pw.methods import _ipw_weight, _logistic_cv_kwargs, _trim_weights
 
 
 @pytest.fixture(scope="module")
@@ -55,6 +58,26 @@ def test_trim_weights_caps_extremes():
     assert np.array_equal(_trim_weights(w, None), w)  # None is a no-op
     with pytest.raises(ValueError):
         _trim_weights(w, 1.5)
+
+
+def test_saga_fallback_recipe_fits():
+    # The recipe lasso_propensity falls back to once scikit-learn removes the
+    # deprecated `penalty` argument (saga + l1_ratios instead of liblinear +
+    # penalty="l1"). Fit it directly so that path is exercised on today's
+    # scikit-learn, before it becomes the only one.
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((200, 5))
+    s = (X[:, 0] + 0.5 * rng.standard_normal(200) > 0).astype(int)
+    kwargs = {
+        k: v for k, v in _logistic_cv_kwargs(np.logspace(-3, 1, 4), 2, 5000).items()
+        if k not in ("solver", "penalty", "l1_ratios")
+    }
+    kwargs.update(solver="saga", l1_ratios=(1.0,))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # deprecation noise varies by sklearn version
+        model = LogisticRegressionCV(**kwargs).fit(X, s)
+    proba = model.predict_proba(X)[:, 1]
+    assert np.all((proba > 0) & (proba < 1))
 
 
 def test_monte_carlo_summary():
