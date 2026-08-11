@@ -2,12 +2,23 @@
 
 The evidence behind the claims in the [README](../README.md) and
 [theory.md](theory.md). Every study here is a simulation with a known truth, run by a
-script in `examples/`, so any number can be reproduced by running it.
+script in `examples/`, so any number can be reproduced by running it. Between them these
+studies answer research questions [1 and 3](../README.md#the-research-question) — *can
+known prevalences supply what the covariate model misses*, and *which estimands does that
+fix*.
 
 Read the [first section](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)
 before any of the others: it is the one that tries hardest to make the method look bad,
-and it is where the front page's `0.00` gets its caveat. Sources for the methods compared
-here are in the [bibliography](theory.md#references).
+and it is where the front page's `0.00` gets its caveat. Symbols are defined in the
+[notation table](theory.md#notation); sources for the methods compared here are in the
+[bibliography](theory.md#references).
+
+**The short version of all of it.** Calibration is exact for what you anchor and does
+essentially nothing for what you don't ([transfer](#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy));
+it is complementary to — not a replacement for — a covariate participation model, and the
+combination wins in every regime tested ([Study D](#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary));
+and it is the right information for prevalences, means and variance components, and the
+*wrong* information for effect sizes ([collider](#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
 
 
 ## What the headline benchmark does *not* show (`examples/honest_benchmark.py`)
@@ -287,12 +298,19 @@ liability-scale variance explained `R²_L = Var(f)/Var(L)`. The sample is
 ascertained on `Y` (cases over-represented), so the sample case fraction `P ≠ K`.
 Two corrections:
 
-- **Lee et al. (2011)** — estimate `R²` on the observed 0/1 scale, then multiply by
-  `[K(1-K)/z²] · [K(1-K)/(P(1-P))]` (observed→liability × an analytic ascertainment
-  factor).
-- **IPW** — reweight the case fraction back to `K` (weights `K/P`, `(1-K)/(1-P)` —
-  the exact inverse-probability weights for selection on `Y` alone), run a weighted
-  moment estimator, then apply only the population `K(1-K)/z²` factor.
+- **Lee et al. (2011)** — estimate $R^2$ on the observed 0/1 scale, then multiply by
+
+  ```math
+  \underbrace{\frac{K(1-K)}{z^2}}_{\text{observed} \to \text{liability}}
+  \times
+  \underbrace{\frac{K(1-K)}{P(1-P)}}_{\text{ascertainment}}
+  ```
+
+  where $z$ is the standard-normal density at the threshold.
+- **IPW** — reweight the case fraction back to $K$ (weights $K/P$ for cases and
+  $(1-K)/(1-P)$ for controls — the exact inverse-probability weights for selection on $Y$
+  alone), run a weighted moment estimator, then apply only the population
+  $K(1-K)/z^2$ factor.
 
 Both correct the ascertainment; the Lee factor is the *analytic* counterpart of what
 IPW does by *reweighting*. Benchmark (25 reps, strong-ascertainment `P = 0.5` rows):

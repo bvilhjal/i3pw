@@ -3,12 +3,43 @@
 Correcting **outcome-dependent selection (ascertainment) bias** by reweighting a biased
 sample, when the population prevalences of the outcomes are known a priori.
 
-What it computes, stated exactly: not a recovered per-unit inclusion probability, but the
-**minimum-divergence weights that reproduce the known population moments**. Those equal
-the true inverse-probability weights under a condition that is stated, not assumed —
-[What is identified?](docs/theory.md#what-is-identified) — and are the closest reweighting
-to your starting weights otherwise. The package name predates the precision; the docs are
-the authority on what it does.
+## Aim
+
+**Make a cohort that recruited the wrong mix of people answer questions about the
+population it was drawn from — using disease prevalences from a register as the
+information the cohort itself cannot supply.**
+
+Biobanks and volunteer cohorts are not random samples of their populations. Who agreed to
+take part depends, among other things, on whether they were ill. Any prevalence, mean, or
+absolute risk computed from such a cohort is therefore an estimate about *participants*,
+not about the population — and no amount of data collected inside the cohort reveals by
+how much, because the people who declined are simply absent. What *is* available, in a
+country with registers, is the answer at the population level: the true prevalence of the
+disease. i3pw is the machinery for turning that external number into weights.
+
+## The research question
+
+Three questions, in the order they have to be answered. Each is the subject of one of the
+three documents below.
+
+1. **Can a known population prevalence supply the part of selection that a covariate model
+   cannot see?** The standard correction fits `P(participate | X)` on socioeconomic
+   covariates. If people participate partly because they *have the disease*, that channel
+   is invisible to `X` — so is it recoverable from the register instead?
+   → *[docs/studies.md](docs/studies.md), and the sketch under [The problem, and the
+   idea](#the-problem-and-the-idea).*
+2. **What do the resulting weights actually identify?** They reproduce the register's
+   prevalence by construction, which proves nothing. So under what condition are they the
+   true inverse-probability weights, and what are they when that condition fails?
+   → *[What is identified?](docs/theory.md#what-is-identified).*
+3. **Which estimands does this fix, and which does it leave broken — and how would you
+   find out on a real cohort?** Prevalences and means, yes; effect sizes, no. And since a
+   calibration always matches its own constraints, what evidence could ever refute it?
+   → *[What makes this falsifiable](docs/theory.md#what-makes-this-falsifiable) and
+   [studies](docs/studies.md).*
+
+Question 3 is the one most often skipped and the one that decides whether a number from
+this package belongs in a paper.
 
 ## The problem, and the idea
 
@@ -34,6 +65,58 @@ does and does not identify is made precise in
 [What is identified?](docs/theory.md#what-is-identified): calibration recovers
 *minimum-divergence* weights matching the known moments, which coincide with the true
 inverse-probability weights under a stated condition.
+
+### What it computes, stated exactly
+
+Not a recovered per-unit inclusion probability, but the **minimum-divergence weights that
+reproduce the known population moments**. Those equal the true inverse-probability weights
+under a condition that is stated, not assumed —
+[What is identified?](docs/theory.md#what-is-identified) — and are the closest reweighting
+to your starting weights otherwise. The package name predates the precision; the docs are
+the authority on what it does.
+
+If you would rather see it than read it, the whole method is one calculation on one binary
+outcome, small enough to do with a pencil:
+[a case small enough to check by hand](docs/theory.md#a-case-small-enough-to-check-by-hand).
+The symbols used throughout are collected in one table:
+[notation](docs/theory.md#notation).
+
+### If you are a statistical geneticist
+
+You already use the one-outcome case of this method. When a case-control study over-samples
+cases — sample fraction `P`, population prevalence `K` — the weights that undo it are `K/P`
+for cases and `(1−K)/(1−P)` for controls. That is the ascertainment factor
+`K(1−K)/(P(1−P))` in the Lee et al. (2011) transform, and it is what PCGC does by
+reweighting instead of by a closed form. i3pw is that correction with three generalisations,
+each of which matters for a register-linked cohort:
+
+| | classical ascertainment correction | i3pw |
+| --- | --- | --- |
+| starting weights | uniform | **any participation model** — Schoeler-style `1/P̂(S \| X_socio)`, or one built on clinical and genetic predictors |
+| constraints | one prevalence `K` | **several diagnoses jointly**, comorbidity rates, and prevalence *within* sex / birth year / ancestry / severity strata |
+| the tilt | assumed to be `K/P` | **solved for**, and reported: `λ` is the log odds-ratio between register and cohort, i.e. the `θ` of an ascertainment model recovered rather than assumed |
+
+The setting it was built for is the Danish one: **iPSYCH and the national registers supply
+`K`** — by diagnosis, by sex, by birth cohort — for a population in which a selected genetic
+sample sits, and calibration is how you make the second answer questions about the first.
+
+The estimands it repairs are the ones on the **liability and absolute scales**: prevalence,
+absolute risk, trait and biomarker means, and liability-scale variance components
+(`h²_l`, `R²_L`) — see the
+[liability-threshold study](docs/studies.md#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw),
+where IPW matches Lee under pure case-control ascertainment and beats it once ascertainment
+is strong or depends on liability within case status.
+
+The estimand it does **not** repair is the one you probably care about most: **GWAS effect
+sizes**. Case-control ascertainment leaves a logistic slope unbiased (Prentice & Pyke 1979),
+so under outcome-only selection there is nothing to correct. The distortion that Schoeler et
+al. (2023) document in UK Biobank is *collider* bias — participation depending on genotype/
+exposure *and* outcome — and a known marginal prevalence cannot touch it, because an effect
+size is a joint moment and `K` is a marginal one. In the simulation it moves the estimate the
+wrong way, 1.274 → 1.313 against a truth of 1.096
+([evidence](docs/studies.md#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
+For that you need a participation model containing the exposure; prevalences will not
+substitute.
 
 ## Install
 
@@ -142,13 +225,14 @@ the one to trust.
 ## Where everything is
 
 The rest lives in three documents, so that this page stays a page. Most readers need one
-of them.
+of them — and each one is the answer to one of the
+[three questions](#the-research-question) above.
 
 | | | |
 | --- | --- | --- |
-| [**docs/theory.md**](docs/theory.md) | what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
-| [**docs/guide.md**](docs/guide.md) | [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-balance-as-a-falsification-test), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
-| [**docs/studies.md**](docs/studies.md) | the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
+| [**docs/theory.md**](docs/theory.md) | *question 2.* [notation](docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
+| [**docs/guide.md**](docs/guide.md) | *how to run it.* [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-balance-as-a-falsification-test), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
+| [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
 below, is the whole thing in a page: a five-step recipe, a list of things not to do, and
