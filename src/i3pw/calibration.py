@@ -1,16 +1,15 @@
 """Prevalence-calibrated inverse-probability weighting — the core i3pw idea.
 
-The project's motivating observation: the standard approach of predicting
-participation probabilities ``P(selected | X)`` from socioeconomic covariates
-(e.g. LASSO, :func:`i3pw.methods.lasso_propensity`) works poorly for many
-*disease* outcomes, because who participates depends on *having the disease* —
-a signal largely orthogonal to the covariates. Decompose the selection log-odds
-as ``a(X) + theta . Y``: the covariate model can learn ``a(X)`` but not the
-disease term ``theta . Y``.
+The project's motivating observation is that a participation model using only
+covariates ``X`` can miss outcome-dependent selection. i3pw does not recover a missing
+coefficient in the participation logit. Instead it models the
+population-to-participant density ratio as a supplied base ratio ``d(X)`` times an
+outcome tilt ``exp(lambda . g(Y))``; calibration estimates ``lambda`` from known
+population moments.
 
 If the population prevalences ``Pr(Y_q)`` are known a priori (from a registry or
-census), they supply exactly that missing term. This module injects them the
-principled way — as **calibration constraints on the weighted outcome**, so the
+census), they provide information about that missing selection channel. This module
+uses them as **calibration constraints on the weighted outcome**, so the
 reweighted sample reproduces the known prevalences exactly:
 
     find weights w minimizing KL(w || base)
@@ -34,10 +33,11 @@ probability: calibration returns the minimum-divergence weights
 ``base(X) * exp(lambda . g(Y))`` matching the supplied moments ``g(Y)``, which
 coincide with the true inverse-probability weights only when the population-to-sample
 density ratio genuinely lies in that tilt family. Two consequences drive the API: an
-anchored margin is reproduced *by construction* and is therefore not evidence, and the
-tilt-family assumption is testable only against population quantities the calibration
-did not use (:func:`i3pw.balance_report`, wired in as ``holdout=`` on
-:func:`i3pw.calibrate`).
+anchored margin is reproduced *by construction* and is therefore not evidence, while
+population quantities omitted from the solve can serve as held-out specification
+diagnostics (:func:`i3pw.balance_report`, wired in as ``holdout=`` on
+:func:`i3pw.calibrate`). A held-out mismatch reveals a problem; agreement is only a
+necessary check and does not validate the tilt family.
 
 ``docs/theory.md`` is the canonical statement of all of this and is the file to edit
 if it changes — the derivation, the placement among density-ratio / I-projection /
@@ -46,12 +46,14 @@ robustness claim is and is not being made:
 
 - what the weights identify and when they equal true IPW:
   ``docs/theory.md#what-is-identified``
-- why ``base_scheme="odds"`` composes exactly with the tilt and ``"inverse"`` only
-  approximately: same section, "Inverse vs odds base weights"
+- why inverse weights target the full population, whereas odds weights target
+  nonparticipants and approximate population weights only under rare participation:
+  same section, "Inverse vs odds base weights"
 - the GREG equivalence behind :func:`calibration_mean_se`, and the Zhao & Percival
   double-robustness claim i3pw's caveat is *not* about:
   ``docs/theory.md#calibration-is-a-regression-estimator-and-why-the-ses-look-the-way-they-do``
-- why held-out moments are the only falsification available:
+- why held-out moments are useful specification diagnostics but cannot validate the
+  density-ratio model:
   ``docs/theory.md#what-makes-this-falsifiable``
 - why a known prevalence fixes the number of cases but not their type:
   ``docs/theory.md#prevalence-sets-the-scale-not-the-case-mix``
@@ -153,16 +155,17 @@ class CalibrationDiagnostics:
 
     which yields weights proportional to ``K/P`` for cases and ``(1-K)/(1-P)`` for
     controls — the classical choice-based-sample weights (Manski & Lerman 1977). So
-    ``lambda`` measures how hard the sample had to be pushed to reach the register, in
-    log-odds. With several constraints or a non-uniform base there is no closed form, but
-    the reading is the same.
+    ``lambda`` measures how hard the sample had to be pushed to reach the register, on
+    the log density-ratio scale. With several constraints or a non-uniform base there is
+    no closed form, but the reading is the same.
 
-    These *are* the estimated outcome-driven part of the selection log-odds: the weights
-    are ``base_i * exp(lambda . (g_i - target))``, so ``lambda`` is the ``theta`` of the
-    package's ``a(X) + theta . g(Y)`` decomposition, on the log-odds scale and identified
-    up to the constraints supplied. Large components mean the sample needed a hard push
-    on that moment. Pass them to :func:`apply_tilt` to weight a fresh set of rows under
-    the same fitted calibration.
+    More generally, ``lambda`` is a coefficient in the fitted log
+    population-to-participant *density ratio*, not a participation-logit coefficient.
+    For a binary outcome, if ``pi_y = P(S=1 | Y=y)``, the expression above gives
+    ``lambda = log(pi_0 / pi_1)``. It is approximately the negative coefficient in a
+    logistic participation model only when participation is rare. Large components mean
+    the sample needed a hard push on that moment. Pass them to :func:`apply_tilt` to
+    weight fresh rows under the same fitted calibration.
     """
 
     def summary(self) -> str:
@@ -207,10 +210,10 @@ def compute_base_weights(
 
     ``base="uniform"`` returns ones (pure calibration). ``base="lasso"`` fits
     :func:`i3pw.methods.lasso_propensity` ``P(selected | X)`` on the training frame and
-    inverts it, using ``base_scheme="inverse"`` (``1/P``) or ``"odds"`` (``(1-P)/P``,
-    which composes exactly with the exponential-tilt calibration; see "What is
-    identified?" in ``docs/theory.md``). Shared by :func:`calibration_ipw` and the bootstrap so the
-    two cannot drift.
+    inverts it, using ``base_scheme="inverse"`` (``1/P``, targeting the full population)
+    or ``"odds"`` (``(1-P)/P``, transporting participants to nonparticipants and
+    approximating population weights only under rare participation). Shared by
+    :func:`calibration_ipw` and the bootstrap so the two cannot drift.
     """
     if base not in ("lasso", "uniform"):
         raise ValueError("base must be 'lasso' or 'uniform'.")
@@ -249,7 +252,8 @@ def entropy_balance(
         Length-``k`` desired weighted means.
     base_weights:
         Length-``n`` non-negative base weights (e.g. covariate-model IPW weights);
-        defaults to uniform.
+        defaults to uniform. Zero weights are allowed and remain zero; only rows with
+        positive base weight belong to the calibration support.
     ridge:
         Non-negative shrinkage. ``0`` calibrates exactly; larger values pull the
         weights back toward ``base_weights``.
@@ -269,23 +273,46 @@ def entropy_balance(
     numpy.ndarray or tuple[numpy.ndarray, CalibrationDiagnostics]
         Weights of length ``n`` summing to 1 (and diagnostics if requested).
     """
-    F = np.atleast_2d(np.asarray(features, dtype=float))
-    if F.shape[0] == 1 and F.shape[1] != len(np.atleast_1d(targets)):
+    t = np.asarray(targets, dtype=float)
+    if t.ndim == 0:
+        t = t.reshape(1)
+    elif t.ndim != 1:
+        raise ValueError("targets must be a 1-D array.")
+    F = np.asarray(features, dtype=float)
+    if F.ndim > 2:
+        raise ValueError("features must be a 1-D or 2-D array.")
+    F = np.atleast_2d(F)
+    if F.shape[0] == 1 and F.shape[1] != t.shape[0]:
         F = F.T
-    t = np.atleast_1d(np.asarray(targets, dtype=float))
     n, k = F.shape
     if k != t.shape[0]:
         raise ValueError("features must have one column per target.")
     _require_finite(F, "features")
     _require_finite(t, "targets")
 
-    d = np.ones(n) if base_weights is None else np.asarray(base_weights, dtype=float)
+    if base_weights is None:
+        d = np.ones(n)
+    else:
+        d = np.asarray(base_weights, dtype=float)
+        if d.ndim != 1 or d.shape[0] != n:
+            raise ValueError("base_weights must be a 1-D array with one entry per row.")
     _require_finite(d, "base_weights")
     if np.any(d < 0):
         raise ValueError("base_weights must be non-negative.")
-    if d.sum() == 0:
+    scale = d.max(initial=0.0)
+    if scale == 0:
         raise ValueError("base_weights sum to zero; cannot form calibration weights.")
+    # Scaling by the maximum before summing avoids overflow when several individually
+    # finite base weights are near the floating-point limit.
+    d = d / scale
     d = d / d.sum()
+    support = d > 0
+    n_support = int(np.count_nonzero(support))
+
+    rho = np.asarray(ridge, dtype=float)
+    if rho.ndim != 0 or not np.isfinite(rho) or rho < 0:
+        raise ValueError("ridge must be a finite non-negative scalar.")
+    ridge = float(rho)
 
     if k == 0:
         # No constraints: the base weights already solve the problem exactly. Skip the
@@ -301,16 +328,17 @@ def entropy_balance(
     # the solve reports success either way -- so it has to be said here. This is the
     # failure mode a stratified design walks into: A strata x Q outcomes plus A - 1
     # share constraints grows much faster than the cells that support it.
-    if k >= n:
+    if k >= n_support:
         raise ValueError(
-            f"entropy_balance: {k} constraints for {n} units. The tilt has at least one "
-            "free parameter per unit, so it reproduces any target exactly regardless of "
-            "the data and identifies nothing. Coarsen the constraints (fewer strata, "
-            "margins instead of cells) so that constraints are far fewer than units."
+            f"entropy_balance: {k} constraints for {n_support} units with positive base "
+            "weight. The tilt has at least one free parameter per supported unit, so it "
+            "reproduces any target exactly regardless of the data and identifies nothing. "
+            "Coarsen the constraints (fewer strata, margins instead of cells) so that "
+            "constraints are far fewer than supported units."
         )
-    if warn and n < _MIN_UNITS_PER_CONSTRAINT * k:
+    if warn and n_support < _MIN_UNITS_PER_CONSTRAINT * k:
         warnings.warn(
-            f"entropy_balance: {k} constraints for {n} units "
+            f"entropy_balance: {k} constraints for {n_support} positive-base units "
             f"(< {_MIN_UNITS_PER_CONSTRAINT} units per constraint). The targets will be "
             "met, but on very little data per constraint — expect a small effective "
             "sample size and unstable weights. Coarsen the constraints or set a positive "
@@ -318,28 +346,52 @@ def entropy_balance(
             CalibrationWarning, stacklevel=2,
         )
 
-    H = F - t  # centered constraints; we want the weighted mean of H to be 0
+    # Under exact calibration, a feature that is constant on the positive-base support
+    # cannot be changed by reweighting. Leaving its non-zero residual in the dual creates
+    # an unbounded linear direction; worse, the resulting enormous coefficient destroys
+    # floating-point resolution for otherwise feasible constraints. Keep it in the
+    # reported residual, but omit that inert direction from the numerical solve. With a
+    # ridge the direction is bounded, so retain it to recover its penalized coefficient.
+    active = np.ones(k, dtype=bool)
+    if ridge == 0.0:
+        active = np.any(F[support] != F[support][0], axis=0)
+    F_support = F[support][:, active]
+    target_active = t[active]
+    log_base_support = np.log(d[support])
 
     def objective(lam):
-        z = H @ lam
-        m = z.max()
-        ew = d * np.exp(z - m)
-        Z = ew.sum()
-        p = ew / Z
-        f = m + np.log(Z) + 0.5 * ridge * lam @ lam
-        grad = H.T @ p + ridge * lam
+        # Split the common ``-target @ lam`` term out of the log-sum-exp. Including it
+        # once per row is mathematically equivalent but can erase all between-row
+        # differences when the common term is large.
+        log_mass = log_base_support + F_support @ lam
+        shift = log_mass.max()
+        mass = np.exp(log_mass - shift)
+        mass_sum = mass.sum()
+        p_support = mass / mass_sum
+        f = (shift + np.log(mass_sum) - target_active @ lam
+             + 0.5 * ridge * lam @ lam)
+        grad = F_support.T @ p_support - target_active + ridge * lam
         return f, grad
 
-    res = minimize(
-        objective, np.zeros(k), jac=True, method="L-BFGS-B",
-        options={"maxiter": max_iter, "ftol": 1e-12, "gtol": 1e-8},
-    )
-    z = H @ res.x
-    w = d * np.exp(z - z.max())
-    w = w / w.sum()
+    if np.any(active):
+        res = minimize(
+            objective, np.zeros(int(np.count_nonzero(active))), jac=True, method="L-BFGS-B",
+            options={"maxiter": max_iter, "ftol": 1e-12, "gtol": 1e-8},
+        )
+        tilt = np.zeros(k)
+        tilt[active] = res.x
+        success, n_iter = bool(res.success), int(res.nit)
+        message = "" if res.success else str(res.message)
+    else:
+        tilt = np.zeros(k)
+        success, n_iter, message = True, 0, ""
+
+    log_mass = log_base_support + F_support @ tilt[active]
+    mass = np.exp(log_mass - log_mass.max())
+    w = np.zeros(n)
+    w[support] = mass / mass.sum()
 
     max_abs_residual = float(np.max(np.abs(w @ F - t))) if k else 0.0
-    message = "" if res.success else str(res.message)
     if warn:
         # The unmet-target diagnosis is the *informative* one — an unreachable target
         # is exactly the case where the optimizer also fails to converge, so it must
@@ -351,7 +403,7 @@ def entropy_balance(
                 "the sample's convex hull (e.g. an anchored outcome with no cases sampled).",
                 CalibrationWarning, stacklevel=2,
             )
-        elif not res.success:
+        elif not success:
             warnings.warn(
                 f"entropy_balance: optimizer did not converge ({message!r}); "
                 "weights may be unreliable.",
@@ -359,8 +411,8 @@ def entropy_balance(
             )
 
     if return_diagnostics:
-        return w, _diagnostics(w, res.success, int(res.nit), max_abs_residual, message,
-                               tilt=np.asarray(res.x, dtype=float))
+        converged = success and (ridge > 0.0 or max_abs_residual <= tol)
+        return w, _diagnostics(w, converged, n_iter, max_abs_residual, message, tilt=tilt)
     return w
 
 
@@ -396,13 +448,25 @@ def apply_tilt(
     targets:
         The length-``k`` targets the tilt was fitted against (the centring constants).
     base_weights:
-        Optional length-``m`` base weights for the new rows; defaults to uniform.
+        Optional length-``m`` base weights for the new rows; defaults to uniform. Rows
+        with zero base weight stay at zero and are excluded from the exponential shift.
     normalize:
         If ``True`` (default) the returned weights sum to 1.
     """
-    F = np.atleast_2d(np.asarray(features, dtype=float))
-    lam = np.atleast_1d(np.asarray(tilt, dtype=float))
-    t = np.atleast_1d(np.asarray(targets, dtype=float))
+    lam = np.asarray(tilt, dtype=float)
+    if lam.ndim == 0:
+        lam = lam.reshape(1)
+    elif lam.ndim != 1:
+        raise ValueError("tilt must be a 1-D array.")
+    t = np.asarray(targets, dtype=float)
+    if t.ndim == 0:
+        t = t.reshape(1)
+    elif t.ndim != 1:
+        raise ValueError("targets must be a 1-D array.")
+    F = np.asarray(features, dtype=float)
+    if F.ndim > 2:
+        raise ValueError("features must be a 1-D or 2-D array.")
+    F = np.atleast_2d(F)
     if F.shape[0] == 1 and F.shape[1] != lam.shape[0]:
         F = F.T
     if F.shape[1] != lam.shape[0]:
@@ -411,18 +475,36 @@ def apply_tilt(
         raise ValueError("targets must have one entry per tilt coefficient.")
     _require_finite(F, "features")
     _require_finite(lam, "tilt")
+    _require_finite(t, "targets")
 
-    d = np.ones(F.shape[0]) if base_weights is None else np.asarray(base_weights, dtype=float)
+    n = F.shape[0]
+    if base_weights is None:
+        d = np.ones(n)
+    else:
+        d = np.asarray(base_weights, dtype=float)
+        if d.ndim != 1 or d.shape[0] != n:
+            raise ValueError("base_weights must be a 1-D array with one entry per row.")
     _require_finite(d, "base_weights")
     if np.any(d < 0):
         raise ValueError("base_weights must be non-negative.")
-    z = (F - t) @ lam
-    w = d * np.exp(z - z.max())  # shift is absorbed by the normalization
+    support = d > 0
+    if not np.any(support):
+        raise ValueError("base_weights sum to zero; cannot apply the tilt.")
+
+    # Work only on positive-base rows. Besides preserving their exact-zero support,
+    # this prevents an extreme feature on a zero-mass row from setting the log-sum-exp
+    # shift and underflowing every row that can actually receive weight.
+    log_mass = np.log(d[support]) + (F[support] - t) @ lam
+    w = np.zeros(n)
     if normalize:
-        total = w.sum()
-        if total == 0:
-            raise ValueError("tilted weights sum to zero; the tilt underflowed.")
-        w = w / total
+        shift = log_mass.max()
+        mass = np.exp(log_mass - shift)
+        w[support] = mass / mass.sum()
+    else:
+        with np.errstate(over="ignore"):
+            w[support] = np.exp(log_mass)
+        if not np.all(np.isfinite(w[support])):
+            raise ValueError("tilted weights overflowed; use normalize=True.")
     return w
 
 
@@ -431,6 +513,7 @@ def calibration_mean_se(
     weights: npt.ArrayLike,
     features: npt.ArrayLike,
     *,
+    ridge: float = 0.0,
     level: float = 0.95,
 ):
     """Standard error of a weighted mean that accounts for the *estimated* calibration.
@@ -443,14 +526,17 @@ def calibration_mean_se(
     The calibration estimator is asymptotically a regression (GREG) estimator, so its
     influence function is the *residual* of the outcome on the calibration functions:
 
-        e_i = y_i - mu - beta . (g_i - gbar),   beta = weighted LS of y on g
+        e_i = y_i - mu - beta . (g_i - gbar)
+        beta = (Cov_w(g) + rho I)^-1 Cov_w(g, y)
         Var(mu) = sum_i w_i^2 e_i^2 / (sum_i w_i)^2
 
-    Constraining ``g`` removes exactly the part of ``y`` that ``g`` explains. An anchored
-    outcome is itself a column of ``g``, so its residual is identically zero and the SE
-    correctly collapses to ~0; an estimand orthogonal to the constraints reduces to the
-    fixed-weight formula; anything in between is shrunk by the variance the calibration
-    absorbed. This is the closed-form counterpart of
+    Here ``rho`` must equal the ridge used to fit the tilt. Under exact calibration
+    (``rho = 0``), constraining ``g`` removes the part of ``y`` that ``g`` explains. An
+    anchored outcome then has zero residual and an SE of approximately zero. With
+    ``rho > 0`` the margin is only softly constrained: the penalized coefficient above
+    is smaller than an exact projection, and the anchored outcome retains sampling
+    uncertainty. An estimand orthogonal to the constraints reduces to the fixed-weight
+    formula. This is the closed-form counterpart of
     :func:`i3pw.bootstrap_calibration_ipw`, without re-solving the dual per replicate.
 
     Parameters
@@ -462,6 +548,10 @@ def calibration_mean_se(
     features:
         ``(n, k)`` calibration functions actually constrained when the weights were
         solved (for :func:`calibration_ipw`, the anchored outcome columns).
+    ridge:
+        The non-negative ridge ``rho`` used in the calibration solve. It must be the
+        same value: leaving it at ``0`` after a shrunken solve falsely treats soft
+        constraints as exact.
 
     Returns
     -------
@@ -472,7 +562,10 @@ def calibration_mean_se(
 
     y = np.asarray(values, dtype=float).ravel()
     w = np.asarray(weights, dtype=float).ravel()
-    G = np.atleast_2d(np.asarray(features, dtype=float))
+    G = np.asarray(features, dtype=float)
+    if G.ndim > 2:
+        raise ValueError("features must be a 1-D or 2-D array.")
+    G = np.atleast_2d(G)
     if G.shape[0] != y.shape[0] and G.shape[1] == y.shape[0]:
         G = G.T
     if y.shape != w.shape:
@@ -487,15 +580,25 @@ def calibration_mean_se(
     total = w.sum()
     if total == 0:
         raise ValueError("weights sum to zero.")
+    rho = np.asarray(ridge, dtype=float)
+    if rho.ndim != 0 or not np.isfinite(rho) or rho < 0:
+        raise ValueError("ridge must be a finite non-negative scalar.")
+    ridge = float(rho)
 
     p = w / total
     mu = float(p @ y)
     gbar = p @ G
     Gc = G - gbar
-    # Weighted least squares of y on the centered constraints (lstsq handles collinear
-    # or redundant constraint columns, which a normal-equation solve would not).
+    # Penalized weighted least squares, computed as an augmented least-squares problem
+    # rather than through normal equations. This is both the requested
+    # (Cov_g + rho I)^-1 Cov(g, y) coefficient and stable for redundant constraints.
     sw = np.sqrt(p)
-    beta, *_ = np.linalg.lstsq(Gc * sw[:, None], (y - mu) * sw, rcond=None)
+    design = Gc * sw[:, None]
+    response = (y - mu) * sw
+    if ridge > 0.0:
+        design = np.vstack([design, np.sqrt(ridge) * np.eye(G.shape[1])])
+        response = np.concatenate([response, np.zeros(G.shape[1])])
+    beta, *_ = np.linalg.lstsq(design, response, rcond=None)
     resid = (y - mu) - Gc @ beta
     var = float(np.sum(w**2 * resid**2) / total**2)
     se = float(np.sqrt(max(var, 0.0)))
@@ -821,16 +924,23 @@ def calibration_ipw(
         by the calibration constraints); ``"uniform"`` starts from equal weights
         (pure calibration).
     base_scheme:
-        ``"inverse"`` (``1/P``, inverse-probability) or ``"odds"`` (``(1-P)/P``) for
-        the ``"lasso"`` base weights.
+        Must be ``"inverse"`` (``1/P``), because this wrapper's targets are full-population
+        prevalences. Inverse odds target nonparticipants and are rejected here; they
+        remain available through ``inverse_probability_weights`` when nonparticipants
+        are the explicit target.
     shrinkage:
         Ridge on the tilt; ``0`` calibrates exactly, larger values shrink toward
         the base weights (bias-variance trade-off / stabilization).
     """
     if base not in ("lasso", "uniform"):
         raise ValueError("base must be 'lasso' or 'uniform'.")
-    if base_scheme not in ("inverse", "odds"):
-        raise ValueError("base_scheme must be 'inverse' or 'odds'.")
+    if base_scheme != "inverse":
+        if base_scheme == "odds":
+            raise ValueError(
+                "calibration_ipw targets the full population, but base_scheme='odds' "
+                "transports participants to nonparticipants; use base_scheme='inverse'."
+            )
+        raise ValueError("base_scheme must be 'inverse'.")
 
     X_train, _, s_train = dataset.split("train")
     X_test, Y_test, s_test = _test_arrays(dataset)

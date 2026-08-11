@@ -5,13 +5,13 @@ weights the UK Biobank by 1/P̂(S | X_socio). It corrects the sociodemographic
 (healthy-volunteer) tilt but is blind to selection that depends on the disorder
 itself. Here selection depends on *both*:
 
-    logit P(S | X_socio, Y) = α + X_socio·c + θ·Y
+    logit P(S | X_socio, Y) = α + X_socio·c + γ·Y
 
 The modification: use the Schoeler weights as a *base*, then calibrate (rake)
-them to the known population prevalence K of the disorder. Equivalently, this
-adds a θ·Y term to the log-participation model whose coefficient is identified by
-the known prevalence — the calibration-for-nonignorable-nonresponse construction
-of Kott & Chang (2010).
+them to the known population prevalence K of the disorder. The fitted calibration
+coefficient is an outcome tilt in the population-to-participant density ratio; it is
+not generally the participation-logit coefficient γ (or exactly −γ). This is the
+calibration-for-nonignorable-nonresponse construction of Kott & Chang (2010).
 
 Estimand: the liability-scale variance explained R²_L of the disorder (Lee et al.
 2011 territory), estimated by a weighted Haseman–Elston moment regression plus

@@ -1,4 +1,4 @@
-"""Covariate balance — the falsification test prevalence calibration admits.
+"""Held-out covariate balance diagnostics for prevalence calibration.
 
 Every diagnostic in :mod:`i3pw.calibration` is a statement about the *solve*: did the
 optimizer converge, did it hit the targets, how concentrated are the weights. None of
@@ -11,15 +11,15 @@ comfortable effective sample size, while the estimand is badly biased.
 The way out is standard in the weighting literature and is what this module provides:
 check the reweighted sample against population quantities the calibration **did not**
 use. Constrained moments match by construction and carry no information. *Unconstrained*
-ones do not have to match — so when they do, the density-ratio model has survived a test
-it could have failed, and when they do not, the model is refuted.
+ones do not have to match — so a material discrepancy is evidence against the proposed
+density-ratio model.
 
-This is an **overidentification test**: supply more known population quantities than you
-calibrate on, and the surplus becomes evidence. Concretely, for a biobank: calibrate to
-the known disease prevalences, then check the reweighted sample against register margins
-you held back — age, sex, region, education. A large post-weighting discrepancy on a
-held-out margin says the tilt family does not contain the true selection mechanism, which
-is exactly the assumption that "What is identified?" in ``docs/theory.md`` rests on.
+This follows the logic of overidentifying restrictions: supply more known population
+quantities than you calibrate on, and use the surplus diagnostically. It is not a formal
+Sargan/Hansen J-test. This module supplies no covariance-weighted statistic, reference
+distribution, degrees of freedom, or p-value. Concretely, for a biobank: calibrate to the
+known disease prevalences, then check the reweighted sample against register margins you
+held back — age, sex, region, education.
 
 The standardized mean difference (SMD) is the usual currency — the gap between the
 weighted sample mean and the population target, in sample standard deviations, so
@@ -31,7 +31,8 @@ References
 - Austin, P. C. (2009), *Statistics in Medicine* 28, 3083–3107 — standardized
   differences for comparing covariate distributions between weighted groups.
 - Stuart, E. A. (2010), *Statistical Science* 25, 1–21 — matching/weighting diagnostics.
-- Sargan (1958) / Hansen (1982) — overidentifying restrictions as a specification test.
+- Sargan (1958) / Hansen (1982) — the formal overidentifying-restrictions framework
+  that motivates the held-out diagnostic analogy.
 """
 
 from __future__ import annotations
@@ -60,9 +61,9 @@ class BalanceReport:
     def worst_held_out(self) -> float:
         """Largest ``|SMD|`` after weighting among quantities that were *not* constrained.
 
-        This single number is the falsification test: constrained moments match by
-        construction, so only the held-out ones can refute the weighting. ``nan`` when
-        every supplied quantity was constrained (nothing was held out, nothing tested).
+        Constrained moments match by construction, so only the held-out ones are
+        diagnostically informative. ``nan`` when every supplied quantity was constrained
+        (nothing was held out, nothing checked).
         """
         free = ~self.constrained
         if not np.any(free):

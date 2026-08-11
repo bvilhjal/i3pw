@@ -19,8 +19,9 @@ assembly job, because that is the difference between advice and a default:
   not their type (``docs/theory.md#prevalence-sets-the-scale-not-the-case-mix``).
 - ``holdout=`` names population quantities the calibration is *not* given and checks
   the reweighted sample against them. Constrained moments match by construction and
-  cannot refute anything; held-out ones can, and are the only positive evidence this
-  framework produces (``docs/theory.md#what-makes-this-falsifiable``).
+  are not diagnostics. A held-out mismatch reveals misspecification, but agreement is
+  only a necessary check and does not validate the weighting model
+  (``docs/theory.md#what-makes-this-falsifiable``).
 
 Getting base weights in. The base weights are the covariate-driven half of the
 correction and come from your own participation model — any model, fitted however you
@@ -63,11 +64,13 @@ def inverse_probability_weights(
     A one-liner, provided so the ``scheme`` choice is made explicitly rather than
     open-coded as ``1 / p`` at every call site:
 
-    - ``"inverse"`` — ``1/P``, the Horvitz-Thompson weight and the conventional choice.
-    - ``"odds"`` — ``(1-P)/P``, the inverse-*odds* weight. Under logistic participation
-      this is exactly log-linear, so it composes exactly with the exponential tilt the
-      calibration applies on top; ``1/P`` does so only as inclusion becomes rare. See
-      "Inverse vs odds base weights" in ``docs/theory.md#what-is-identified``.
+    - ``"inverse"`` — ``1/P``, the Horvitz-Thompson weight that transports participants
+      to the full target population.
+    - ``"odds"`` — ``(1-P)/P``, the inverse-*odds* weight that transports participants
+      to the *nonparticipant* population. It approximates full-population IPW only when
+      participation is rare; it is not an exact substitute for ``1/P`` merely because a
+      logistic model was used. See "Inverse vs odds base weights" in
+      ``docs/theory.md#what-is-identified``.
 
     Probabilities are clipped away from 0 and 1, so a participation model that predicts
     certainty for some unit yields a large weight rather than an infinite one.
@@ -112,6 +115,9 @@ class CalibrationFit:
     unreachable: list[str] = field(default_factory=list)
     """Targets with no support in the sample, which no reweighting can meet."""
 
+    shrinkage: float = 0.0
+    """Ridge used to fit the tilt; needed for the penalized influence function."""
+
     @property
     def ess(self) -> float:
         """Kish effective sample size of the weights."""
@@ -119,19 +125,21 @@ class CalibrationFit:
 
     @property
     def tilt(self) -> np.ndarray | None:
-        """Fitted dual coefficients — the estimated outcome-driven selection log-odds."""
+        """Coefficients of the fitted log population-to-participant density ratio."""
         return self.diagnostics.tilt
 
     def mean(self, values: npt.ArrayLike, *, level: float = 0.95):
         """Weighted mean of ``values`` with a standard error that accounts for the tilt.
 
         Delegates to :func:`i3pw.calibration_mean_se` with the constraints this fit
-        actually used, which is the part callers otherwise have to reconstruct by hand.
-        A constrained margin correctly gets an SE of ~0; an estimand orthogonal to the
-        constraints reduces to the ordinary Hájek SE.
+        actually used, including the ridge stored in :attr:`shrinkage`. An exactly
+        constrained margin (zero shrinkage) gets an SE of approximately zero. A ridge-
+        shrunken margin retains uncertainty and uses the penalized influence coefficient
+        ``(Cov(g) + shrinkage I)^-1 Cov(g, y)``.
         """
         return calibration_mean_se(
-            values, self.weights, self.constraint_features, level=level
+            values, self.weights, self.constraint_features,
+            ridge=self.shrinkage, level=level,
         )
 
     def apply_to(
@@ -154,7 +162,7 @@ class CalibrationFit:
         )
 
     def summary(self) -> str:
-        """Diagnostics, then the falsification verdict — or its absence, stated plainly."""
+        """Solve diagnostics followed by the held-out specification diagnostic."""
         lines = [
             f"calibrated on {len(self.constraint_names)} constraint(s): "
             + ", ".join(self.constraint_names),
@@ -167,8 +175,9 @@ class CalibrationFit:
             lines.append(
                 "no holdout supplied: every known quantity was used as a constraint, so "
                 "the weights reproduce their targets by construction and nothing here "
-                "can refute them. Pass holdout={name: (values, population_mean)} with a "
-                "register margin you did NOT calibrate on to get an actual test."
+                "checks the density-ratio specification. Pass "
+                "holdout={name: (values, population_mean)} with a register margin you "
+                "did NOT calibrate on to obtain a specification diagnostic."
             )
         else:
             lines.append(self.balance.summary())
@@ -203,8 +212,10 @@ def calibrate(
         ``strata`` is given, holding ``P(Y_q = 1 | stratum = a)``.
     base_weights:
         Length-``n`` weights from a participation model — ``1/P̂``, or the output of
-        :func:`inverse_probability_weights`. Defaults to uniform, i.e. pure calibration
-        with no covariate-driven correction.
+        :func:`inverse_probability_weights`. Use its default inverse scheme for a full-
+        population target; the odds scheme instead targets nonparticipants and is only a
+        rare-participation approximation to population IPW. Defaults to uniform, i.e.
+        pure calibration with no covariate-driven correction.
     strata:
         Length-``n`` integer labels in ``0..A-1``. Supplying them calibrates prevalence
         *within* each stratum and pins the stratum shares, instead of matching only the
@@ -222,8 +233,8 @@ def calibrate(
     holdout:
         ``{name: (values, population_mean)}`` — quantities whose population value you
         know but are deliberately *not* calibrating on. ``values`` is length ``n``. These
-        become :attr:`CalibrationFit.balance`, the only part of the output that can
-        refute the weighting. Supply at least one.
+        become :attr:`CalibrationFit.balance`. A mismatch diagnoses a failure, while
+        agreement is not proof that the weighting model is correct.
     outcome_names:
         Optional labels for the columns of ``Y``, used in the constraint names and the
         balance report.
@@ -247,7 +258,7 @@ def calibrate(
             base_weights=i3pw.inverse_probability_weights(p_hat),
             holdout={"mean age": (age, 41.7), "% female": (female, 0.508)},
         )
-        print(fit.summary())          # diagnostics + the falsification verdict
+        print(fit.summary())          # solve + held-out specification diagnostics
         print(fit.mean(bmi).summary())
     """
     Y_arr = np.asarray(Y, dtype=float)
@@ -316,9 +327,8 @@ def calibrate(
             held_cols.append(col[:, None])
             held_targets.append(float(target))
         # Constrained columns go in too, flagged: the report then shows what was pinned
-        # next to what was tested, and balance_report's verdict already ignores the
-        # former. Seeing both is the point -- an exact match on a constrained row is
-        # what "matches by construction" looks like.
+        # next to the held-out diagnostics; balance_report's summary already excludes
+        # the former from its check. Seeing both makes "matched by construction" plain.
         report = balance_report(
             np.hstack([features, *held_cols]),
             w,
@@ -335,6 +345,7 @@ def calibrate(
         diagnostics=diag,
         constraint_features=features,
         constraint_targets=cons_targets,
+        shrinkage=float(shrinkage),
         constraint_names=names,
         balance=report,
         unreachable=unreachable,

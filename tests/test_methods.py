@@ -33,11 +33,12 @@ def test_ipw_weight_schemes():
     # inverse: unselected excluded (weight 0), selected get 1/P > 0.
     assert inv[1] == 0.0
     assert np.allclose(inv[[0, 2]], 1.0 / P[[0, 2]])
-    oracle = _ipw_weight(P, s, "oracle_odds")
-    # oracle_odds: unselected get exactly 1, selected get (1-P)/P.
-    assert oracle[1] == 1.0
-    assert np.allclose(oracle[[0, 2]], (1 - P[[0, 2]]) / P[[0, 2]])
-    with pytest.raises(ValueError):
+    oracle = _ipw_weight(P, s, "oracle_full")
+    # oracle_full: every unit is observed and contributes uniformly.
+    assert np.array_equal(oracle, np.ones(P.size))
+    with pytest.raises(ValueError, match="targets nonparticipants"):
+        _ipw_weight(P, s, "oracle_odds")
+    with pytest.raises(ValueError, match="got 'nope'"):
         _ipw_weight(P, s, "nope")
 
 
@@ -49,6 +50,18 @@ def test_inverse_weighting_uses_sample_only(dataset):
     _, _, s_test = dataset.split("test")
     assert np.all(w[s_test == 0] == 0)
     assert np.all(np.isfinite(res.percent_diff))
+
+
+def test_oracle_full_uses_all_test_outcomes_uniformly(dataset):
+    res = lasso_ipw(dataset, weighting="oracle_full")
+    _, Y_test, _ = dataset.split("test")
+    assert np.array_equal(res.extra["weight"], np.ones(Y_test.shape[0]))
+    assert np.allclose(res.weighted_prevalence, Y_test.mean(axis=0))
+
+
+def test_lasso_ipw_rejects_removed_oracle_odds_before_fitting(dataset):
+    with pytest.raises(ValueError, match="targets nonparticipants"):
+        lasso_ipw(dataset, weighting="oracle_odds")
 
 
 def test_trim_weights_caps_extremes():
@@ -78,6 +91,11 @@ def test_saga_fallback_recipe_fits():
         model = LogisticRegressionCV(**kwargs).fit(X, s)
     proba = model.predict_proba(X)[:, 1]
     assert np.all((proba > 0) & (proba < 1))
+
+
+def test_logistic_cv_recipe_pins_solver_randomness():
+    kwargs = _logistic_cv_kwargs(np.logspace(-3, 1, 4), cv=2, max_iter=100)
+    assert kwargs["random_state"] == 0
 
 
 def test_monte_carlo_summary():

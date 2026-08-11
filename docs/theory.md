@@ -5,14 +5,13 @@ Start at the [README](../README.md) if you have not. This file answers the
 actually identify?*
 
 **The whole file in one paragraph.** A biased sample and its population differ by a
-density ratio. Assume that ratio is log-linear — a covariate part plus an outcome part,
-`a(X) + θ·g(Y)`. The covariate part is what a participation model estimates. The
-outcome part is what a register's known prevalences pin down, because forcing the
-reweighted sample to reproduce them is a moment condition whose dual is exactly a
-log-linear tilt `exp(λ·g(Y))`, with `λ` playing the role of `θ`. That
-solve is an I-projection, it inherits the asymptotics of a regression estimator, and it is
-falsifiable only through moments you deliberately did *not* constrain. Everything below is
-that paragraph with the conditions attached.
+density ratio. Assume that ratio can be represented by a base correction `d(X)` times
+an outcome tilt `exp(θ·g(Y))`. A participation model supplies the base. A register's
+known prevalences pin down the tilt, because forcing the reweighted sample to reproduce
+them is a moment condition whose dual is exactly `exp(λ·g(Y))`. That
+solve is an I-projection and motivates a first-order regression linearization; its
+scientific adequacy can only be checked against moments deliberately omitted from the
+solve. Everything below is that paragraph with the conditions attached.
 
 In order: [notation](#notation), [what the method identifies](#what-is-identified) —
 beginning with a case small enough to check by hand —
@@ -46,6 +45,7 @@ over sampled units (`n` of them), `q` over outcomes (`Q`), `a` over strata (`A`)
 | `w_i` | the calibration weights this package returns | the solve (`fit.weights`) |
 | `λ` | the fitted dual — the estimated tilt | the solve (`CalibrationDiagnostics.tilt`) |
 | `a(X), θ` | the covariate-driven and outcome-driven parts of the *true* log density ratio | the world; `θ` is what `λ` estimates |
+| `γ` | an outcome coefficient in a participation logit, if that separate model is used | the participation mechanism; generally neither `λ` nor `−λ` |
 | `ρ` | the ridge on `λ` that shrinks toward `d` | `shrinkage=` / `ridge=` |
 
 The one distinction to hold onto: `θ` is a property of reality, `λ` is a number
@@ -79,11 +79,14 @@ Two things are worth noticing, because both generalize:
 
 - **`λ` is interpretable.** It is the log odds-ratio between the population
   prevalence and the sample prevalence — a measure of how hard the sample had to be
-  pushed. It is the `θ` of the selection model, recovered rather than assumed, and
-  `CalibrationDiagnostics.tilt` reports it.
-- **Nothing was estimated.** Given `K`, the answer is a closed form. The sample supplied
-  `P`; the register supplied `K`; no model intervened. This is why the anchored margin
-  later turns out to have *zero* sampling variance — there was never anything to estimate.
+  pushed. It is the outcome coefficient of the log population-to-participant density
+  ratio, and `CalibrationDiagnostics.tilt` reports it. It is not generally the
+  participation-logit coefficient. If cases and controls participate with probabilities
+  `π₁` and `π₀`, respectively, then `λ = log(π₀/π₁)`. Under
+  `logit(π_y) = α + γy`, this is not exactly `−γ` unless participation is rare.
+- **The anchored margin is fixed; the tilt is estimated.** Given `K` and the realised
+  sample prevalence `P`, the answer is a closed form. Across repeated samples `P` and
+  `λ` vary, but exact calibration still fixes the reported anchored margin at `K`.
 
 Everything below is this calculation with more moments, an arbitrary base weight, and
 consequently no closed form.
@@ -127,22 +130,34 @@ the base weights plus those moments.* In symbols, the method is exact precisely 
 `λ = θ` is attainable — when the true `a(X)` is what `d` supplies and the true
 `θ·g(Y)` lives in the span of the moments you chose.
 
-**Inverse vs odds base weights (`base_scheme`).** That separability is *exact* for one
-familiar choice. Under logistic participation `logit π = a(X) + θ·Y`,
-the **inverse-odds** weight
+**Inverse probability and inverse odds have different targets.** Under logistic
+participation `logit π = a(X) + γ·Y`, the **inverse-odds** weight
 
 ```
-(1 − π) / π  =  exp(−a(X)) · exp(−θ·Y)
+(1 − π) / π  =  exp(−a(X)) · exp(−γ·Y)
 ```
 
-is exactly multiplicatively separable and log-linear, so it composes cleanly with the
-`exp(λ·Y)` calibration tilt. The Horvitz–Thompson weight
-`1/π = 1 + exp(−a(X) − θ·Y)` is **not** separable; it only approaches the tilt family
-as inclusion becomes rare (`π → 0`, where `1/π ≈ (1−π)/π`).
-`calibration_ipw(base_scheme="odds")` uses the exactly-composing form; `"inverse"` (the
-default) is the standard IPW weight and is very close under strong selection. When selection
-is on the outcome alone (no covariates in the base), the two agree exactly — the reweighting
-is a per-class constant either way, which is why the `K/P` weights of the
+is exactly multiplicatively separable and log-linear. But it transports participants to
+the **nonparticipant** distribution:
+
+```
+dP_nonparticipant / dP_participant  ∝  (1 − π) / π.
+```
+
+The full target population instead requires `1/π`:
+
+```
+dP_population / dP_participant  ∝  1 / π
+                                = 1 + exp(−a(X) − γ·Y).
+```
+
+That full-population weight is not separable; inverse odds only approximates it when
+participation is rare, so the population is almost entirely nonparticipants.
+`inverse_probability_weights(..., scheme="odds")` remains useful when
+nonparticipants are the explicit target, but it must not be justified as an exact
+full-population IPW base. When selection is on the outcome alone (no covariates in the
+base), subsequent exact calibration to `K` gives the same per-class weights regardless of
+the starting class constants, which is why the `K/P` weights of the
 [liability-threshold study](studies.md#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw)
 are exact IPW, not an approximation.
 
@@ -182,10 +197,11 @@ s.t.    Σ_i w_i g(Y_i) = t
 ```
 
 The dual is smooth, convex and tiny — one parameter per constraint, not per unit — and its
-solution gives back the primal weights as `w_i ∝ d_i · exp(λ·g(Y_i))`. So
-entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
-1994) are two views of the same optimization. Matching population moments by reweighting is
-also what kernel mean matching does for covariate shift (Gretton et al. 2009). The ridge
+solution gives back the primal weights as `w_i ∝ d_i · exp(λ·g(Y_i))`.
+Entropy balancing (Hainmueller 2012) and empirical likelihood (Qin & Lawless 1994) are
+related moment-constrained weighting methods, but they use different divergences and are
+not the same optimization. Matching population moments by reweighting is also what kernel
+mean matching does for covariate shift (Gretton et al. 2009). The ridge
 `ρ` (`shrinkage=`) is the one term with no counterpart in the classical theory: it
 shrinks `λ` toward `0`, i.e. `w` toward `d`, trading exact calibration for variance.
 
@@ -199,13 +215,12 @@ boundary (selection on the exposure alongside the outcome), stated in a second l
 
 ## Calibration is a regression estimator (and why the SEs look the way they do)
 
-One classical result does more practical work here than any other, and it is what
-`calibration_mean_se` implements. Deville & Särndal (1992) showed that **every** member of
-the calibration family — raking, linear calibration, the entropy tilt used here — is
-asymptotically equivalent to the **generalized regression (GREG)** estimator, to
-`O(n^-3/2)`. They therefore all share one asymptotic variance, and the GREG variance
-formula can be used for all of them. That is what rescues a package whose weights come
-from a solve with no closed form.
+One classical result does more practical work here than any other, and it motivates
+`calibration_mean_se`. Deville & Särndal (1992) established the first-order asymptotic
+equivalence between standard calibration estimators and the **generalized regression
+(GREG)** estimator under their survey-sampling conditions. This supports a residual-based
+linearization variance; it is not a blanket finite-sample identity for every sampling
+design or every regularized solve.
 
 Concretely, calibrating on `g` and then taking a weighted mean of `y` is asymptotically
 the same as *regressing the outcome on the constrained functions and correcting the
@@ -216,25 +231,31 @@ function is a **residual**:
 e_i = y_i − μ − β·(g_i − ḡ)          Var(μ̂) = Σ_i w_i² e_i² / (Σ_i w_i)²
 ```
 
-with `β` the weighted least-squares slope of `y` on `g`. Three consequences, all
-visible in the package's output:
+For exact calibration (`ρ = 0`), `β` is the weighted least-squares slope of `y` on `g`.
+For the penalized dual (`ρ > 0`), the implemented first-order adjustment uses
 
-- **An anchored margin gets SE exactly 0, for the right reason.** If `y` is itself a
-  column of `g`, the regression fits it perfectly, the residual is identically zero, and
-  the variance vanishes. That is not a numerical accident — it is the correct answer:
-  conditional on a known prevalence, the reweighted margin has no sampling variability.
-  The fixed-weight formula cannot see this and reports ≈0.04 instead.
+```
+β_ρ = { Cov_w(g) + ρ I }^{-1} Cov_w(g, y).
+```
+
+Three consequences are visible in the package's output:
+
+- **An exactly anchored margin gets SE exactly 0, for the right reason.** If `ρ = 0` and
+  `y` is itself a column of `g`, the regression fits it perfectly, the residual is
+  identically zero, and the variance vanishes conditional on the target. With
+  `ρ > 0` the margin is only softly constrained, `β_ρ` is shrunk, and its SE need not be
+  zero. The fixed-weight formula cannot distinguish these cases.
 - **An estimand orthogonal to the constraints is unaffected.** Then `β = 0`, the
   residual is `y − μ`, and the calibration SE reduces to the ordinary Hájek one.
 - **Everything in between is shrunk** by exactly the variance the constraints absorbed —
   which is also why calibration *reduces* variance for quantities correlated with the
   anchors, not just corrects bias.
 
-**Efficiency.** This is not merely convenient. Chan, Yam & Zhang (2016) show that
-empirical balancing calibration weighting attains the **semiparametric efficiency bound**
-globally — without nonparametric estimation of either the propensity or the outcome
-regression, whose finite-sample behaviour is the usual weak point of efficient estimators.
-The moment constraints inherit what the unknown propensity function would have supplied.
+**Efficiency has a model-specific scope.** Chan, Yam & Zhang (2016) establish global
+semiparametric efficiency for their empirical balancing estimator of average treatment
+effects under the assumptions and growing balance-function construction in that paper.
+That result motivates calibration weighting; it does not by itself prove that every i3pw
+estimand, finite set of prevalence constraints, or regularized fit is efficient.
 
 **Two robustness claims that look contradictory.** Zhao & Percival (2017) prove that
 entropy balancing *is* doubly robust — with respect to a **linear outcome regression** and
@@ -261,19 +282,18 @@ weights reproduce them by construction, whatever the truth. Every diagnostic the
 emits (convergence, residual, ESS) is then a statement about the optimizer, not the world.
 
 Supply **more** known population quantities than you constrain, and the surplus becomes
-evidence. The unconstrained ones did not have to match; that they do is a test the model
-could have failed. This is exactly the logic of a test of **overidentifying restrictions**
-(Sargan 1958; Hansen 1982), transplanted from GMM: the constraints identify, the surplus
-moments test. `balance_report` implements it, and deliberately bases its verdict *only* on
-the held-out columns — see [balance as a falsification
-test](guide.md#checking-the-weights-balance-as-a-falsification-test) for the demonstration where
-every other diagnostic prefers the broken weighting.
+diagnostic evidence. The unconstrained ones did not have to match, so they can reveal a
+bad weighting. This follows the logic of **overidentifying restrictions** (Sargan 1958;
+Hansen 1982), but `balance_report` is not a formal J-test: it reports held-out
+standardized mean differences with a rule-of-thumb threshold, without a covariance-weighted
+statistic, reference distribution, degrees of freedom, or p-value. It deliberately bases
+its verdict *only* on the held-out columns — see [balance as a falsification
+check](guide.md#checking-the-weights-a-held-out-balance-diagnostic).
 
 The practical reading for a biobank: calibrate to the disease prevalences you need
-corrected, and **hold back** register margins (age, sex, region, birth cohort) as tests. A
-large held-out `|SMD|` refutes the tilt family; a small one is the strongest positive
-evidence this framework can produce. It is not proof — passing an overidentification test
-never is — but it is the difference between an assumption and a checked assumption.
+corrected, and **hold back** register margins (age, sex, region, birth cohort) as checks.
+A large held-out `|SMD|` is evidence against the tilt family; a small one only says that
+this particular diagnostic did not expose a discrepancy. It is useful, not magic.
 
 ## Two separable tasks: predict selection, then anchor to the population
 
@@ -300,13 +320,15 @@ flowchart LR
    `P(S = 1 | X)`, inverted to base weights. The predictors `X` can be socioeconomic
    *and* clinical or genetic (any measured proxy of participation), not just
    demographics. This corrects selection on *measured* covariates but is blind to
-   selection on the disorder itself. **It estimates `a(X)`.**
+   selection on the disorder itself. Inverting the fitted probability supplies a
+   full-population base weight; it need not recover a separately additive `a(X)` exactly.
 2. **Anchor the weighted sample to the target population** — calibrate those base
    weights so the reweighted sample reproduces known register quantities: disease
    prevalence, and prevalence *within* demographic and clinical strata. This is the
    task the known prevalences make possible, and where register data (e.g. iPSYCH,
    Danish registers) supplies what a selected genetic sample (UK Biobank, PGC-style
-   cohorts) cannot. **It estimates `θ`.**
+   cohorts) cannot. **It estimates the density-ratio tilt `λ`; it does not generally
+   estimate a participation-logit coefficient.**
 
 `calibration_ipw` / `entropy_balance` implement task 2 on top of *any* task-1 base
 weights — `entropy_balance(Y_sample, targets, base_weights=1/P̂)`. Keeping the two
@@ -373,8 +395,9 @@ structure of selection needs richer constraints or a selection model that captur
 - van Alten, S., Domingue, B. W., Faul, J., Galama, T., Marees, A. T. (2024).
   Reweighting UK Biobank corrects for pervasive selection bias due to volunteering.
   *International Journal of Epidemiology* 53(3), dyae054.
-- Schoeler, T. et al. (2025). Correcting for volunteer bias in GWAS increases SNP
-  effect sizes and heritability estimates. *Nature Communications* 16.
+- van Alten, S. et al. (2025). Correcting for volunteer bias in GWAS increases SNP
+  effect sizes and heritability estimates. *Nature Communications* 16, 3578.
+  [doi:10.1038/s41467-025-58684-8](https://doi.org/10.1038/s41467-025-58684-8)
 - Munafò, M. R. et al. (2018). Collider scope: when selection bias can substantially
   influence observed associations. *Int. J. Epidemiol.* 47(1), 226–235.
 - Elliott, M. R. & Valliant, R. (2017). Inference for nonprobability samples.
@@ -411,7 +434,7 @@ structure of selection needs richer constraints or a selection model that captur
 - Anderson, J. A. (1972). Separate sample logistic discrimination. *Biometrika* 59(1),
   19–35. *(logistic participation under retrospective / separate sampling)*
 - Zhao, Q. & Percival, D. (2017). Entropy balancing is doubly robust. *Journal of Causal
-  Inference* 5(1), 41–55. *(double robustness w.r.t. a linear outcome regression and a
+  Inference* 5(1), article 20160010. *(double robustness w.r.t. a linear outcome regression and a
   logistic propensity model — the axis i3pw's caveat is **not** about)*
 - Chan, K. C. G., Yam, S. C. P., Zhang, Z. (2016). Globally efficient non-parametric
   inference of average treatment effects by empirical balancing calibration weighting.
@@ -420,8 +443,8 @@ structure of selection needs richer constraints or a selection model that captur
 - Sargan, J. D. (1958). The estimation of economic relationships using instrumental
   variables. *Econometrica* 26(3), 393–415.
 - Hansen, L. P. (1982). Large sample properties of generalized method of moments
-  estimators. *Econometrica* 50(4), 1029–1054. *(the overidentification test whose logic
-  `balance_report` transplants)*
+  estimators. *Econometrica* 50(4), 1029–1054. *(the formal J-test that motivates, but is
+  not implemented by, `balance_report`)*
 - Austin, P. C. (2009). Balance diagnostics for comparing the distribution of baseline
   covariates between treatment groups in propensity-score matched samples. *Statistics in
   Medicine* 28(25), 3083–3107. *(standardized mean differences; the |SMD| < 0.1 rule)*
@@ -437,7 +460,7 @@ machine learning):**
   transfer. In *Dataset Shift in Machine Learning*, eds. Quiñonero-Candela et al., ch. 1,
   3–28. MIT Press. *(the taxonomy naming "prior probability shift")*
 - Lipton, Z. C., Wang, Y.-X., Smola, A. (2018). Detecting and correcting for label shift
-  with black box predictors. *ICML*, PMLR 80, 3128–3136. *(estimating `P(Y)` from a
+  with black box predictors. *ICML*, PMLR 80, 3122–3130. *(estimating `P(Y)` from a
   classifier — the regime where i3pw instead takes it as known)*
 - Gretton, A., Smola, A., Huang, J., Schmittfull, M., Borgwardt, K., Schölkopf, B.
   (2009). Covariate shift by kernel mean matching. In *Dataset Shift in Machine

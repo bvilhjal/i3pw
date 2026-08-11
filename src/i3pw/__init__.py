@@ -19,7 +19,7 @@ Two front doors, and they are not interchangeable:
 
 - :func:`calibrate` — **for a real cohort.** Plain arrays: outcomes on the participants,
   register prevalences, optional base weights from your own participation model, and a
-  ``holdout=`` of register margins to test against.
+  ``holdout=`` of register margins to check against.
 - :func:`calibration_ipw` — **for the simulations.** Needs a :class:`Dataset`, which
   carries ground truth. Baselines to compare against it: :func:`no_correction` and
   :func:`lasso_ipw` (the covariate propensity model that motivated the exercise).
@@ -75,7 +75,7 @@ from .uncertainty import (
     weighted_mean_se,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "SimConfig",

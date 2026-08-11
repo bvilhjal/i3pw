@@ -8,7 +8,7 @@ This script measures the three things that *can* fail:
 
 1. **Transfer.** Anchor one outcome, evaluate the other. Does calibrating on a disease
    whose prevalence you know help with one you do not?
-2. **Balance (the falsification test).** Check the reweighted sample against population
+2. **Balance (a held-out diagnostic).** Check the reweighted sample against population
    covariate means that were never used as constraints. Constrained moments match by
    construction; held-out ones do not have to, so only they can refute the weighting.
 3. **Does the base model earn its place?** ``base="lasso"`` is the default. On a
@@ -99,7 +99,7 @@ def main() -> None:
         print(f"{'% err, UNANCHORED outcome (transfer)':<44}"
               f"{_fmt(res['lasso_free']):>17}{_fmt(res['uniform_free']):>17}")
         print(f"{'  ...vs no correction at all':<44}{_fmt(res['naive_free']):>17}")
-        print(f"{'worst held-out |SMD| (falsification)':<44}"
+        print(f"{'worst held-out |SMD| (diagnostic)':<44}"
               f"{_fmt(res['lasso_smd']):>17}{_fmt(res['uniform_smd']):>17}")
         print(f"{'|error| on held-out covariate mean':<44}"
               f"{_fmt(res['lasso_covmean']):>17}{_fmt(res['uniform_covmean']):>17}")

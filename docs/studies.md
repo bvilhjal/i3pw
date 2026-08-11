@@ -33,18 +33,18 @@ whose prevalence you never supplied. Mean absolute % error over 12 replications:
 
 | | unanchored outcome | no correction |
 | --- | --- | --- |
-| `calibration_ipw(base="lasso")` | 77.2 ± 6.1 | — |
-| `calibration_ipw(base="uniform")` | 78.5 ± 6.2 | — |
-| naive sample prevalence | — | 78.4 ± 6.8 |
+| `calibration_ipw(base="lasso")` | 81.61 ± 6.03 | — |
+| `calibration_ipw(base="uniform")` | 82.24 ± 5.96 | — |
+| naive sample prevalence | — | 80.78 ± 6.66 |
 
 Calibrating on one disease does essentially **nothing** for another. That is not a bug —
 it is the [case-mix caution](theory.md#prevalence-sets-the-scale-not-the-case-mix) and the
 marginal-vs-joint boundary showing up as a number. Marginal calibration fixes marginal
 quantities; anchor what you want corrected.
 
-**The default's benefit depends on the simulation.** The shipped DGM had *no covariate
+**The default's benefit depends on the simulation.** The default DGM has *no covariate
 channel at all* — selection was a function of `Y` alone, so `P(S|X)` was only weakly
-learnable second-hand through `X → Y → S` (AUC ≈ 0.58). On that setting a covariate base
+learnable second-hand through `X → Y → S`. On that setting a covariate base
 model has nothing to fit and merely adds noise, and no comparison run there can
 discriminate between the two channels the package is about.
 `SimConfig.selection_covariate_strength` adds the missing channel, and with it the base
@@ -52,11 +52,11 @@ model earns its place — on worst held-out `|SMD|`, lower is better:
 
 | | no covariate channel (default) | channel on (`strength=1.5`) |
 | --- | --- | --- |
-| `base="lasso"` | 0.084 ± 0.029 | **0.211 ± 0.115** |
-| `base="uniform"` | 0.078 ± 0.037 | 0.566 ± 0.236 |
+| `base="lasso"` | 0.085 ± 0.044 | **0.209 ± 0.079** |
+| `base="uniform"` | 0.086 ± 0.047 | 0.482 ± 0.238 |
 
-So the `base="lasso"` default is right *when selection actually has a covariate
-component* — 2.7× better balance and 2.6× lower error on a held-out covariate mean. It
+So the `base="lasso"` default earns its place *when selection actually has a covariate
+component* — 2.3× better balance and 2.5× lower error on a held-out covariate mean. It
 looked useless only because the simulation gave it nothing to learn. Benchmark on a
 setting with the channel enabled before drawing conclusions about the base model.
 
@@ -64,11 +64,18 @@ Across 20 populations (`python examples/monte_carlo.py`), mean absolute % error 
 
 ```
 method                     Y1 %err         Y2 %err
-no_correction        46.81±5.70      79.53±6.49
-lasso_ipw            44.66±5.93      78.50±6.61      <- no covariate channel to learn
+no_correction        50.95±6.34      79.78±6.21
+lasso_ipw            49.38±6.78      78.94±6.50      <- no covariate channel to learn
 calibration_ipw       0.00±0.00       0.00±0.00      <- by construction
-                                    (Kish effective sample size: 155 ± 32)
+                                    (Kish effective sample size: 153 ± 19)
 ```
+
+These numbers were regenerated after correcting the generator to use Bernoulli-logistic
+participation with expected, rather than fixed, sample margins (Python 3.11.15,
+NumPy 2.4.6, SciPy 1.17.1, scikit-learn 1.9.0, i3pw 0.3.0). The structured results
+are frozen in [`report/validation_results.tsv`](../report/validation_results.tsv).
+They are still local fixed-seed
+synthetic results, not independent empirical evidence.
 
 The value of calibration is *not* that it "predicts" a prevalence it was told. It is
 that the resulting **weights** are correct along the ascertained dimensions, which
@@ -85,9 +92,13 @@ outcome. For a very rare outcome the cases can be absent, and no reweighting get
 
 - `"inverse"` — the Hájek (self-normalized) estimator (`1 / P`, sample only).
   **The default and the only deployable choice.**
-- `"oracle_odds"` — `(1 - P) / P` for selected, weight 1 for unselected, mean over
-  the whole test set. It reads unselected outcomes, so it flatters the method; it is
-  a simulation-only oracle diagnostic.
+- `"oracle_full"` — the unweighted mean over the complete test fold. It reads
+  nonparticipant outcomes and is therefore a simulation-only ground-truth diagnostic.
+
+The removed `"oracle_odds"` mixed inverse-odds weights for participants with unit
+weights for nonparticipants and estimated the **nonparticipant** mean, not the full
+population mean. Calls now fail with an explanation rather than silently changing the
+estimand.
 
 Very large weights can be tamed with `trim=` (clip at a quantile, standard IPW practice).
 
@@ -97,10 +108,11 @@ A covariate participation model (Schoeler et al. 2023; van Alten et al. 2024)
 weights the UK Biobank by `1/P̂(S | X_socio)` — correcting the sociodemographic
 tilt but blind to selection that depends on the disorder itself. The modification:
 use those weights as a **base**, then calibrate (rake) them to the known population
-prevalence. Equivalently, add a `θ·Y` term to the log-participation model whose
-coefficient is identified by the known prevalence — the
-calibration-for-nonignorable-nonresponse construction of Kott & Chang (2010).
-`examples/schoeler_plus_prevalence.py`, selection `= α + X_socio·c + θ·Y`,
+prevalence. This estimates a `λY` term in the population-to-participant log density
+ratio—the calibration-for-nonignorable-nonresponse construction of Kott & Chang
+(2010). It does **not** generally identify the outcome coefficient in a participation
+logit. In `examples/schoeler_plus_prevalence.py`, selection is
+`logit P(S=1|X_socio,Y) = α + X_socio·c + γY`,
 recovering the disorder's liability-scale variance explained `R²_L`:
 
 ```
@@ -112,11 +124,13 @@ modified     0.514   (Schoeler base + rake to known prevalence — recovers trut
 oracle       0.508   (1 / P(S | X_socio, Y))
 ```
 
-The modification strictly extends Schoeler (it reduces to it when `θ → 0`) and is
-already in the package: `outcome_calibration_weights(Y, K, base_weights=1/P̂)`.
+The modification extends the Schoeler base and reduces to it when calibration requires
+no further tilt (`λ=0`). The fitted `λ` is not generally `γ` or exactly `−γ`.
+It is already in the package:
+`outcome_calibration_weights(Y, K, base_weights=1/P̂)`.
 
-How much can the prevalences buy you? Each known marginal prevalence pins down one
-number in the selection model — the outcome's own participation effect — which is
+How much can the prevalences buy you? Under the exponential-tilt model, each known
+marginal prevalence pins down one density-ratio coefficient. That is
 enough to fix marginal quantities (prevalence, absolute risk, means, and the
 liability-scale variance explained here). What it *cannot* pin down is how selection
 depends on two things at once; recovering that (the interaction terms behind

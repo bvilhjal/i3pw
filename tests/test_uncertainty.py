@@ -72,6 +72,13 @@ def test_prevalence_sensitivity_tracks_anchored_target(dataset):
     assert "sensitivity" in r.summary()
 
 
+def test_population_uncertainty_wrappers_reject_inverse_odds(dataset):
+    with pytest.raises(ValueError, match="nonparticipants"):
+        bootstrap_calibration_ipw(dataset, base_scheme="odds", n_boot=2)
+    with pytest.raises(ValueError, match="nonparticipants"):
+        prevalence_sensitivity(dataset, base_scheme="odds")
+
+
 def test_bootstrap_discards_uncalibrated_replicates():
     """Replicates whose calibration cannot meet the targets must not enter the interval.
 
@@ -84,7 +91,9 @@ def test_bootstrap_discards_uncalibrated_replicates():
         seed=9, population_size=6000, n_features=10, n_outcomes=3,
         predictors_per_outcome=5,
         target_population_prevalence=(0.40, 0.15, 0.06),
-        target_sample_prevalence=(0.20, 0.04, 0.004), sample_size=1200,
+        # This seed leaves one rare-outcome case in the selected test fold: the full
+        # estimator is defined, while many bootstrap resamples still omit that case.
+        target_sample_prevalence=(0.20, 0.04, 0.010), sample_size=1200,
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

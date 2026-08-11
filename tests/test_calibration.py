@@ -27,7 +27,8 @@ def dataset():
         seed=3, population_size=6000, n_features=12, n_outcomes=2,
         predictors_per_outcome=6,
         target_population_prevalence=(0.4, 0.08),
-        target_sample_prevalence=(0.2, 0.01), sample_size=1500,
+        # Keep the second outcome rare but supported in this seed's Bernoulli test fold.
+        target_sample_prevalence=(0.2, 0.02), sample_size=1500,
     )
 
 
@@ -93,7 +94,7 @@ def test_entropy_balance_warns_and_flags_infeasible_target():
     y = np.zeros((50, 1))
     with pytest.warns(CalibrationWarning):
         w, diag = entropy_balance(y, np.array([0.2]), return_diagnostics=True)
-    assert not diag.converged or diag.max_abs_residual > 1e-6
+    assert not diag.converged
     assert diag.max_abs_residual == pytest.approx(0.2, abs=1e-6)
 
 
@@ -118,6 +119,8 @@ def test_calibration_ipw_validates_base_and_scheme(dataset):
         calibration_ipw(dataset, base="nonsense")
     with pytest.raises(ValueError):
         calibration_ipw(dataset, base_scheme="nonsense")
+    with pytest.raises(ValueError, match="nonparticipants"):
+        calibration_ipw(dataset, base_scheme="odds")
 
 
 def test_calibration_ipw_reports_support_and_diagnostics(dataset):
@@ -131,10 +134,11 @@ def test_calibration_ipw_reports_support_and_diagnostics(dataset):
 
 
 def test_calibration_ipw_trim_breaks_calibration_and_is_reported(dataset):
-    # Anchoring the rare outcome too forces extreme case weights; trimming them
-    # clips real mass and pulls the achieved prevalence off its exact target.
+    # A trim below the case fraction clips the larger case weights and pulls the
+    # achieved prevalence off its exact target. Anchor only the supported outcome:
+    # an unreachable second outcome would otherwise dominate both max residuals.
     with pytest.warns(CalibrationWarning):
-        r = calibration_ipw(dataset, base="uniform", trim=0.9)
+        r = calibration_ipw(dataset, anchor_outcomes=[0], base="uniform", trim=0.75)
     assert r.post_trim_residual > r.pre_trim_residual
     # The diagnostics must describe the trimmed weights actually returned, so
     # they agree with the result's ess and the returned weight vector.
@@ -471,6 +475,40 @@ def test_entropy_balance_zero_base_weights_raises():
         entropy_balance(Y, [0.4], base_weights=np.zeros(50))
 
 
+def test_zero_base_row_cannot_destabilize_the_exponential_shift():
+    # The feature=1000 row has structural zero mass. It must remain zero, not set the
+    # exponential shift and underflow the two rows that actually define the support.
+    features = np.array([[0.0], [1.0], [1000.0]])
+    base = np.array([1.0, 1.0, 0.0])
+    target = np.array([0.75])
+
+    w, diag = entropy_balance(
+        features, target, base_weights=base, warn=False, return_diagnostics=True
+    )
+
+    assert np.all(np.isfinite(w))
+    assert w == pytest.approx([0.25, 0.75, 0.0], abs=1e-9)
+    assert float(w @ features[:, 0]) == pytest.approx(target[0], abs=1e-9)
+    assert apply_tilt(features, diag.tilt, target, base_weights=base) == pytest.approx(
+        w, abs=1e-12
+    )
+
+
+def test_base_weight_shape_and_positive_support_are_validated():
+    features = np.arange(6.0).reshape(3, 2)
+    with pytest.raises(ValueError, match="1-D array with one entry per row"):
+        entropy_balance(features, [1.0, 2.0], base_weights=np.ones((3, 1)))
+    with pytest.raises(ValueError, match="1-D array with one entry per row"):
+        apply_tilt(features, [0.1, 0.2], [1.0, 2.0], base_weights=np.ones(2))
+    with pytest.raises(ValueError, match="sum to zero"):
+        apply_tilt(features, [0.1, 0.2], [1.0, 2.0], base_weights=np.zeros(3))
+    # Three nominal rows but only two supported rows cannot identify two coefficients.
+    with pytest.raises(ValueError, match="2 units with positive base weight"):
+        entropy_balance(
+            features, [1.0, 2.0], base_weights=np.array([1.0, 1.0, 0.0]), warn=False
+        )
+
+
 def test_stratified_zero_share_raises():
     # Stratum shares that sum to zero cannot be normalized -> a clear error.
     rng = np.random.default_rng(0)
@@ -558,6 +596,8 @@ def test_apply_tilt_validation():
         apply_tilt(Y, [0.1], [0.2])
     with pytest.raises(ValueError, match="one entry per tilt coefficient"):
         apply_tilt(Y, [0.1, 0.2], [0.2])
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        apply_tilt(Y, [0.1, 0.2], [0.2, np.nan])
 
 
 def test_calibration_se_is_zero_for_an_anchored_margin():
@@ -590,6 +630,31 @@ def test_calibration_se_matches_a_bootstrap_on_a_held_out_estimand(dataset):
         reps.append(float((wb * Xs[i, 0]).sum() / wb.sum()))
     boot = float(np.std(reps, ddof=1))
     assert closed == pytest.approx(boot, rel=0.25)
+
+
+def test_ridge_calibration_se_uses_the_penalized_influence_coefficient():
+    # rho=5 makes the anchored binary margin a deliberately soft constraint. The old
+    # exact-projection coefficient beta=1 reported SE~0 even though bootstrap estimates
+    # fluctuate on the ordinary n^-1/2 scale. The penalized coefficient is
+    # Var(g)/(Var(g)+rho), so the closed form must track that bootstrap scale.
+    rng = np.random.default_rng(2026)
+    n, rho = 800, 5.0
+    G = (rng.uniform(size=(n, 1)) < 0.2).astype(float)
+    target = np.array([0.5])
+    w = entropy_balance(G, target, ridge=rho, warn=False)
+
+    closed = calibration_mean_se(G[:, 0], w, G, ridge=rho).se
+    falsely_exact = calibration_mean_se(G[:, 0], w, G, ridge=0.0).se
+    reps = []
+    for _ in range(300):
+        i = rng.integers(0, n, n)
+        wb = entropy_balance(G[i], target, ridge=rho, warn=False)
+        reps.append(float(wb @ G[i, 0]))
+    bootstrap = float(np.std(reps, ddof=1))
+
+    assert falsely_exact < 1e-10
+    assert closed > 0.01
+    assert closed == pytest.approx(bootstrap, rel=0.12)
 
 
 def test_single_outcome_tilt_matches_the_documented_closed_form():

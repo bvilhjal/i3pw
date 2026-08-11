@@ -15,7 +15,7 @@ import numpy as np
 
 from .calibration import calibration_ipw
 from .dgm import make_dataset
-from .methods import lasso_ipw, no_correction
+from .methods import IPWWeighting, _validate_weighting, lasso_ipw, no_correction
 
 
 @dataclass
@@ -38,7 +38,7 @@ def monte_carlo(
     *,
     base_seed: int = 0,
     sim_kwargs: dict | None = None,
-    weighting: str = "inverse",
+    weighting: IPWWeighting = "inverse",
     include_lasso: bool = True,
     include_calibration: bool = True,
     calibration_base: str = "lasso",
@@ -56,8 +56,9 @@ def monte_carlo(
     sim_kwargs:
         Overrides forwarded to :func:`i3pw.make_dataset` (minus ``seed``).
     weighting:
-        ``"inverse"`` (default, deployable Hájek) or ``"oracle_odds"`` (a
-        simulation-only diagnostic) — passed to :func:`i3pw.lasso_ipw`.
+        ``"inverse"`` (default, deployable Hájek) or ``"oracle_full"`` (the
+        simulation-only unweighted mean of all test-fold outcomes) — passed to
+        :func:`i3pw.lasso_ipw`.
     include_calibration / include_lasso:
         Toggle each prevalence-informed / baseline method.
     calibration_base:
@@ -76,6 +77,7 @@ def monte_carlo(
         quantity, namely how well calibrating on the diseases whose prevalence you know
         *transfers* to one you do not.
     """
+    weighting = _validate_weighting(weighting)
     sim_kwargs = dict(sim_kwargs or {})
     sim_kwargs.pop("seed", None)
 

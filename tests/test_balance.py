@@ -30,7 +30,7 @@ def test_constrained_moments_are_balanced_but_carry_no_information():
 
 
 def test_held_out_covariate_detects_a_base_model_that_misses_a_driver():
-    """The falsification test: the existing solve diagnostics cannot see this, balance can.
+    """Held-out balance can expose a discrepancy that solve diagnostics cannot.
 
     Selection depends on X0, but the "broken" run calibrates to the known prevalence
     from a uniform base, so X0 is never corrected. Both runs hit the prevalence target

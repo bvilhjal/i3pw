@@ -42,3 +42,30 @@ def test_monte_carlo_nan_errors_are_excluded_not_propagated(monkeypatch):
     s = summaries["no_correction"]
     assert s.n_nan == 1
     assert np.all(np.isfinite(s.mean_pct_error))
+
+
+def test_monte_carlo_accepts_oracle_full():
+    sims = dict(
+        population_size=800,
+        n_features=6,
+        n_outcomes=2,
+        predictors_per_outcome=3,
+        target_population_prevalence=(0.4, 0.1),
+        target_sample_prevalence=(0.2, 0.02),
+        sample_size=200,
+    )
+    summaries = monte_carlo(
+        n_reps=2,
+        base_seed=20,
+        sim_kwargs=sims,
+        weighting="oracle_full",
+        include_calibration=False,
+    )
+    assert set(summaries) == {"no_correction", "lasso_ipw"}
+    assert summaries["lasso_ipw"].n_reps == 2
+    assert np.all(np.isfinite(summaries["lasso_ipw"].mean_pct_error))
+
+
+def test_monte_carlo_rejects_removed_oracle_odds():
+    with pytest.raises(ValueError, match="targets nonparticipants"):
+        monte_carlo(n_reps=1, weighting="oracle_odds")

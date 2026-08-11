@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use i3pw, please cite this software."
+title: "i3pw: Informed Inference of Inverse Probability Weights"
+type: software
+authors:
+  - family-names: Vilhjalmsson
+    given-names: Bjarni
+version: 0.3.0
+license: MIT
+repository-code: "https://github.com/bvilhjal/i3pw"
+url: "https://github.com/bvilhjal/i3pw"
+keywords:
+  - inverse probability weighting
+  - selection bias
+  - calibration weighting
+  - epidemiology
+  - statistical genetics

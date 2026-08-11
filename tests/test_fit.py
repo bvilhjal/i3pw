@@ -144,6 +144,22 @@ def test_mean_uses_the_constraints_for_its_standard_error():
     assert fit.mean(c["female"]).se > 1e-4
 
 
+def test_mean_propagates_shrinkage_to_the_influence_function():
+    rng = np.random.default_rng(2026)
+    Y = (rng.uniform(size=800) < 0.2).astype(float)
+    fit = calibrate(Y, [0.5], shrinkage=5.0, warn=False)
+
+    estimate = fit.mean(Y)
+
+    assert fit.shrinkage == 5.0
+    assert estimate.se == pytest.approx(
+        i3pw.calibration_mean_se(
+            Y, fit.weights, fit.constraint_features, ridge=fit.shrinkage
+        ).se
+    )
+    assert estimate.se > 0.01  # a soft constraint is not a known constant
+
+
 def test_apply_to_reproduces_the_fitted_weights_on_the_same_rows():
     c = _cohort()
     bw = inverse_probability_weights(np.full(c["Y"].shape[0], 0.3))

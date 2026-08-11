@@ -13,10 +13,12 @@ Goal: recover ``E[V]``. Compared:
 - ``calibration``  — reweight so the sample matches the known prevalence ``K``.
 - ``aipw``         — doubly-robust: an outcome model for V plus the calibration weights.
 
-The doubly-robust estimator (:func:`i3pw.aipw_mean`) is consistent if *either* the
-outcome model or the weights are correct, and is the lower-variance choice for a
-downstream mean. Using calibration weights — which are tuned to the *ascertained
-margin* — as a raw weighted mean for an unrelated trait is comparatively noisy.
+Under the usual missing-at-random and regularity conditions, the doubly-robust
+estimator (:func:`i3pw.aipw_mean`) is consistent if either the outcome model is
+correct or the supplied weights represent the full-population density ratio.
+Calibration to a few prevalences does not guarantee the latter, and augmentation
+does not guarantee lower variance in every finite sample. In this simulation the
+outcome model is well specified; raw calibration weighting is comparatively noisy.
 
     python examples/doubly_robust_trait.py
 """

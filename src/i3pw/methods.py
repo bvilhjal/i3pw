@@ -18,6 +18,7 @@ from __future__ import annotations
 import inspect
 import warnings
 from dataclasses import dataclass, field
+from typing import Literal, TypeAlias
 
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
@@ -27,6 +28,8 @@ from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from ._links import clip_prob
 from .dgm import Dataset
 from .metrics import percent_difference, weighted_prevalence
+
+IPWWeighting: TypeAlias = Literal["inverse", "oracle_full"]
 
 
 @dataclass
@@ -55,20 +58,39 @@ def _test_arrays(dataset: Dataset):
     return X_test, Y_test, s_test
 
 
-def _ipw_weight(P: np.ndarray, s: np.ndarray, weighting: str) -> np.ndarray:
+def _validate_weighting(weighting: str) -> IPWWeighting:
+    """Validate an IPW weighting mode, with a diagnostic for the removed oracle."""
+    if weighting == "inverse":
+        return "inverse"
+    if weighting == "oracle_full":
+        return "oracle_full"
+    if weighting == "oracle_odds":
+        raise ValueError(
+            "weighting='oracle_odds' was removed because it targets nonparticipants, "
+            "not the full population; use 'oracle_full' for the simulation-only "
+            "full-test-fold oracle or 'inverse' for deployable IPW."
+        )
+    raise ValueError(
+        "weighting must be 'inverse' (deployable) or 'oracle_full' "
+        f"(simulation-only); got {weighting!r}."
+    )
+
+
+def _ipw_weight(P: np.ndarray, s: np.ndarray, weighting: IPWWeighting) -> np.ndarray:
     """Per-unit IPW weights from inclusion probabilities ``P`` and indicator ``s``.
 
     ``"inverse"`` — the deployable Hájek weight: selected units get ``1/P``,
     unselected units get ``0`` (a weighted mean then uses the *sample only*).
-    ``"oracle_odds"`` — a simulation-only diagnostic: selected units get ``(1-P)/P``
-    and unselected units get ``1``, so a weighted mean over *all* units reads the
-    outcomes of unselected units — only possible when everyone's outcome is known.
+    ``"oracle_full"`` — a simulation-only diagnostic: every unit gets weight ``1``,
+    so the estimate is the unweighted outcome mean over the complete test fold.
+    This requires observing outcomes for participants and nonparticipants.
     """
-    if weighting == "oracle_odds":
-        return np.where(s == 1, (1.0 - P) / P, 1.0)
+    weighting = _validate_weighting(weighting)
+    if weighting == "oracle_full":
+        return np.ones_like(P, dtype=float)
     if weighting == "inverse":
         return np.where(s == 1, 1.0 / P, 0.0)
-    raise ValueError("weighting must be 'inverse' (deployable) or 'oracle_odds'.")
+    raise AssertionError("unreachable")
 
 
 def _trim_weights(w: np.ndarray, trim: float | None) -> np.ndarray:
@@ -94,7 +116,11 @@ def _logistic_cv_kwargs(Cs, cv: int, max_iter: int) -> dict:
     today's scikit-learn, before the day it becomes the only path (see
     ``tests/test_methods.py::test_saga_fallback_recipe_fits``).
     """
-    lr_kwargs = dict(Cs=Cs, cv=cv, scoring="neg_log_loss", max_iter=max_iter)
+    # liblinear and saga may shuffle/select features internally. Pin their RNG so fixed
+    # simulation seeds also make benchmark and validation outputs reproducible.
+    lr_kwargs = dict(
+        Cs=Cs, cv=cv, scoring="neg_log_loss", max_iter=max_iter, random_state=0
+    )
     params = inspect.signature(LogisticRegressionCV).parameters
     if "penalty" in params:
         # liblinear runs glmnet-style coordinate descent: far faster than saga
@@ -168,7 +194,7 @@ def lasso_ipw(
     cv: int = 5,
     Cs=None,
     max_iter: int = 1000,
-    weighting: str = "inverse",
+    weighting: IPWWeighting = "inverse",
     trim: float | None = None,
 ) -> MethodResult:
     """LASSO logistic IPW with a single inclusion model shared across outcomes.
@@ -179,20 +205,37 @@ def lasso_ipw(
     every outcome. With ``interactions=True`` all pairwise products of the
     covariates are added, mirroring the ``(X)^2`` design in the R code.
 
+    ``weighting="inverse"`` uses only sampled outcomes and is deployable.
+    ``weighting="oracle_full"`` instead gives every test-fold unit weight one,
+    including nonparticipants; it is a simulation-only reference that bypasses
+    propensity fitting and returns the complete test-fold outcome mean.
+
     ``Cs`` is the inverse-regularization grid; it defaults to
     ``numpy.logspace(-3, 1, 8)`` (moderate-to-mild L1). This is deliberately
     kept away from very large ``C`` (near-zero regularization): the inclusion
     problem is near-separable, so an under-regularized fit both defeats the
     purpose of the LASSO and makes liblinear iterate pathologically.
     """
-    X_train, _, s_train = dataset.split("train")
+    weighting = _validate_weighting(weighting)
     X_test, Y_test, s_test = _test_arrays(dataset)
 
-    P_test = lasso_propensity(
-        X_train, s_train, X_test, interactions=interactions, cv=cv, Cs=Cs, max_iter=max_iter
-    )
+    if weighting == "oracle_full":
+        # The oracle observes every test-fold outcome, so fitting P(S=1 | X)
+        # would be pure computation theatre.
+        weight = np.ones(s_test.shape, dtype=float)
+    else:
+        X_train, _, s_train = dataset.split("train")
+        P_test = lasso_propensity(
+            X_train,
+            s_train,
+            X_test,
+            interactions=interactions,
+            cv=cv,
+            Cs=Cs,
+            max_iter=max_iter,
+        )
+        weight = _ipw_weight(P_test, s_test, weighting)
 
-    weight = _ipw_weight(P_test, s_test, weighting)
     weight = _trim_weights(weight, trim)
     pop = dataset.population_prevalence
     est = np.array([weighted_prevalence(weight, Y_test[:, q]) for q in range(len(pop))])

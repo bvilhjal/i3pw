@@ -1,0 +1,27 @@
+script	run_date	python	numpy	scipy	scikit_learn	i3pw	repetitions	seeds	condition	metric	method	mean	sd	notes
+examples/benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	1	97	default	absolute_percent_error_Y1	no_correction	49.48	NA	single fixed-seed illustration
+examples/benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	1	97	default	absolute_percent_error_Y2	no_correction	91.82	NA	single fixed-seed illustration
+examples/benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	1	97	default	absolute_percent_error_Y1	lasso_ipw	46.86	NA	single fixed-seed illustration
+examples/benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	1	97	default	absolute_percent_error_Y2	lasso_ipw	90.83	NA	single fixed-seed illustration
+examples/benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	1	97	default	absolute_percent_error_Y1	calibration_ipw	0.00	NA	anchored identity, not validation
+examples/benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	1	97	default	absolute_percent_error_Y2	calibration_ipw	0.00	NA	anchored identity, not validation
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=0	unanchored_absolute_percent_error	no_correction	80.779	6.662	held-out outcome
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=0	unanchored_absolute_percent_error	lasso_base	81.611	6.030	held-out outcome
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=0	unanchored_absolute_percent_error	uniform_base	82.239	5.963	held-out outcome
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=1.5	worst_held_out_absolute_SMD	lasso_base	0.209	0.079	three held-out covariates
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=1.5	worst_held_out_absolute_SMD	uniform_base	0.482	0.238	three held-out covariates
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=1.5	absolute_error_held_out_covariate_mean	lasso_base	0.126	0.072	X0
+examples/honest_benchmark.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	12	0-11	selection_covariate_strength=1.5	absolute_error_held_out_covariate_mean	uniform_base	0.317	0.211	X0
+examples/monte_carlo.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	absolute_percent_error_Y1	no_correction	50.95	6.34	anchored comparison design
+examples/monte_carlo.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	absolute_percent_error_Y2	no_correction	79.78	6.21	anchored comparison design
+examples/monte_carlo.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	absolute_percent_error_Y1	lasso_ipw	49.38	6.78	anchored comparison design
+examples/monte_carlo.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	absolute_percent_error_Y2	lasso_ipw	78.94	6.50	anchored comparison design
+examples/monte_carlo.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	Kish_ESS	calibration_ipw	153	19	anchored errors are zero by construction
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	trait_mean_bias	naive	-0.0905	0.0712	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	trait_mean_bias	ipw_lasso	-0.0252	0.0777	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	trait_mean_bias	calibration	0.0537	0.0989	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	trait_mean_bias	aipw	-0.0009	0.0690	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	mean_absolute_trait_bias	naive	0.1008	NA	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	mean_absolute_trait_bias	ipw_lasso	0.0636	NA	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	mean_absolute_trait_bias	calibration	0.0864	NA	participant-only trait
+examples/doubly_robust_trait.py	2026-08-11	3.11.15	2.4.6	1.17.1	1.9.0	0.3.0	20	0-19	default	mean_absolute_trait_bias	aipw	0.0584	NA	participant-only trait

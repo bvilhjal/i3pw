@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "i3pw"
-version = "0.2.0"
+version = "0.3.0"
 description = "Informed Inference of Inverse Probability Weights: selection-bias correction by calibrating IPW weights to known population prevalences."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,14 +39,26 @@ dev = ["pytest>=7", "ruff>=0.5", "mypy>=1.8"]
 
 [project.urls]
 Homepage = "https://github.com/bvilhjal/i3pw"
+Documentation = "https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md"
 Source = "https://github.com/bvilhjal/i3pw"
 Issues = "https://github.com/bvilhjal/i3pw/issues"
+Changelog = "https://github.com/bvilhjal/i3pw/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 i3pw = ["py.typed"]
+
+[tool.setuptools.data-files]
+"share/i3pw" = ["README.md", "LICENSE", "CITATION.cff", "CHANGELOG.md"]
+"share/i3pw/docs" = ["docs/*.md"]
+"share/i3pw/examples" = ["examples/*.py"]
+"share/i3pw/report" = [
+    "report/i3pw_report.tex",
+    "report/validation_results.tsv",
+    "report/validation_environment.txt",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

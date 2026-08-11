@@ -1,0 +1,1346 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=27mm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\hypersetup{
+  pdftitle={Prevalence-Calibrated Weighting for Selected Genetic Cohorts},
+  pdfauthor={i3pw methodological review}
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{2em}
+\renewcommand{\arraystretch}{1.15}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prb}{\mathbb{P}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\logit}{\operatorname{logit}}
+\newcommand{\expit}{\operatorname{expit}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pkg}{\texttt{i3pw}}
+
+\title{\textbf{Prevalence-Calibrated Weighting for Selected Genetic Cohorts}\\
+\large The idea, theory, implementation, and evidential status of \pkg}
+\author{Methodological review for statistical geneticists}
+\date{11 August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Volunteer biobanks and ascertained genetic cohorts need not have the same
+distribution as their source populations.  The \pkg\ package combines weights from
+a conventional participation model with an exponential tilt chosen to reproduce
+externally known disease prevalences.  In the one-disease case this reduces to the
+familiar case--control weights \(K/P\) for cases and
+\((1-K)/(1-P)\) for controls.  In the general case it is an entropy-calibration
+estimator: useful, computationally modest, and scientifically interpretable, but not
+a machine for reconstructing unobserved inclusion probabilities from prevalence
+alone.  This report derives the estimator, states the identifying condition, explains
+its connection to ascertainment correction and label shift, reviews the software, and
+separates algebraic calibration from empirical evidence.  It is written for readers
+comfortable with likelihoods, generalized linear models, and GWAS, but not
+necessarily with survey sampling or epidemiologic terminology.
+\end{abstract}
+
+\textbf{Review scope.}
+This report describes the local version-0.3.0 worktree reviewed on the date above.
+It evaluates the scientific contract as well as the code structure.  Numerical
+results reported below were regenerated after the simulator corrections and frozen
+in \code{report/validation\_results.tsv}; the exact local runtime is recorded in
+\code{report/validation\_environment.txt}.  They remain fixed-seed synthetic evidence
+rather than independent validation.
+
+\section{Executive assessment}
+
+The central idea is sound and classical in its mathematical form.  A register margin
+is used as a moment constraint; among all participant weights satisfying that
+constraint, \pkg\ chooses the weights closest in Kullback--Leibler divergence to a
+user-supplied base weighting.  This joins survey calibration
+\cite{deville1992,kott2010}, entropy balancing \cite{hainmueller2012}, density-ratio
+models \cite{qin1998}, and the case--control correction familiar in statistical
+genetics \cite{manski1977,lee2011}.
+
+Its scientific claim must nevertheless be kept narrow.  Exact agreement with an
+input prevalence is an identity, not validation.  The weights equal full-population
+inverse-probability weights only under a stated density-ratio model.  If selection
+also changes ancestry, severity, genotype, or exposure distributions within disease
+classes, a marginal prevalence cannot repair those joint distributions.
+
+\begin{table}[htbp]
+\centering
+\caption{The shortest accurate description of \pkg.}
+\label{tab:executive}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.29\textwidth}X}
+\toprule
+Question & Answer \\
+\midrule
+What is computed? &
+Normalized minimum-divergence weights matching specified population moments. \\
+What information is added? &
+External prevalences or other population margins, optionally layered on weights from
+a participation model. \\
+What is identified? &
+The target population law if its density ratio relative to participants is the base
+ratio times the chosen exponential tilt; otherwise an information projection, not
+the true inclusion probabilities. \\
+What is \(\lambda\)? &
+The fitted coefficient in the log population-to-participant density ratio.  It is
+not, in general, the coefficient of outcome in a participation logit. \\
+Which IP weight targets the full population? &
+\(1/\pi\), where \(\pi=\Prb(S=1\mid X,Y)\).  The inverse odds
+\((1-\pi)/\pi\) target nonparticipants. \\
+Does matching prevalence validate the method? &
+No.  A held-out margin can diagnose failure, but its standardized mean difference is
+a heuristic discrepancy, not a formal Sargan--Hansen \(J\)-test. \\
+How strong is the present evidence? &
+Theoretical links, unit tests, and synthetic studies.  The package currently has no
+reported external-cohort validation; its evidential base is simulation-only. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\fbox{\begin{minipage}{0.91\textwidth}
+\centering
+\begin{tabularx}{0.95\linewidth}{
+>{\centering\arraybackslash}X c >{\centering\arraybackslash}X}
+sampling-frame model & & register moments \(t\) \\
+\(\Prb(S=1\mid X)\to d(X)\) & \(\searrow\quad\swarrow\) &
+\(\E_T\{g(Y)\}\) \\
+\multicolumn{3}{c}{
+\(\boxed{w_i\propto d_i\exp\{\lambda^\mathsf{T}(g_i-t)\}}\)} \\
+\multicolumn{3}{c}{\(\downarrow\)} \\
+\multicolumn{3}{c}{weighted participant outcomes and target estimands}
+\end{tabularx}
+
+\vspace{0.7em}
+Population margins deliberately withheld from the solve
+\(\longrightarrow\) balance diagnostics that can fail.
+\end{minipage}}
+\caption{The two information channels in prevalence-calibrated weighting.  The
+participation model supplies individual variation visible in frame covariates; the
+register anchors selected population moments.}
+\label{fig:pipeline}
+\end{figure}
+
+\section{The problem in a geneticist's language}
+
+Let \(S=1\) denote participation, \(X\) variables available on the sampling frame,
+and \(Y\) one or more diagnoses observed in participants.  Let \(T\) denote the
+source population to which inference is intended to apply.  A volunteer cohort
+usually samples from
+\(\Prb(X,Y\mid S=1)\), whereas the scientific target is a functional of
+\(\Prb_T(X,Y)\).  This is a distribution-shift problem.
+
+For a geneticist, the simplest instance is ordinary case--control ascertainment.
+If cases constitute \(P\) of the analysed sample but \(K\) of the population, a
+population mean is recovered by giving cases relative weight \(K/P\) and controls
+relative weight \((1-K)/(1-P)\).  \pkg\ keeps that calculation but permits:
+\begin{enumerate}
+\item a nonuniform starting weight \(d(X)\);
+\item several prevalence, comorbidity, or stratum-specific constraints; and
+\item downstream weighted means and liability-scale calculations.
+\end{enumerate}
+The price of this generality is that one must say exactly what selection model these
+constraints identify.
+
+\subsection{A small epidemiologic dictionary}
+
+\begin{table}[htbp]
+\centering
+\caption{Terms used in this report and their statistical-genetic analogues.}
+\label{tab:dictionary}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth}
+>{\raggedright\arraybackslash}p{0.32\textwidth}X}
+\toprule
+Term & Meaning here & Familiar analogue \\
+\midrule
+Target population &
+The people about whom the estimand is defined, including nonparticipants. &
+The population whose disease prevalence \(K\) enters a liability transform. \\
+Participation probability &
+\(\pi(x,y)=\Prb(S=1\mid X=x,Y=y)\). &
+An ascertainment or recruitment probability. \\
+Positivity &
+Every target-relevant type has nonzero chance to appear. &
+Both cases and controls, and every required stratum, must be represented. \\
+Calibration &
+Choose weights so specified weighted sample moments equal known population moments. &
+Force the weighted case fraction to equal \(K\). \\
+Density ratio &
+\(d\Prb_T/d\Prb(\cdot\mid S=1)\), the weight that transports one law to another. &
+A sample-to-population prior or ascertainment correction. \\
+Collider bias &
+An association induced or distorted by conditioning on a common effect such as
+participation. &
+Genotype and phenotype both influence volunteering, so analysing volunteers can
+associate them spuriously \cite{munafo2018,schoeler2023}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Probability setup: what full-population IPW means}
+
+Write \(Z=(X,Y)\) and
+\begin{equation}
+\pi(z)=\Prb(S=1\mid Z=z), \qquad p_S=\Prb(S=1).
+\label{eq:pi}
+\end{equation}
+Bayes' rule gives the population-to-participant density ratio
+\begin{equation}
+r_T(z)
+=\frac{d\Prb_T}{d\Prb_1}(z)
+=\frac{p_S}{\pi(z)},
+\qquad
+\Prb_1(\,\cdot\,)=\Prb_T(\,\cdot\mid S=1).
+\label{eq:true-ratio}
+\end{equation}
+Consequently, for any integrable target variable \(h(Z)\),
+\begin{equation}
+\mu_T=\E_T\{h(Z)\}
+=\frac{\E_1\{h(Z)/\pi(Z)\}}{\E_1\{1/\pi(Z)\}}.
+\label{eq:hajek}
+\end{equation}
+Equation~\eqref{eq:hajek} is the self-normalized, or H\'ajek, form of
+Horvitz--Thompson weighting \cite{horvitz1952,hajek1971}.  The unknown sampling fraction
+\(p_S\) cancels.  It does not follow that \(\pi(z)\) can be learned from participant
+data and one marginal prevalence: that is the identification problem addressed
+below.
+
+\subsection{Inverse probability is not inverse odds}
+
+There are two legitimate transports, but they have different destinations.  From
+Bayes' rule,
+\begin{align}
+\frac{d\Prb_T}{d\Prb_1}(z)
+&\propto \frac{1}{\pi(z)}, \label{eq:full-ipw}\\
+\frac{d\Prb_0}{d\Prb_1}(z)
+&\propto \frac{1-\pi(z)}{\pi(z)},
+\qquad
+\Prb_0(\,\cdot\,)=\Prb_T(\,\cdot\mid S=0).
+\label{eq:odds-transport}
+\end{align}
+Thus \(1/\pi\) targets the full source population, whereas inverse odds target
+nonparticipants.  Logistic modelling does not make the two targets identical.
+When participation is rare, \(1-\pi(z)\approx1\), so the normalized weights can
+be close; this is an approximation, not an algebraic equivalence.
+
+\section{The one-outcome calculation}
+
+Let \(Y\in\{0,1\}\), let
+\begin{equation}
+P=\Prb(Y=1\mid S=1),\qquad K=\Prb_T(Y=1),
+\label{eq:sample-target-prevalence}
+\end{equation}
+and begin from uniform base weights.  An exponential tilt gives cases relative
+weight \(\exp(\lambda)\) and controls weight one.  Requiring the weighted case
+fraction to equal \(K\) yields
+\begin{equation}
+\frac{P\exp(\lambda)}
+{P\exp(\lambda)+(1-P)}=K
+\quad\Longrightarrow\quad
+\lambda=\logit(K)-\logit(P).
+\label{eq:binary-lambda}
+\end{equation}
+After an irrelevant common normalization, the class weights are
+\begin{equation}
+d_1=\frac{K}{P},
+\qquad
+d_0=\frac{1-K}{1-P}.
+\label{eq:class-weights}
+\end{equation}
+For \(P=0.20\) and \(K=0.40\), equation~\eqref{eq:binary-lambda} gives
+\(\lambda=0.9808\); the relative weights are \(2.00\) for a case and \(0.75\)
+for a control.  This is worth checking by hand before trusting a larger solve.
+This is the classical choice-based-sampling result \cite{manski1977} and the
+core ascertainment factor appearing in liability-scale corrections
+\cite{lee2011}.
+
+The interpretation of \(\lambda\) matters.  Let
+\(\pi_y=\Prb(S=1\mid Y=y)\).  Equations~\eqref{eq:true-ratio} and
+\eqref{eq:binary-lambda} imply
+\begin{equation}
+\lambda=\log\!\left(\frac{\pi_0}{\pi_1}\right).
+\label{eq:lambda-density}
+\end{equation}
+It is therefore a coefficient in the \emph{population-to-participant density
+ratio}.  Suppose instead that participation obeys
+\(\logit(\pi_y)=\alpha+\gamma y\).  Then
+\begin{equation}
+\lambda
+=-\gamma+
+\log\!\left\{\frac{1+\exp(\alpha+\gamma)}
+{1+\exp(\alpha)}\right\}
+=-\gamma+\log\!\left(\frac{1-\pi_0}{1-\pi_1}\right).
+\label{eq:gamma-relation}
+\end{equation}
+Only under rare participation is the second term negligible, giving
+\(\lambda\approx-\gamma\).  Calling \(\lambda\) the participation-logit
+coefficient would therefore reverse a sign and omit a non-negligible term in
+many cohort settings.
+
+\section{General entropy calibration}
+
+Let \(g_i=g(Y_i,X_i)\in\R^k\) be calibration features, with externally known target
+\begin{equation}
+t=\E_T\{g(Y,X)\}.
+\label{eq:target-moment}
+\end{equation}
+Examples include diagnosis indicators, pairwise comorbidity indicators, stratum
+shares, and diagnosis-by-stratum products.  Let \(d_i\geq0\) be normalized base
+weights.  Uniform \(d_i\) give pure prevalence calibration; estimated
+\(1/\widehat\pi(X_i)\) supply a covariate correction first.
+
+\subsection{Primal and dual problems}
+
+For exact calibration, \pkg\ solves the empirical information projection
+\begin{align}
+\min_{w_1,\ldots,w_n}\quad&
+\sum_{i=1}^n w_i\log\!\left(\frac{w_i}{d_i}\right)
+\label{eq:primal}\\
+\text{subject to}\quad&
+w_i\geq0,\qquad \sum_{i=1}^n w_i=1,\qquad
+\sum_{i=1}^n w_i g_i=t. \notag
+\end{align}
+This is a Kullback--Leibler calibration estimator
+\cite{csiszar1975,deville1992,hainmueller2012}.  Its dual is
+\begin{equation}
+\widehat\lambda
+=\arg\min_{\lambda\in\R^k}
+\log\!\left[
+\sum_{i:d_i>0}d_i
+\exp\{\lambda^\mathsf{T}(g_i-t)\}
+\right],
+\label{eq:dual}
+\end{equation}
+and the resulting weights are
+\begin{equation}
+w_i(\lambda)=
+\frac{d_i\exp\{\lambda^\mathsf{T}(g_i-t)\}}
+{\sum_{j:d_j>0}d_j\exp\{\lambda^\mathsf{T}(g_j-t)\}}.
+\label{eq:tilted-weights}
+\end{equation}
+Rows with \(d_i=0\) remain outside the support and receive zero weight.  The
+optimization is only \(k\)-dimensional even when \(n\) is large.
+
+Empirical likelihood and entropy balancing are close relatives, not the same
+optimization.  Both impose moment restrictions and belong to generalized empirical
+likelihood families.  Standard empirical likelihood maximizes
+\(\sum_i\log w_i\) and produces reciprocal-affine weights; the criterion in
+\eqref{eq:primal} produces exponential weights.  Results from one should not be
+attributed mechanically to the other \cite{qinlawless1994,qin1998}.
+
+\subsection{Ridge stabilization}
+
+With ridge parameter \(\rho>0\), the implemented dual becomes
+\begin{equation}
+\widehat\lambda_\rho
+=\arg\min_\lambda
+\left[
+\log\sum_{i:d_i>0}d_i
+\exp\{\lambda^\mathsf{T}(g_i-t)\}
++\frac{\rho}{2}\|\lambda\|_2^2
+\right].
+\label{eq:ridge-dual}
+\end{equation}
+Its gradient and Hessian are
+\begin{align}
+\nabla\ell_\rho(\lambda)
+&=\E_{w(\lambda)}(g)-t+\rho\lambda,
+\label{eq:ridge-gradient}\\
+\nabla^2\ell_\rho(\lambda)
+&=\Cov_{w(\lambda)}(g)+\rho I_k.
+\label{eq:ridge-hessian}
+\end{align}
+At the solution,
+\begin{equation}
+\E_{w(\widehat\lambda_\rho)}(g)-t
+=-\rho\widehat\lambda_\rho.
+\label{eq:ridge-residual}
+\end{equation}
+Ridge calibration is therefore deliberately approximate.  It trades bias in the
+specified margins against less concentrated weights; it must not be reported as exact
+calibration.
+
+\subsection{Feasibility and positivity}
+
+For a finite exact solution, \(t\) must lie in the relative interior of the convex
+hull of the observed \(g_i\) having positive base weight.  A binary target strictly
+between zero and one is unreachable if the sample contains only cases or only
+controls.  Near a hull boundary, \(\|\widehat\lambda\|\) and the largest weight can
+explode even when the optimizer reports success.  Redundant constraints can also make
+\(\lambda\) nonunique.  These are data-support problems, not numerical inconveniences
+that a different optimizer can wish away.
+
+\section{Identification: when calibration is population weighting}
+
+The empirical solve always defines weights if its constraints are feasible.  The
+scientific question is when those weights recover the target law.
+
+\paragraph{Density-ratio assumption.}
+Suppose the true population-to-participant ratio can be represented as
+\begin{equation}
+r_T(X,Y)
+=c\,d(X)\exp\{\theta^\mathsf{T}g(X,Y)\},
+\label{eq:identification-model}
+\end{equation}
+where \(c\) normalizes the ratio.  Here \(d(X)\) is the population-to-participant
+correction already supplied by the base model, and \(g\) spans the remaining
+selection pattern.  If the target moments are correct, positivity holds, and the
+moment map is identifiable, then the population moment equation
+\begin{equation}
+\frac{\E_1[d(X)\exp\{\theta^\mathsf{T}g\}g]}
+{\E_1[d(X)\exp\{\theta^\mathsf{T}g\}]}
+=t
+\label{eq:population-moment-equation}
+\end{equation}
+identifies \(\theta\); the sample solution estimates it.  Under
+\eqref{eq:identification-model}, the calibrated weights are proportional to the true
+full-population IP weights.
+
+This statement is the right meaning of \emph{prevalence informs the weights}.  It does
+not say that prevalence nonparametrically identifies \(\pi(X,Y)\).  Rather, prevalence
+identifies the low-dimensional coefficient of a density-ratio family chosen in
+advance.
+
+\subsection{What happens under misspecification}
+
+If equation~\eqref{eq:identification-model} is false, the solve still returns the
+member of the exponential family that matches \(t\) and is closest to the base
+distribution in KL divergence.  Let \(r_\lambda\) denote that fitted ratio.  For a
+downstream variable \(h\), its transport bias is
+\begin{equation}
+\E_1\!\left[\{r_\lambda(Z)-r_T(Z)\}h(Z)\right].
+\label{eq:transport-bias}
+\end{equation}
+Calibration gives no general reason for equation~\eqref{eq:transport-bias} to vanish.
+It does vanish for functions in the affine span of the constrained moments:
+\begin{equation}
+h(Z)=a+b^\mathsf{T}g(Z)
+\quad\Longrightarrow\quad
+\E_{w_\lambda}(h)=a+b^\mathsf{T}t.
+\label{eq:span-property}
+\end{equation}
+This explains both the method's strength and its limit.  Anchored quantities are
+right by construction; transfer to unanchored quantities depends on how well the
+chosen \(g\) captures the relevant distribution shift.
+
+\subsection{Label shift and case mix}
+
+With uniform base weights, a categorical \(Y\), and \(g(Y)\) containing a full set
+of class indicators, the assumption reduces to
+\begin{equation}
+\Prb_T(X\mid Y)=\Prb_1(X\mid Y).
+\label{eq:label-shift}
+\end{equation}
+That is, only class proportions change.  This is prior-probability or label shift
+\cite{saerens2002,lipton2018}.  It is plausible for deliberately sampled
+case--control data when recruitment is random within case status.  It is doubtful
+when, for example, young severe cases enter at a different rate from old mild cases.
+
+For \(Q\) comorbid binary diagnoses, matching only the \(Q\) marginal prevalences is
+not full label-shift correction over the \(2^Q\) joint disease patterns.  If
+participation treats a comorbid case differently from the product of its marginal
+diagnoses, the corresponding joint prevalence or interaction must be constrained.
+
+A known \(K=\Prb_T(Y=1)\) sets the number of cases, not their composition:
+\(\Prb_T(X\mid Y=1)\) remains unidentified.  If population prevalences are available
+within sex, birth cohort, ancestry, region, or severity strata, interactions such as
+\begin{equation}
+g_{aq}(X,Y)=\mathbf{1}(A=a)Y_q
+\label{eq:stratified-feature}
+\end{equation}
+can represent that structure.  The number of constraints then grows quickly, so
+richer identification consumes positivity and effective sample size.  There is no
+free lunch; the convex hull sends an invoice.
+
+\section{Target estimands in statistical genetics}
+
+Weighting changes a probability law.  Whether that repairs a scientific analysis
+depends on whether the analysis is a functional of that law and whether the fitted
+density ratio is correct.
+
+\begin{table}[htbp]
+\centering
+\caption{What prevalence calibration can and cannot establish for common genetic
+analyses.}
+\label{tab:estimands}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.33\textwidth}X}
+\toprule
+Estimand & When the weighting helps & Principal caveat \\
+\midrule
+Disease prevalence &
+An exact anchor reports the supplied population prevalence. &
+This is not an empirical result; uncertainty in the external prevalence remains. \\
+Population mean or absolute risk &
+Consistent if the fitted ratio transports the participant distribution of the
+measured variable to the target population. &
+Marginal disease calibration alone does not fix within-disease selection on severity
+or prognosis. \\
+Allele frequency or biomarker mean &
+Can transfer when its relation to the constrained features is stable, or when the
+full density-ratio model is correct. &
+A known disease prevalence contains no direct information about genotype or biomarker
+composition within disease classes. \\
+Logistic GWAS coefficient &
+Under selection depending on case status alone, the odds-ratio slope is invariant to
+case--control sampling \cite{prentice1979}. &
+When genotype or its causes and phenotype both affect participation, conditioning on
+\(S=1\) can create collider bias; a marginal \(K\) does not identify the required
+joint correction \cite{munafo2018,schoeler2023}. \\
+Liability-scale \(R^2\) or heritability &
+Case/control weights recover the population case fraction before the
+observed-to-liability transform; this parallels classical ascertainment correction
+\cite{dempster1950,lee2011}. &
+The result inherits the liability-threshold model and the assumed selection law.
+The current pairwise implementation is quadratic in sample size. \\
+Causal effect &
+Weights can address selection into the analysed sample. &
+They do not by themselves address exposure confounding, measurement error, treatment
+assignment, or interference. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Participation as a collider}
+
+Suppose genotype \(G\) or an exposure \(E\) influences participation and disease \(Y\)
+also influences participation.  Conditioning on volunteers opens a path between the
+causes of \(S\), potentially distorting \(G\)--\(Y\) or \(E\)--\(Y\) associations.
+This is not repaired merely by restoring \(\Prb(Y=1)=K\), because infinitely many
+joint laws \(\Prb_T(G,Y)\) share the same marginal \(K\).  Volunteer-weighting studies
+in UK Biobank illustrate both the importance and the difficulty of modelling this
+selection \cite{schoeler2023,vanalten2024,vanalten2025}.
+
+The distinction from Prentice--Pyke invariance is useful:
+\begin{itemize}
+\item if \(S\) depends only on \(Y\), a correctly specified logistic disease slope
+can remain consistent without prevalence weighting; and
+\item if \(S\) depends jointly on \(G\), \(X\), and \(Y\), population associations
+require a correction rich enough for that joint selection.
+\end{itemize}
+Prevalence calibration can be one component of that correction, but it cannot replace
+the other components.
+
+\subsection{Liability-scale quantities}
+
+For population prevalence \(K\), threshold
+\(t_K=\Phi^{-1}(1-K)\), and \(z_K=\phi(t_K)\), a common
+observed-to-liability conversion is
+\begin{equation}
+R_L^2
+=R_O^2\frac{K(1-K)}{z_K^2}.
+\label{eq:obs-liability}
+\end{equation}
+If \(R_O^2\) was estimated in a case--control sample with case fraction \(P\), the
+Lee et al.\ ascertainment factor gives
+\begin{equation}
+R_L^2
+=R_{O,\mathrm{asc}}^2
+\times\frac{K(1-K)}{z_K^2}
+\times\frac{K(1-K)}{P(1-P)}.
+\label{eq:lee-transform}
+\end{equation}
+Alternatively, one may first use equation~\eqref{eq:class-weights} to estimate the
+population-standardized observed-scale moment and then apply
+equation~\eqref{eq:obs-liability}.  Their agreement is expected under pure
+case/control ascertainment.  Neither route protects against recruitment depending on
+latent liability within case status unless that dependence is modelled.
+
+\section{Uncertainty: what is random?}
+
+There are at least four uncertainty sources: sampling participants, estimating the
+base participation model, fitting the tilt, and estimating or transporting the
+external targets.  A standard error that conditions on all weights and targets treats
+only the first.
+
+\subsection{Fixed-weight and calibration-aware linearization}
+
+For normalized weights \(\widetilde w_i=w_i/\sum_jw_j\), the fixed-weight variance of
+\(\widehat\mu=\sum_i\widetilde w_i h_i\) is estimated by
+\begin{equation}
+\widehat{\Var}_{\mathrm{fixed}}(\widehat\mu)
+=\sum_{i=1}^n\widetilde w_i^2(h_i-\widehat\mu)^2.
+\label{eq:fixed-var}
+\end{equation}
+This ignores that the tilt was re-estimated to meet the constraints.  The
+calibration-aware linearization implemented in \pkg\ instead uses
+\begin{align}
+\widehat\beta_\rho
+&=\{\widehat{\Cov}_w(g)+\rho I\}^{-1}
+\widehat{\Cov}_w(g,h),
+\label{eq:if-beta}\\
+e_i
+&=h_i-\widehat\mu
+-\widehat\beta_\rho^\mathsf{T}(g_i-\bar g_w),
+\label{eq:if-residual}\\
+\widehat{\Var}_{\mathrm{cal}}(\widehat\mu)
+&=\sum_{i=1}^n\widetilde w_i^2e_i^2.
+\label{eq:cal-var}
+\end{align}
+The software computes equation~\eqref{eq:if-beta} by penalized least squares rather
+than explicitly inverting a possibly ill-conditioned covariance matrix.
+
+If \(\rho=0\) and \(h\) is an exactly constrained column, the residual in
+equation~\eqref{eq:if-residual} is zero up to numerical tolerance.  Its conditional
+sampling standard error is consequently zero: the estimator always prints the fixed
+target.  For \(\rho>0\), equation~\eqref{eq:ridge-residual} shows that the target is not
+fixed, \(\widehat\beta_\rho\) is shrunk, and the anchored margin retains uncertainty.
+Using the exact-calibration projection after a ridge solve would be wrong.
+
+\subsection{External targets, fitted bases, and dependence}
+
+Zero conditional standard error is not zero scientific uncertainty.  If a registry
+target \(\widehat t\) has covariance \(V_t\), a first-order combination for an
+independent external source is
+\begin{equation}
+\Var(\widehat\mu)
+\approx \Var_{\mathrm{participants}}(\widehat\mu\mid\widehat t)
++D_tV_tD_t^\mathsf{T},
+\qquad
+D_t=\frac{\partial\mu}{\partial t^\mathsf{T}}.
+\label{eq:target-uncertainty}
+\end{equation}
+Temporal mismatch, outcome-definition mismatch, ancestry mismatch, and overlap
+between registry and cohort create additional bias or covariance that
+equation~\eqref{eq:target-uncertainty} does not solve.
+
+The package also offers resampling for its simulation wrapper.  A scientifically
+complete bootstrap should re-fit every estimated stage that would change under
+repeated sampling, including the base model when applicable.  Rare anchors can make
+bootstrap replicates infeasible; silently discarding precisely those replicates
+truncates the distribution and narrows intervals.  Family or household relatedness
+requires cluster-level resampling or a cluster-robust influence calculation.  The
+current simple mean interface does not automate those genetic-cohort complications.
+
+\subsection{Augmented IPW}
+
+For a participant-only trait \(V\), covariates \(X\) available across the population
+frame, and regression \(m(X)=\E(V\mid X)\), the package implements
+\begin{equation}
+\widehat\mu_{\mathrm{AIPW}}
+=\frac{1}{N}\sum_{i=1}^{N}\widehat m(X_i)
++\sum_{i:S_i=1}\widetilde w_i
+\{V_i-\widehat m(X_i)\}.
+\label{eq:aipw}
+\end{equation}
+In the standard missing-data or data-integration model, this estimator can be
+consistent when either the outcome regression or the participation weighting is
+correct \cite{robins1994,bang2005}; flexible regressions call for sample splitting or
+cross-fitting \cite{chernozhukov2018}.  This is not a blanket double-robustness theorem
+for prevalence
+calibration.  Similarly, the result that entropy balancing is doubly robust in
+particular causal models \cite{zhao2017} does not prove that arbitrary
+outcome-dependent volunteer selection is repaired by a few prevalence margins.
+
+\section{Diagnostics and falsifiability}
+
+\subsection{Quantities that diagnose the solve}
+
+\begin{table}[htbp]
+\centering
+\caption{Diagnostics, their interpretation, and their limits.}
+\label{tab:diagnostics}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.23\textwidth}
+>{\raggedright\arraybackslash}p{0.34\textwidth}X}
+\toprule
+Diagnostic & What it reveals & What it cannot reveal \\
+\midrule
+Optimizer convergence &
+Whether the numerical dual solve terminated satisfactorily. &
+Whether the density-ratio family is scientifically correct. \\
+Calibration residual &
+Whether exact targets were reached, or how far ridge calibration missed them. &
+Validity: an exact residual is expected by construction. \\
+Kish effective sample size \cite{kish1965} &
+\(\mathrm{ESS}=(\sum_iw_i)^2/\sum_iw_i^2\), a concise measure of concentration. &
+A universal variance or information measure for every downstream analysis. \\
+Weight range and top-1\% mass &
+Dependence on a small number of observations. &
+Bias from omitted selection variables. \\
+Support counts &
+Whether each required class or stratum is represented. &
+Adequate overlap within unmeasured subgroups. \\
+Held-out SMD &
+Whether a known margin excluded from the solve is reproduced after weighting. &
+A formal hypothesis test, or proof that all unobserved margins are balanced. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+For a held-out variable \(a\) with known population mean \(t_a\), \pkg\ reports
+\begin{equation}
+\mathrm{SMD}_a
+=\frac{\sum_i\widetilde w_i a_i-t_a}{s_{a,\mathrm{sample}}}.
+\label{eq:smd}
+\end{equation}
+The often-used rule \(|\mathrm{SMD}|<0.1\) is a descriptive convention
+\cite{austin2009}.  A held-out failure is valuable: it refutes the proposition that
+the fitted weighting transports that margin.  A small SMD is only partial positive
+evidence.
+
+Calling equation~\eqref{eq:smd} a Sargan--Hansen \(J\)-test would overstate it
+\cite{sargan1958,hansen1982}.
+A formal overidentification test needs a joint covariance estimate, a quadratic test
+statistic, degrees of freedom, and an asymptotic reference distribution while
+accounting for estimated parameters.  The present diagnostic borrows the
+\emph{logic} of unused restrictions, not that formal test.
+
+\subsection{An honest validation design}
+
+Known margins should be divided before fitting:
+\begin{enumerate}
+\item use a prespecified subset to calibrate;
+\item keep other registry quantities genuinely held out;
+\item fit the tilt on one wave or fold and use the stored tilt on a new wave when
+possible; and
+\item evaluate downstream quantities not algebraically determined by the anchors.
+\end{enumerate}
+Selecting constraints after inspecting held-out failures converts validation into
+training.  Reporting only anchored prevalence error produces impressive zeros and no
+evidence whatsoever.
+
+\section{Software review}
+
+\subsection{Architecture and public contract}
+
+The reviewed source declares version 0.3.0 and an alpha development status.  Its
+design has a sensible separation between a real-cohort interface and simulation
+machinery.
+
+\begin{table}[htbp]
+\centering
+\caption{Main software components in the reviewed \pkg\ worktree.}
+\label{tab:architecture}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.24\textwidth}
+>{\raggedright\arraybackslash}p{0.28\textwidth}X}
+\toprule
+Component & Public role & Review \\
+\midrule
+\code{calibrate} and \code{CalibrationFit} &
+Real-cohort entry point using participant outcomes, external targets, optional base
+weights, strata, joint moments, and held-out margins. &
+The correct conceptual front door; it avoids requiring simulated ground truth. \\
+\code{entropy\_balance} and \code{apply\_tilt} &
+Core dual solve and transfer of a fitted tilt to new rows. &
+Small convex problem, log-scale stabilization, explicit diagnostics, and preservation
+of zero-weight support. \\
+\code{lasso\_propensity} and \code{lasso\_ipw} &
+Covariate-only participation baseline. &
+Useful comparator, but a real application needs frame-level participation labels and
+compatible covariates for participants and nonparticipants. \\
+\code{calibration\_ipw} and \code{monte\_carlo} &
+Simulation wrappers with known population truth. &
+Appropriate for method development, not the interface to advertise as real-data
+inference. \\
+\code{balance} and \code{uncertainty} &
+Held-out discrepancies, effective sample size, linearization, bootstrap, and target
+sensitivity. &
+Good instincts; target uncertainty, clustering, and a formal specification test
+remain user responsibilities. \\
+\code{aipw} &
+Outcome-regression augmentation for a participant-only trait when \(X\) is known for
+the population frame. &
+Cross-fitting is available; robustness claims still require the usual missing-data
+conditions. \\
+\code{liability} &
+Threshold-model simulations and weighted pairwise moment estimators. &
+Scientifically relevant, but the explicit \(n\times n\) similarity matrix does not
+scale to biobank sample sizes. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Scientific contracts that must remain explicit}
+
+\begin{table}[htbp]
+\centering
+\caption{High-impact semantic and numerical contracts in the corrected design.}
+\label{tab:contracts}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.33\textwidth}X}
+\toprule
+Issue & Correct contract & Consequence \\
+\midrule
+Meaning of the tilt &
+\(\lambda\) belongs to the log population-to-participant density ratio, as in
+equations~\eqref{eq:lambda-density}--\eqref{eq:gamma-relation}. &
+Do not report it as the outcome coefficient in a participation logit. \\
+Target of base weights &
+\(1/\widehat\pi\) transports participants to the full population;
+\((1-\widehat\pi)/\widehat\pi\) transports them to nonparticipants. &
+The inverse scheme is the full-population default; an odds option needs an explicit
+different target. \\
+Simulation oracle &
+A full-population oracle is the complete simulated test-fold mean, unavailable in
+real data. &
+An inverse-odds mixture is not a full-population oracle and should not be labelled one. \\
+Ridge calibration &
+The achieved residual equals \(-\rho\widehat\lambda_\rho\), and the influence
+projection contains the same \(\rho\). &
+Only exact \(\rho=0\) anchors have zero conditional standard error. \\
+Zero base weights &
+Zero-weight rows are excluded from the exponential shift and remain zero. &
+An extreme feature value outside the positive support must not destabilize all
+weights. \\
+Held-out balance &
+The SMD is a heuristic discrepancy using an unused margin. &
+It may be called a falsification diagnostic, not a formal \(J\)-test. \\
+Synthetic selection &
+The generator uses Bernoulli logistic participation with coefficients chosen so
+expected sample count and outcome totals meet configured targets. &
+Realized sample size and prevalences are random; the mechanism is not fixed-size
+probability-proportional-to-size sampling. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Computational properties}
+
+Let \(n\) be the number of participants with positive base weight, \(k\) the number
+of constraints, \(p\) the number of frame covariates, \(I\) optimizer iterations,
+and \(B\) bootstrap replicates.
+
+\begin{table}[htbp]
+\centering
+\caption{Leading computational costs.  These are algorithmic orders, not timing
+benchmarks.}
+\label{tab:complexity}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.18\textwidth}X}
+\toprule
+Operation & Approximate time & Approximate memory & Comment \\
+\midrule
+Entropy dual &
+\(O(Ink)\) &
+\(O(nk)\) for features &
+L-BFGS avoids forming a dense \(k\times k\) Hessian. \\
+Stratified design &
+\(O(nk)\) &
+\(O(nk)\) &
+\(k\) can be roughly strata times outcomes, plus share and interaction constraints. \\
+LASSO participation model &
+Solver- and CV-dependent &
+\(O(np)\) before expansion &
+Pairwise interactions increase the design toward \(O(np^2)\). \\
+Calibration bootstrap &
+\(O(BInk)\) plus optional base refits &
+One replicate plus stored output &
+Parallelization is natural, but rare anchors can cause infeasible replicates. \\
+Liability pairwise moment &
+\(O(n^2p)\) to form \(XX^\mathsf{T}\) &
+\(O(n^2)\) &
+This is the principal barrier to biobank-scale use.  Blocked matrix products or
+summary-statistic identities are needed. \\
+Synthetic data generator &
+Repeated \(O(Nq)\) selection objectives, plus covariance work &
+\(O(Np+Nq+p^2)\) &
+Useful for controlled experiments; not normally a production bottleneck. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+For the core calibration, \(k\) is normally small and the implementation is
+reasonable.  The main practical failure is statistical rather than computational:
+adding many sparse stratum-by-disease constraints can exhaust support before it
+exhausts RAM.  The liability module is the exception; materializing \(n^2\) pairwise
+similarities is untenable at modern biobank scale.
+
+\subsection{Remaining release gaps}
+
+\begin{table}[htbp]
+\centering
+\caption{Important gaps that remain after correcting the scientific semantics.}
+\label{tab:release-gaps}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.34\textwidth}X}
+\toprule
+Gap & Consequence & Recommended next step \\
+\midrule
+Real-data resampling interface &
+The bootstrap and prevalence-sensitivity helpers take the simulation
+\code{Dataset}; users of \code{calibrate} must assemble equivalent refits themselves. &
+Provide a callback- or array-based bootstrap that refits the base, tilt, and estimand
+without simulated ground truth. \\
+External-target and cluster variance &
+\code{CalibrationFit.mean} treats external targets as fixed and independent units as
+the sampling units. &
+Accept target covariance and cluster identifiers, or document a supported
+cluster-bootstrap recipe. \\
+Liability scaling &
+The explicit \(n\times n\) similarity matrix is incompatible with biobank-scale
+\(n\). &
+Use blocked accumulations, randomized trace methods, or algebraic sufficient
+statistics that avoid storing pairwise matrices. \\
+Rendered documentation &
+The corrected distributions include the Markdown theory, examples, LaTeX report, and
+citation record, but there is no rendered versioned site or link checker. &
+Publish versioned HTML/PDF documentation and check external and internal links in CI. \\
+Frozen environment and automated evidence &
+A citation file, structured post-correction results, and a local environment manifest
+are now present, and CI smoke-tests one packaged example; there is no cross-platform
+dependency lock, replicated-validation job, or comparison of outputs with the frozen
+table. &
+Record a locked environment and add a reproducible benchmark job with explicit
+tolerances and retained logs. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Evidence review}
+
+The mathematical ingredients of \pkg\ are well established.  What is new is their
+particular packaging and proposed use of register prevalences to augment
+participation weights.  Evidence for that applied proposal must be judged separately
+from evidence for entropy calibration itself.
+
+\begin{table}[htbp]
+\centering
+\caption{Current evidence and what each layer can support.}
+\label{tab:evidence}
+\small
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.24\textwidth}
+>{\raggedright\arraybackslash}p{0.32\textwidth}X}
+\toprule
+Evidence layer & What it supports & What it does not support \\
+\midrule
+Established literature &
+IPW, survey calibration, information projection, density-ratio tilting, and
+case--control ascertainment correction. &
+That the selected \(g\) spans selection in a particular biobank. \\
+Unit tests &
+Array contracts, numerical convergence, known special cases, support checks, and
+selected uncertainty calculations. &
+External validity, realistic misspecification, or calibrated interval coverage in a
+real cohort. \\
+Synthetic data generator &
+Controlled comparison when outcomes and Bernoulli-logistic participation are known. &
+Performance under an unknown real recruitment process. \\
+Example scripts and frozen local table &
+Illustrations of pure outcome selection, covariate-plus-outcome selection, collider
+settings, comorbidity, and liability models; selected corrected runs are recorded in
+\code{report/validation\_results.tsv}. &
+Prespecified, independently replicated benchmark evidence. \\
+Real-cohort study &
+None is included in the present evidence base. &
+No empirical claim about bias reduction in iPSYCH, UK Biobank, or another cohort
+follows from the repository alone. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Fresh post-correction smoke evidence}
+
+Table~\ref{tab:fresh-results} records the most informative results from a fresh local
+run on 11 August 2026 using Python 3.11.15, NumPy 2.4.6, SciPy 1.17.1, and
+scikit-learn 1.9.0 with the corrected \pkg\ 0.3.0 worktree.  Replicated scripts
+use seeds \(0,\ldots,R-1\).  These are
+regression and plausibility checks, not a substitute for an independently designed
+validation study.
+
+\begin{table}[htbp]
+\centering
+\caption{Selected post-correction synthetic results.  Values are mean
+\(\pm\) standard deviation across repetitions unless stated otherwise.}
+\label{tab:fresh-results}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.20\textwidth}
+>{\raggedright\arraybackslash}p{0.24\textwidth}X}
+\toprule
+Experiment & Quantity & Result & Interpretation \\
+\midrule
+\code{honest\_benchmark}, no \(X\) channel, \(R=12\) &
+Absolute percentage error on an unanchored outcome &
+Naive \(80.78\pm6.66\); calibrated LASSO base \(81.61\pm6.03\);
+calibrated uniform base \(82.24\pm5.96\). &
+Anchoring one disease did not transfer to another. \\
+\code{honest\_benchmark}, \(X\) channel strength \(1.5\), \(R=12\) &
+Worst held-out \(|\mathrm{SMD}|\); absolute error in held-out \(X_0\) mean &
+LASSO base \(0.209\pm0.079\), \(0.126\pm0.072\);
+uniform base \(0.482\pm0.238\), \(0.317\pm0.211\). &
+When a covariate channel exists, the base participation model materially helps. \\
+\code{doubly\_robust\_trait}, \(R=20\) &
+Mean bias; mean absolute bias for a participant-only trait &
+Naive \(-0.0905,0.1008\); LASSO IPW \(-0.0252,0.0636\);
+calibration \(0.0537,0.0864\); AIPW \(-0.0009,0.0584\). &
+Augmentation performed best in this particular, outcome-model-friendly design. \\
+\code{monte\_carlo}, \(R=20\) &
+Anchored prevalence error; calibration ESS &
+Calibration error \(0.00\pm0.00\); ESS \(153\pm19\). &
+The zero error is the constraint, not validation; ESS quantifies its variance cost. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The results support the package's deliberately narrow messages: exact anchors are
+tautologies, cross-outcome transfer is weak, and the covariate base matters when the
+data-generating process actually contains a covariate selection channel.  They do
+not establish bias correction in a real cohort, interval coverage, or robustness to
+an unknown selection law.  For stronger evidence:
+\begin{itemize}
+\item error on a constrained prevalence must be identified as a match by construction;
+\item at least one outcome, stratum, or population margin must remain unanchored;
+\item simulations must vary both covariate-driven and outcome-driven selection;
+\item misspecified tilts, target error, weak support, and within-case selection must be
+included; and
+\item empirical validation needs a population quantity unavailable to the fitting
+procedure, preferably in a later cohort wave or linked register.
+\end{itemize}
+
+\subsection{Recommended validation matrix}
+
+\begin{table}[htbp]
+\centering
+\caption{Minimum simulation and empirical validation matrix for a methods paper.}
+\label{tab:validation-matrix}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.23\textwidth}
+>{\raggedright\arraybackslash}p{0.30\textwidth}X}
+\toprule
+Axis & Levels & Primary outputs \\
+\midrule
+Selection law &
+\(X\)-only; \(Y\)-only; additive \(X+Y\); \(X\times Y\); within-case severity;
+genotype-plus-outcome. &
+Bias, RMSE, interval coverage, ESS, maximum weight. \\
+Anchor information &
+Correct pooled prevalence; stratum-specific prevalence; joint comorbidity; perturbed
+targets; partial anchors. &
+Anchor residual and transfer error on held-out outcomes and margins. \\
+Support &
+Common, rare, and extremely rare disease; sparse ancestry/sex/age cells. &
+Failure probability, convergence, weight concentration, bootstrap discard rate. \\
+Base model &
+Correct, misspecified, regularized, cross-fitted, and absent. &
+Incremental value of the base versus the prevalence tilt. \\
+Comparator &
+Unweighted, covariate IPW, exact calibration, ridge calibration, oracle full-population
+law in simulation. &
+Bias--variance trade-off on the same target estimand. \\
+Real data &
+Prespecified fit margins and separate held-out register margins or recruitment wave. &
+External discrepancies with uncertainty, not merely anchored matches. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Practical analysis protocol}
+
+A defensible analysis can be organized in nine steps.
+
+\begin{enumerate}
+\item \textbf{Define \(T\).}  State geography, calendar period, age range, ancestry
+scope, survival condition, and disease definition.  A prevalence from a different
+population is not a magic number; it is a different estimand.
+
+\item \textbf{Define the target quantity.}  A prevalence, population mean, regression
+coefficient, and liability-scale variance component need different estimating
+equations.  Weighting is not the estimand.
+
+\item \textbf{Build the base correction.}  Fit participation using variables observed
+compatibly in the cohort and its sampling frame.  For the full population use
+\(1/\widehat\pi(X)\), not inverse odds.  Separate training and analysis folds when a
+flexible model is used.
+
+\item \textbf{Prespecify \(g\).}  Begin with scientifically justified prevalence
+margins.  Add strata or interactions only when population targets and participant
+support exist.  Reserve some credible margins for validation.
+
+\item \textbf{Fit and inspect.}  Report convergence, residuals, tilt coefficients,
+support counts, ESS, range, quantiles, and top-weight mass.  For ridge, report
+\(\rho\) and achieved rather than nominal margins.
+
+\item \textbf{Try to refute the weighting.}  Evaluate held-out margins and a transferred
+tilt on a later fold or wave.  Do not call an SMD threshold a \(p\)-value.
+
+\item \textbf{Estimate uncertainty at the right level.}  Use the penalized calibration
+influence adjustment corresponding to the fitted \(\rho\), or re-fit the entire
+pipeline in a bootstrap.  Respect family clusters and quantify uncertainty in external
+targets.
+
+\item \textbf{Stress the assumptions.}  Perturb prevalence, alter trimming or ridge,
+coarsen strata, and examine plausible within-case selection.  Trimming after exact
+calibration breaks the constraint and must be followed by reporting the new residual.
+
+\item \textbf{Report weighted and unweighted analyses.}  Large changes deserve
+explanation; small changes can reflect either little bias or an uninformative weight.
+Neither is established by the point estimate alone.
+\end{enumerate}
+
+\begin{table}[htbp]
+\centering
+\caption{Items that should accompany a published \pkg\ analysis.}
+\label{tab:reporting}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.30\textwidth}X}
+\toprule
+Item & Minimum disclosure \\
+\midrule
+Target population &
+Eligibility, time, place, ancestry handling, outcome definition, and source of every
+external margin. \\
+Base model &
+Training frame, predictors, missing-data handling, validation, clipping, and whether
+weights are \(1/\pi\) or inverse odds. \\
+Calibration model &
+All \(g\) columns and targets, exact or ridge objective, \(\rho\), strata, joint
+moments, and any post-fit trimming. \\
+Support and concentration &
+Cases and controls per cell, ESS, weight quantiles, maximum, and top-1\% mass. \\
+Validation &
+Which margins were held out before fitting, their discrepancies, and whether the tilt
+was transferred to independent data. \\
+Inference &
+Influence or bootstrap procedure, refitted stages, clustering unit, failed
+replicates, and treatment of external-target uncertainty. \\
+Sensitivity &
+Plausible target perturbations and departures from within-class exchangeability. \\
+Reproducibility &
+Software version or commit, random seeds, environment, frozen tables, and code that
+recreates every reported number. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Overall judgment}
+
+\pkg\ is best described as \emph{prevalence-calibrated density-ratio weighting}.
+That description is more precise than the expansion of the package name.  The
+package does not infer unrestricted individual participation probabilities.  It fits
+the smallest exponential modification of base weights that matches trusted
+population moments, and it becomes true full-population IPW when the density-ratio
+assumption in equation~\eqref{eq:identification-model} is correct.
+
+For statistical genetics, the method is most persuasive as a generalization of
+case--control ascertainment correction:
+\begin{itemize}
+\item it naturally combines a frame-based participation model with known register
+prevalences;
+\item it accommodates several diagnoses, joint moments, and stratum-specific margins;
+and
+\item it makes the correction inspectable through the tilt and weight diagnostics.
+\end{itemize}
+Its main risks are equally clear: marginal prevalence cannot restore an unidentified
+joint distribution; exact anchors are tautologies; weak support creates extreme
+weights; and current validation is synthetic.  The next scientific milestone is not
+another zero calibration residual.  It is a prespecified external-cohort or held-out
+register study showing improved quantities the fit was never told.
+
+\clearpage
+\begin{thebibliography}{99}
+
+\bibitem{austin2009}
+Austin, P. C. (2009).
+Balance diagnostics for comparing the distribution of baseline covariates between
+treatment groups in propensity-score matched samples.
+\emph{Statistics in Medicine}, 28(25), 3083--3107.
+\href{https://doi.org/10.1002/sim.3697}{doi:10.1002/sim.3697}.
+
+\bibitem{bang2005}
+Bang, H., and Robins, J. M. (2005).
+Doubly robust estimation in missing data and causal inference models.
+\emph{Biometrics}, 61(4), 962--973.
+\href{https://doi.org/10.1111/j.1541-0420.2005.00377.x}
+{doi:10.1111/j.1541-0420.2005.00377.x}.
+
+\bibitem{chernozhukov2018}
+Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C.,
+Newey, W., and Robins, J. (2018).
+Double/debiased machine learning for treatment and structural parameters.
+\emph{The Econometrics Journal}, 21(1), C1--C68.
+\href{https://doi.org/10.1111/ectj.12097}{doi:10.1111/ectj.12097}.
+
+\bibitem{csiszar1975}
+Csisz\'ar, I. (1975).
+I-divergence geometry of probability distributions and minimization problems.
+\emph{The Annals of Probability}, 3(1), 146--158.
+\href{https://doi.org/10.1214/aop/1176996454}{doi:10.1214/aop/1176996454}.
+
+\bibitem{dempster1950}
+Dempster, E. R., and Lerner, I. M. (1950).
+Heritability of threshold characters.
+\emph{Genetics}, 35(2), 212--236.
+\href{https://doi.org/10.1093/genetics/35.2.212}
+{doi:10.1093/genetics/35.2.212}.
+
+\bibitem{deville1992}
+Deville, J.-C., and S\"arndal, C.-E. (1992).
+Calibration estimators in survey sampling.
+\emph{Journal of the American Statistical Association}, 87(418), 376--382.
+\href{https://doi.org/10.1080/01621459.1992.10475217}
+{doi:10.1080/01621459.1992.10475217}.
+
+\bibitem{hainmueller2012}
+Hainmueller, J. (2012).
+Entropy balancing for causal effects: A multivariate reweighting method to produce
+balanced samples in observational studies.
+\emph{Political Analysis}, 20(1), 25--46.
+\href{https://doi.org/10.1093/pan/mpr025}{doi:10.1093/pan/mpr025}.
+
+\bibitem{hajek1971}
+H\'ajek, J. (1971).
+Comment on a paper by D. Basu.
+In V. P. Godambe and D. A. Sprott (eds.),
+\emph{Foundations of Statistical Inference}.
+Holt, Rinehart and Winston.
+
+\bibitem{hansen1982}
+Hansen, L. P. (1982).
+Large sample properties of generalized method of moments estimators.
+\emph{Econometrica}, 50(4), 1029--1054.
+\href{https://doi.org/10.2307/1912775}{doi:10.2307/1912775}.
+
+\bibitem{horvitz1952}
+Horvitz, D. G., and Thompson, D. J. (1952).
+A generalization of sampling without replacement from a finite universe.
+\emph{Journal of the American Statistical Association}, 47(260), 663--685.
+\href{https://doi.org/10.1080/01621459.1952.10483446}
+{doi:10.1080/01621459.1952.10483446}.
+
+\bibitem{kott2010}
+Kott, P. S., and Chang, T. (2010).
+Using calibration weighting to adjust for nonignorable unit nonresponse.
+\emph{Journal of the American Statistical Association}, 105(491), 1265--1275.
+\href{https://doi.org/10.1198/jasa.2010.tm09016}
+{doi:10.1198/jasa.2010.tm09016}.
+
+\bibitem{kish1965}
+Kish, L. (1965).
+\emph{Survey Sampling}.
+Wiley.
+
+\bibitem{lee2011}
+Lee, S. H., Wray, N. R., Goddard, M. E., and Visscher, P. M. (2011).
+Estimating missing heritability for disease from genome-wide association studies.
+\emph{The American Journal of Human Genetics}, 88(3), 294--305.
+\href{https://doi.org/10.1016/j.ajhg.2011.02.002}
+{doi:10.1016/j.ajhg.2011.02.002}.
+
+\bibitem{lipton2018}
+Lipton, Z. C., Wang, Y.-X., and Smola, A. J. (2018).
+Detecting and correcting for label shift with black box predictors.
+In \emph{Proceedings of the 35th International Conference on Machine Learning},
+PMLR 80, 3122--3130.
+\href{https://proceedings.mlr.press/v80/lipton18a.html}
+{proceedings.mlr.press/v80/lipton18a.html}.
+
+\bibitem{manski1977}
+Manski, C. F., and Lerman, S. R. (1977).
+The estimation of choice probabilities from choice based samples.
+\emph{Econometrica}, 45(8), 1977--1988.
+\href{https://doi.org/10.2307/1914121}{doi:10.2307/1914121}.
+
+\bibitem{munafo2018}
+Munaf\`o, M. R., Tilling, K., Taylor, A. E., Evans, D. M., and Davey Smith, G. (2018).
+Collider scope: When selection bias can substantially influence observed
+associations.
+\emph{International Journal of Epidemiology}, 47(1), 226--235.
+\href{https://doi.org/10.1093/ije/dyx206}{doi:10.1093/ije/dyx206}.
+
+\bibitem{prentice1979}
+Prentice, R. L., and Pyke, R. (1979).
+Logistic disease incidence models and case-control studies.
+\emph{Biometrika}, 66(3), 403--411.
+\href{https://doi.org/10.1093/biomet/66.3.403}
+{doi:10.1093/biomet/66.3.403}.
+
+\bibitem{qin1998}
+Qin, J. (1998).
+Inferences for case-control and semiparametric two-sample density ratio models.
+\emph{Biometrika}, 85(3), 619--630.
+\href{https://doi.org/10.1093/biomet/85.3.619}
+{doi:10.1093/biomet/85.3.619}.
+
+\bibitem{qinlawless1994}
+Qin, J., and Lawless, J. (1994).
+Empirical likelihood and general estimating equations.
+\emph{The Annals of Statistics}, 22(1), 300--325.
+\href{https://doi.org/10.1214/aos/1176325370}
+{doi:10.1214/aos/1176325370}.
+
+\bibitem{robins1994}
+Robins, J. M., Rotnitzky, A., and Zhao, L. P. (1994).
+Estimation of regression coefficients when some regressors are not always observed.
+\emph{Journal of the American Statistical Association}, 89(427), 846--866.
+\href{https://doi.org/10.1080/01621459.1994.10476818}
+{doi:10.1080/01621459.1994.10476818}.
+
+\bibitem{saerens2002}
+Saerens, M., Latinne, P., and Decaestecker, C. (2002).
+Adjusting the outputs of a classifier to new a priori probabilities: A simple
+procedure.
+\emph{Neural Computation}, 14(1), 21--41.
+\href{https://doi.org/10.1162/089976602753284446}
+{doi:10.1162/089976602753284446}.
+
+\bibitem{sargan1958}
+Sargan, J. D. (1958).
+The estimation of economic relationships using instrumental variables.
+\emph{Econometrica}, 26(3), 393--415.
+\href{https://doi.org/10.2307/1907619}{doi:10.2307/1907619}.
+
+\bibitem{schoeler2023}
+Schoeler, T., et al. (2023).
+Participation bias in the UK Biobank distorts genetic associations and downstream
+analyses.
+\emph{Nature Human Behaviour}, 7, 1216--1227.
+\href{https://doi.org/10.1038/s41562-023-01579-9}
+{doi:10.1038/s41562-023-01579-9}.
+
+\bibitem{vanalten2024}
+van Alten, S., Domingue, B. W., Faul, J., Galama, T., and Marees, A. T. (2024).
+Reweighting UK Biobank corrects for pervasive selection bias due to volunteering.
+\emph{International Journal of Epidemiology}, 53(3), dyae054.
+\href{https://doi.org/10.1093/ije/dyae054}{doi:10.1093/ije/dyae054}.
+
+\bibitem{vanalten2025}
+van Alten, S., Domingue, B. W., Faul, J., Galama, T., and Marees, A. T. (2025).
+Correcting for volunteer bias in GWAS increases SNP effect sizes and heritability
+estimates.
+\emph{Nature Communications}, 16, article 3578.
+\href{https://doi.org/10.1038/s41467-025-58684-8}
+{doi:10.1038/s41467-025-58684-8}.
+
+\bibitem{zhao2017}
+Zhao, Q., and Percival, D. (2017).
+Entropy balancing is doubly robust.
+\emph{Journal of Causal Inference}, 5(1), article 20160010.
+\href{https://doi.org/10.1515/jci-2016-0010}
+{doi:10.1515/jci-2016-0010}.
+
+\end{thebibliography}
+
+\end{document}

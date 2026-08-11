@@ -7,9 +7,9 @@ This reproduces the simulation used in the R scripts (``generalised_form.R`` and
    correlation matrix has low-to-moderate off-diagonal entries.
 2. Generate ``Q`` binary outcomes from logistic models, each driven by its own
    block of predictors and calibrated to a target population prevalence.
-3. Draw a *biased* sample in which each outcome is over- or under-represented
-   relative to the population, by sampling without replacement with selection
-   probabilities that depend on the outcomes.
+3. Draw a *biased* sample from a Bernoulli-logistic participation model. Its
+   coefficients are calibrated so that the expected sample count and expected
+   outcome margins equal their configured targets.
 4. Split the population into train / test folds for fitting and evaluation.
 
 The result is a :class:`Dataset` that carries everything downstream methods
@@ -21,8 +21,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+from scipy.optimize import minimize
 
-from ._links import logit, sigmoid
+from ._links import sigmoid
 
 
 def nearest_pd_correlation(a: np.ndarray) -> np.ndarray:
@@ -79,7 +80,11 @@ class SimConfig:
 
     The default prevalences follow the five-outcome scenario in ``generalised_form.R``
     and adapt to ``n_outcomes`` when it is overridden (so ``SimConfig(n_outcomes=2)``
-    just uses the first two). Pass explicit tuples to control them.
+    just uses the first two). Pass explicit tuples to control them. Population targets
+    calibrate the mean outcome probabilities over the realized covariates; binary
+    outcomes then fluctuate around those targets. Likewise, ``sample_size`` and
+    ``target_sample_prevalence`` are expectations under independent Bernoulli
+    participation, not fixed realized totals.
     """
 
     population_size: int = 11000
@@ -89,6 +94,7 @@ class SimConfig:
     target_population_prevalence: tuple[float, ...] | None = None
     target_sample_prevalence: tuple[float, ...] | None = None
     sample_size: int = 1000
+    """Expected number of participants under the Bernoulli selection model."""
     coef_low: float = -0.5
     coef_high: float = 0.5
     corr_low: float = 0.1
@@ -98,13 +104,13 @@ class SimConfig:
     selection_covariate_strength: float = 0.0
     """How strongly the covariates ``X`` drive participation, on the log-odds scale.
 
-    The default ``0.0`` reproduces the original design, in which selection depends on
-    the **outcomes only**. That default is worth understanding before trusting a
-    benchmark run on it: with no covariate channel there is no direct ``a(X)`` for a
+    The default ``0.0`` keeps the original no-covariate-channel setting, in which
+    selection depends on the **outcomes only**. That default is worth understanding
+    before trusting a benchmark run on it: with no covariate channel there is no direct
+    ``a(X)`` for a
     participation model to learn. What little signal remains is second-hand — ``X``
-    predicts ``Y`` and ``Y`` drives selection — so ``P(S | X)`` is weakly learnable
-    (cross-validated AUC ≈ 0.58 on the shipped settings, against 0.5 for pure noise)
-    but carries almost nothing a covariate model can act on. Consequently
+    predicts ``Y`` and ``Y`` drives selection — so ``P(S | X)`` is only weakly
+    learnable and carries little a covariate model can act on. Consequently
     :func:`i3pw.lasso_ipw` is close to guaranteed to be no better than no correction,
     and ``calibration_ipw(base="lasso")`` mostly adds estimation noise to a base with
     little to estimate. Comparisons on this setting cannot discriminate between the two
@@ -127,6 +133,18 @@ class SimConfig:
             raise ValueError("target_population_prevalence must have n_outcomes entries.")
         if len(self.target_sample_prevalence) != q:
             raise ValueError("target_sample_prevalence must have n_outcomes entries.")
+        population_target = np.asarray(self.target_population_prevalence, dtype=float)
+        sample_target = np.asarray(self.target_sample_prevalence, dtype=float)
+        if np.any(~np.isfinite(population_target)) or np.any(
+            (population_target <= 0.0) | (population_target >= 1.0)
+        ):
+            raise ValueError("target_population_prevalence entries must lie in (0, 1).")
+        if np.any(~np.isfinite(sample_target)) or np.any(
+            (sample_target <= 0.0) | (sample_target >= 1.0)
+        ):
+            raise ValueError("target_sample_prevalence entries must lie in (0, 1).")
+        if not 0 < self.sample_size < self.population_size:
+            raise ValueError("sample_size must lie strictly between 0 and population_size.")
 
 
 @dataclass
@@ -135,7 +153,7 @@ class Dataset:
 
     X: np.ndarray  # (N, p) covariates for the whole population
     Y: np.ndarray  # (N, Q) binary outcomes
-    sample_indicator: np.ndarray  # (N,) 1 if drawn into the biased sample
+    sample_indicator: np.ndarray  # (N,) Bernoulli participation indicator
     coefficients: np.ndarray  # (Q, p) ground-truth outcome coefficients
     intercepts: np.ndarray  # (Q,) ground-truth outcome intercepts
     population_prevalence: np.ndarray  # (Q,) realised population prevalence
@@ -189,17 +207,22 @@ def make_dataset(config: SimConfig | None = None, **overrides) -> Dataset:
         end = min(start + config.predictors_per_outcome, p)
         coefs[i, start:end] = rng.uniform(config.coef_low, config.coef_high, size=end - start)
 
-    intercepts = logit(np.asarray(config.target_population_prevalence))
-    logits = intercepts[None, :] + X @ coefs.T  # (n, Q)
+    linear_predictors = X @ coefs.T
+    intercepts = np.array(
+        [
+            _solve_logistic_intercept(linear_predictors[:, j], target)
+            for j, target in enumerate(config.target_population_prevalence)
+        ]
+    )
+    logits = intercepts[None, :] + linear_predictors  # (n, Q)
     probs = sigmoid(logits)
     Y = (rng.uniform(size=probs.shape) < probs).astype(int)
 
     population_prevalence = Y.mean(axis=0)
 
-    # 3. Biased sampling. Per-outcome selection weights push each outcome toward
-    #    its target sample prevalence; the overall weight is their product.
-    # Optional covariate channel: without it selection depends on the outcomes alone,
-    # so a participation model has nothing to learn (see SimConfig docs).
+    # 3. Biased Bernoulli sampling. The participation-model coefficients are fitted
+    #    jointly so its expected count and outcome margins equal the configured targets.
+    #    The optional covariate score is a fixed offset in the participation logit.
     # Annotated because the rescale below produces a differently-shaped static type
     # under shape-typed numpy stubs, which a bare inferred binding would reject.
     selection_coef: np.ndarray = np.zeros(p)
@@ -213,7 +236,6 @@ def make_dataset(config: SimConfig | None = None, **overrides) -> Dataset:
 
     sample_indicator = _induce_selection(
         Y,
-        population_prevalence,
         np.asarray(config.target_sample_prevalence),
         config.sample_size,
         rng,
@@ -239,40 +261,152 @@ def make_dataset(config: SimConfig | None = None, **overrides) -> Dataset:
     )
 
 
+def _solve_logistic_intercept(
+    linear_predictor: np.ndarray,
+    target_mean: float,
+    *,
+    atol: float = 1e-13,
+    max_iter: int = 100,
+) -> float:
+    """Solve ``mean(expit(intercept + linear_predictor)) = target_mean``.
+
+    Bisection is sufficient because the left-hand side is continuous and strictly
+    increasing in the intercept. Bounds based on the extreme linear predictors
+    bracket the root without relying on arbitrary constants.
+    """
+    eta = np.asarray(linear_predictor, dtype=float)
+    if eta.ndim != 1 or eta.size == 0 or np.any(~np.isfinite(eta)):
+        raise ValueError("linear_predictor must be a non-empty finite one-dimensional array.")
+    if not np.isfinite(target_mean) or not 0.0 < target_mean < 1.0:
+        raise ValueError("target_mean must lie in (0, 1).")
+
+    target_logit = np.log(target_mean) - np.log1p(-target_mean)
+    lower = target_logit - eta.max()
+    upper = target_logit - eta.min()
+    for _ in range(max_iter):
+        midpoint = (lower + upper) / 2.0
+        error = float(sigmoid(midpoint + eta).mean() - target_mean)
+        if abs(error) <= atol:
+            return midpoint
+        if error < 0.0:
+            lower = midpoint
+        else:
+            upper = midpoint
+    return (lower + upper) / 2.0
+
+
+def _selection_probabilities(
+    Y: np.ndarray,
+    target_sample_prevalence: np.ndarray,
+    sample_size: int,
+    covariate_score: np.ndarray | None = None,
+) -> np.ndarray:
+    """Fit joint logistic participation probabilities by moment matching.
+
+    For rows ``y_i`` and fixed covariate offsets ``z_i``, this solves
+
+    ``P(S_i=1 | y_i, X_i) = expit(alpha + y_i @ theta + z_i)``
+
+    so that ``sum_i P(S_i=1)`` equals ``sample_size`` and, for every outcome
+    ``j``, ``sum_i P(S_i=1) y_ij / sample_size`` equals the requested sample
+    prevalence. The convex dual objective is minimized jointly over ``alpha``
+    and ``theta``. Correlated outcomes are therefore handled jointly rather than
+    by multiplying incompatible marginal weights.
+
+    A finite solution need not exist for arbitrary margins (for example, two
+    identical outcome columns cannot have different requested prevalences). Such
+    configurations raise ``ValueError`` rather than silently changing the model.
+    """
+    outcomes = np.asarray(Y, dtype=float)
+    target = np.asarray(target_sample_prevalence, dtype=float)
+    if outcomes.ndim != 2 or outcomes.shape[0] == 0:
+        raise ValueError("Y must be a non-empty two-dimensional array.")
+    if np.any(~np.isfinite(outcomes)) or np.any((outcomes != 0.0) & (outcomes != 1.0)):
+        raise ValueError("Y must contain finite binary outcomes.")
+    n, q = outcomes.shape
+    if target.shape != (q,):
+        raise ValueError("target_sample_prevalence must have one entry per outcome.")
+    if np.any(~np.isfinite(target)) or np.any((target <= 0.0) | (target >= 1.0)):
+        raise ValueError("target_sample_prevalence entries must lie in (0, 1).")
+    if not 0 < sample_size < n:
+        raise ValueError("sample_size must lie strictly between 0 and len(Y).")
+
+    if covariate_score is None:
+        offset = np.zeros(n)
+    else:
+        offset = np.asarray(covariate_score, dtype=float)
+        if offset.shape != (n,) or np.any(~np.isfinite(offset)):
+            raise ValueError("covariate_score must be a finite vector with len(Y) entries.")
+
+    features = np.column_stack((np.ones(n), outcomes))
+    target_totals = sample_size * np.r_[1.0, target]
+
+    # Necessary marginal capacity checks give a much clearer error than an optimizer
+    # failure for the common infeasible cases. Strict inequalities are required
+    # because finite logistic probabilities lie strictly between zero and one.
+    available_positive = outcomes.sum(axis=0)
+    available_negative = n - available_positive
+    desired_positive = sample_size * target
+    desired_negative = sample_size * (1.0 - target)
+    if np.any(desired_positive >= available_positive) or np.any(
+        desired_negative >= available_negative
+    ):
+        raise ValueError(
+            "target_sample_prevalence is infeasible for the realized outcomes and sample_size."
+        )
+
+    scale = float(n)
+
+    def objective(beta: np.ndarray) -> tuple[float, np.ndarray]:
+        score = offset + features @ beta
+        probability = sigmoid(score)
+        value = (np.logaddexp(0.0, score).sum() - target_totals @ beta) / scale
+        gradient = (features.T @ probability - target_totals) / scale
+        return float(value), gradient
+
+    initial = np.zeros(q + 1)
+    initial[0] = _solve_logistic_intercept(offset, sample_size / n)
+    result = minimize(
+        objective,
+        initial,
+        method="L-BFGS-B",
+        jac=True,
+        options={"ftol": 1e-15, "gtol": 1e-11, "maxiter": 1000, "maxls": 50},
+    )
+    probability = sigmoid(offset + features @ result.x)
+    residual = features.T @ probability - target_totals
+    max_error = float(np.max(np.abs(residual)))
+    tolerance = 1e-7 * sample_size
+    if (
+        np.any(~np.isfinite(probability))
+        or np.any((probability <= 0.0) | (probability >= 1.0))
+        or not np.isfinite(max_error)
+        or max_error > tolerance
+    ):
+        raise ValueError(
+            "No finite Bernoulli-logistic selection model matches the requested joint "
+            f"margins (largest expected-count error {max_error:.3g})."
+        )
+    return probability
+
+
 def _induce_selection(
     Y: np.ndarray,
-    population_prevalence: np.ndarray,
     target_sample_prevalence: np.ndarray,
     sample_size: int,
     rng: np.random.Generator,
-    eps: float = 1e-6,
     covariate_score: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Return a 0/1 indicator selecting ``sample_size`` units with outcome-dependent bias.
+    """Draw independent Bernoulli participation indicators.
 
-    The product of per-outcome odds weights targets each outcome's sample
-    prevalence in expectation, but with several outcomes (and sampling without
-    replacement) the realized margins drift toward the population prevalence
-    (~4-10% relative on middle outcomes). The targets are approximate, hence
-    the name ``target_sample_prevalence``.
+    ``sample_size`` and ``target_sample_prevalence`` describe expectations under
+    the calibrated model; the realized count and margins fluctuate because the
+    indicators are Bernoulli draws.
     """
-    n, q = Y.shape
-    weights = np.ones((n, q))
-    for i in range(q):
-        pos = target_sample_prevalence[i] / (population_prevalence[i] + eps)
-        neg = (1.0 - target_sample_prevalence[i]) / (1.0 - population_prevalence[i] + eps)
-        weights[:, i] = np.where(Y[:, i] == 1, pos, neg)
-
-    overall = weights.prod(axis=1)
-    if covariate_score is not None and np.any(covariate_score != 0.0):
-        # Multiplicative on the probability scale == additive on the log-odds scale,
-        # so this is the `a(X)` term of `a(X) + theta.Y`. Centred so it changes *who*
-        # is sampled, not the overall sampling fraction.
-        z = np.asarray(covariate_score, dtype=float)
-        overall = overall * np.exp(z - z.max())
-    overall = overall / overall.sum()
-
-    selected = rng.choice(n, size=sample_size, replace=False, p=overall)
-    indicator = np.zeros(n, dtype=int)
-    indicator[selected] = 1
-    return indicator
+    probability = _selection_probabilities(
+        Y,
+        target_sample_prevalence,
+        sample_size,
+        covariate_score=covariate_score,
+    )
+    return (rng.uniform(size=Y.shape[0]) < probability).astype(int)

@@ -17,18 +17,20 @@ whole population and weights ``w`` (from a participation model or from
                                    where the sample and model disagree
 
 with ``m(X) = E[V | X]`` an outcome regression fit on the sample and the weights
-self-normalized (Hájek 1971). It is **doubly robust** — consistent if *either* ``m``
-or ``w`` is correct (Robins–Rotnitzky–Zhao 1994) — so you get two chances to be
-right, and the prediction term also lowers variance versus weighting alone.
+self-normalized (Hájek 1971). Under the usual missing-at-random, sampling-frame, and
+regularity conditions, it is **doubly robust**: consistency follows if either ``m`` is
+correct or ``w`` is proportional to the full-population density ratio
+(Robins–Rotnitzky–Zhao 1994). Calibration to a few prevalences does not by itself make
+``w`` correct, and augmentation does not guarantee lower variance in every finite sample.
 
 A caveat on the "doubly robust" story. The usual semiparametric guarantees assume
 either a correctly specified ``m`` or independence of the fit from the point it is
 evaluated at. Fitting ``m`` on the whole sample and predicting *in-sample* (the
-default) is fine for the simple/low-complexity models used in the demos, but with a
-flexible ML outcome model it lets the fit chase its own residuals and makes the
-inference optimistic. Pass ``crossfit=K`` to fit ``m`` out-of-fold (Chernozhukov et
-al. 2018): each sampled unit's residual uses a model that never saw it, restoring the
-honest √n theory.
+default) is convenient for the simple models used in the demos, but with a flexible
+ML outcome model it lets the fit chase its own residuals. Pass ``crossfit=K`` to fit
+``m`` out-of-fold (Chernozhukov et al. 2018): each sampled unit's residual uses a
+model that never saw it. Cross-fitting supports the usual asymptotic arguments; it
+does not repair a misspecified selection structure or supply an interval by itself.
 
 References
 ----------

@@ -176,6 +176,12 @@ def bootstrap_calibration_ipw(
     interval is wider than the printed one. To shrink the effect rather than live with
     it, drop the rare anchor or set ``shrinkage > 0`` so replicates stop failing.
     """
+    if base_scheme != "inverse":
+        target = "nonparticipants" if base_scheme == "odds" else "an unknown target"
+        raise ValueError(
+            "bootstrap_calibration_ipw bootstraps a full-population target, but "
+            f"base_scheme={base_scheme!r} represents {target}; use 'inverse'."
+        )
     X_train, _, s_train = dataset.split("train")
     X_test, Y_test, s_test = _test_arrays(dataset)
     pop = np.asarray(dataset.population_prevalence, dtype=float)
@@ -300,6 +306,12 @@ def prevalence_sensitivity(
     construction; the informative movement is in the *unanchored* outcomes (and, with the
     weights, any downstream estimand) and in how fast the ESS degrades.
     """
+    if base_scheme != "inverse":
+        target = "nonparticipants" if base_scheme == "odds" else "an unknown target"
+        raise ValueError(
+            "prevalence_sensitivity perturbs full-population targets, but "
+            f"base_scheme={base_scheme!r} represents {target}; use 'inverse'."
+        )
     X_train, _, s_train = dataset.split("train")
     X_test, Y_test, s_test = _test_arrays(dataset)
     pop = np.asarray(dataset.population_prevalence, dtype=float)

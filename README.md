@@ -26,17 +26,17 @@ three documents below.
    cannot see?** The standard correction fits `P(participate | X)` on socioeconomic
    covariates. If people participate partly because they *have the disease*, that channel
    is invisible to `X` — so is it recoverable from the register instead?
-   → *[docs/studies.md](docs/studies.md), and the sketch under [The problem, and the
+   → *[docs/studies.md](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md), and the sketch under [The problem, and the
    idea](#the-problem-and-the-idea).*
 2. **What do the resulting weights actually identify?** They reproduce the register's
    prevalence by construction, which proves nothing. So under what condition are they the
    true inverse-probability weights, and what are they when that condition fails?
-   → *[What is identified?](docs/theory.md#what-is-identified).*
+   → *[What is identified?](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-is-identified).*
 3. **Which estimands does this fix, and which does it leave broken — and how would you
    find out on a real cohort?** Prevalences and means, yes; effect sizes, no. And since a
    calibration always matches its own constraints, what evidence could ever refute it?
-   → *[What makes this falsifiable](docs/theory.md#what-makes-this-falsifiable) and
-   [studies](docs/studies.md).*
+   → *[What makes this falsifiable](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-makes-this-falsifiable) and
+   [studies](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md).*
 
 Question 3 is the one most often skipped and the one that decides whether a number from
 this package belongs in a paper.
@@ -50,19 +50,19 @@ from it. The standard fix models each unit's participation probability
 `P(selected | X)` from covariates (socioeconomic features, via LASSO) and
 reweights by `1 / P`.
 
-**That participation model works poorly for many disease outcomes.** Write the
-selection log-odds as `a(X) + θ·Y`: participation depends on *having the disease*
-(`θ·Y`), a signal largely orthogonal to the covariates, so a covariate-only model
-learns `a(X)` but not `θ·Y`, the propensities barely vary, and the weights barely
-correct anything.
+**That participation model works poorly for many disease outcomes.** Participation can
+depend on *having the disease*, a signal largely orthogonal to the covariates, so a
+covariate-only model can miss an outcome-dependent part of the population-to-participant
+density ratio and the weights barely correct anything.
 
-i3pw's idea: **use the known population prevalences to supply the missing `θ·Y`.**
+i3pw's idea: **use known population prevalences to estimate that missing density-ratio
+tilt.**
 Knowing `Pr(Y_q)` a priori (from a registry or census) is exactly the information
 the covariate model lacks, and injecting it as a **calibration constraint** — force
 the reweighted sample to reproduce the known prevalences — supplies the
 disease-driven part of the reweighting that the covariate model cannot. What that
 does and does not identify is made precise in
-[What is identified?](docs/theory.md#what-is-identified): calibration recovers
+[What is identified?](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-is-identified): calibration recovers
 *minimum-divergence* weights matching the known moments, which coincide with the true
 inverse-probability weights under a stated condition.
 
@@ -71,15 +71,15 @@ inverse-probability weights under a stated condition.
 Not a recovered per-unit inclusion probability, but the **minimum-divergence weights that
 reproduce the known population moments**. Those equal the true inverse-probability weights
 under a condition that is stated, not assumed —
-[What is identified?](docs/theory.md#what-is-identified) — and are the closest reweighting
+[What is identified?](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-is-identified) — and are the closest reweighting
 to your starting weights otherwise. The package name predates the precision; the docs are
 the authority on what it does.
 
 If you would rather see it than read it, the whole method is one calculation on one binary
 outcome, small enough to do with a pencil:
-[a case small enough to check by hand](docs/theory.md#a-case-small-enough-to-check-by-hand).
+[a case small enough to check by hand](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#a-case-small-enough-to-check-by-hand).
 The symbols used throughout are collected in one table:
-[notation](docs/theory.md#notation).
+[notation](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#notation).
 
 ### If you are a statistical geneticist
 
@@ -94,7 +94,7 @@ each of which matters for a register-linked cohort:
 | --- | --- | --- |
 | starting weights | uniform | **any participation model** — Schoeler-style `1/P̂(S \| X_socio)`, or one built on clinical and genetic predictors |
 | constraints | one prevalence `K` | **several diagnoses jointly**, comorbidity rates, and prevalence *within* sex / birth year / ancestry / severity strata |
-| the tilt | assumed to be `K/P` | **solved for**, and reported: `λ` is the log odds-ratio between register and cohort, i.e. the `θ` of an ascertainment model recovered rather than assumed |
+| the tilt | assumed to be `K/P` | **solved for**, and reported: `λ` is the outcome coefficient in the log population-to-participant density ratio; it is not generally the participation-logit coefficient |
 
 The setting it was built for is the Danish one: **iPSYCH and the national registers supply
 `K`** — by diagnosis, by sex, by birth cohort — for a population in which a selected genetic
@@ -103,7 +103,7 @@ sample sits, and calibration is how you make the second answer questions about t
 The estimands it repairs are the ones on the **liability and absolute scales**: prevalence,
 absolute risk, trait and biomarker means, and liability-scale variance components
 (`h²_l`, `R²_L`) — see the
-[liability-threshold study](docs/studies.md#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw),
+[liability-threshold study](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#a-probit--liability-threshold-model-the-lee-et-al-transform-vs-ipw),
 where IPW matches Lee under pure case-control ascertainment and beats it once ascertainment
 is strong or depends on liability within case status.
 
@@ -114,7 +114,7 @@ al. (2023) document in UK Biobank is *collider* bias — participation depending
 exposure *and* outcome — and a known marginal prevalence cannot touch it, because an effect
 size is a joint moment and `K` is a marginal one. In the simulation it moves the estimate the
 wrong way, 1.274 → 1.313 against a truth of 1.096
-([evidence](docs/studies.md#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
+([evidence](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
 For that you need a participation model containing the exposure; prevalences will not
 substitute.
 
@@ -143,7 +143,7 @@ fit = i3pw.calibrate(
     holdout={"mean age": (age, 41.7), "% female": (female, 0.508)},   # NOT calibrated on
 )
 
-print(fit.summary())              # diagnostics, then the falsification verdict
+print(fit.summary())              # solve diagnostics + held-out balance diagnostic
 print(fit.mean(bmi).summary())    # weighted mean, SE that accounts for the tilt
 fit.weights                       # or just take the weights
 ```
@@ -155,7 +155,7 @@ Add `strata=` to calibrate prevalence *within* sex / birth year / ancestry / sev
 usually the most important step for psychiatric cohorts, because a known prevalence fixes
 the number of cases and not their type.
 
-Full walkthrough: [the guide](docs/guide.md#if-you-have-a-cohort-start-here-calibrate).
+Full walkthrough: [the guide](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#if-you-have-a-cohort-start-here-calibrate).
 
 ## Quick start — the simulations
 
@@ -169,8 +169,8 @@ ds = i3pw.make_dataset(
     n_features=15,
     n_outcomes=2,
     target_population_prevalence=(0.4, 0.05),
-    target_sample_prevalence=(0.2, 0.005),   # what the biased sample looks like
-    sample_size=4000,
+    target_sample_prevalence=(0.2, 0.005),   # expected margins under selection
+    sample_size=4000,                        # expected Bernoulli participant count
 )
 
 print(ds.population_prevalence)   # truth we want to recover
@@ -203,13 +203,14 @@ Run the full benchmark comparison:
 python examples/benchmark.py
 ```
 
-Typical output (8k population, one common + one rare outcome; ~2s total):
+Fixed-seed output (8k population, one common + one rare outcome; runtime is
+machine-dependent):
 
 ```
 method                       % diff Y1   % diff Y2
 --------------------------------------------------
-no_correction                    48.25       91.32
-lasso_ipw                        45.64       91.44
+no_correction                    49.48       91.82
+lasso_ipw                        46.86       90.83
 calibration_ipw                   0.00        0.00
 --------------------------------------------------
 ```
@@ -219,20 +220,21 @@ is reproducing prevalences it was *handed* — an algebraic identity, not a resu
 `lasso_ipw` looks useless because this simulation gives selection no covariate channel to
 learn. `examples/honest_benchmark.py` measures the questions that can actually fail —
 transfer to an *unanchored* outcome, and balance against quantities never supplied — and
-[its section](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) is
+[its section](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) is
 the one to trust.
 
 ## Where everything is
 
-The rest lives in three documents, so that this page stays a page. Most readers need one
+The rest lives in four documents, so that this page stays a page. Most readers need one
 of them — and each one is the answer to one of the
 [three questions](#the-research-question) above.
 
 | | | |
 | --- | --- | --- |
-| [**docs/theory.md**](docs/theory.md) | *question 2.* [notation](docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
-| [**docs/guide.md**](docs/guide.md) | *how to run it.* [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-balance-as-a-falsification-test), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
-| [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
+| [**docs/theory.md**](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md) | *question 2.* [notation](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-makes-this-falsifiable), and the [bibliography](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#references) | read before quoting a number in a paper |
+| [**docs/guide.md**](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md) | *how to run it.* [`calibrate`, start to finish](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic), how to [put error bars on it](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#uncertainty) | read if you have a cohort |
+| [**docs/studies.md**](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
+| [**report/i3pw_report.tex**](https://github.com/bvilhjal/i3pw/blob/main/report/i3pw_report.tex) | a self-contained mathematical review, implementation audit, fresh validation table, and cited bibliography for statistical geneticists | read before developing or reviewing the method |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
 below, is the whole thing in a page: a five-step recipe, a list of things not to do, and
@@ -259,34 +261,34 @@ for each argument.
    base weights (`inverse_probability_weights(p_hat)` → `base_weights=`).
    *Why:* it corrects the part of selection that is visible in covariates, and it is the
    only ingredient that can. On a population where participation genuinely depends on a
-   covariate, dropping this step costs a factor of 2.7 in held-out balance
-   ([benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
+   covariate, dropping this step costs a factor of 2.3 in held-out balance
+   ([benchmark](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
 2. **Calibrate those weights to known register quantities** rather than trusting the
    model alone — `targets=`.
    *Why:* participation depends on *having the disease*, which the covariates barely
    proxy, so the covariate model alone leaves the ascertainment uncorrected. The two
    ingredients are complementary and the combination is best in **every** channel mix
-   tested ([Study D](docs/studies.md#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
+   tested ([Study D](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
 3. **Calibrate within strata — sex, birth year, ancestry, severity — not just the pooled
    margin** (`strata=` with `stratum_share=`).
    *Why:* a known prevalence fixes the *number* of cases, not their *type*. If the
    sampled cases are milder than the population's, matching the margin leaves that
-   uncorrected ([case mix](docs/theory.md#prevalence-sets-the-scale-not-the-case-mix)). For psychiatric
+   uncorrected ([case mix](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#prevalence-sets-the-scale-not-the-case-mix)). For psychiatric
    cohorts this is usually the single most important step. Watch the constraint count as
    the strata get finer — `A` strata by `Q` outcomes outgrows the cells backing them, and
    the solve reports success either way, so the package warns below ten units per
    constraint.
-4. **Hold back some known margins and test against them** (`holdout=`, which returns a
+4. **Hold back some known margins and check against them** (`holdout=`, which returns a
    `balance_report`).
    *Why:* a just-identified calibration reproduces its constraints whatever the truth, so
    nothing it reports can refute it. Held-out moments are the only thing that can
-   ([falsifiability](docs/theory.md#what-makes-this-falsifiable)) — and in a worked case every other
+   ([falsifiability](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-makes-this-falsifiable)) — and in a worked case every other
    diagnostic *preferred* the broken weighting, whose ESS looked 3× healthier
-   ([demonstration](docs/guide.md#checking-the-weights-balance-as-a-falsification-test)).
+   ([demonstration](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic)).
 5. **Report the effective sample size, a sensitivity sweep over `K`, and an interval that
    accounts for the estimated weights** (`fit.mean(values)`, or the bootstrap).
    *Why:* the correction costs variance, register prevalences are not exact constants, and
-   the fixed-weight SE is not a bound in either direction ([uncertainty](docs/guide.md#uncertainty)).
+   the fixed-weight SE is not a bound in either direction ([uncertainty](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#uncertainty)).
    If you bootstrap, read its `failure_rate` first: discarded replicates are dropped
    selectively from the tail, so a non-zero rate means the interval is too narrow.
 
@@ -298,20 +300,20 @@ for each argument.
   exposure and outcome together — is untouched by calibration, which moved the estimate
   from 1.274 to 1.313 against a truth of 1.096. Only a participation model including the
   exposure recovers it
-  ([evidence](docs/studies.md#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
+  ([evidence](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#participation-bias-and-effect-sizes-what-known-prevalences-cannot-fix)).
   Known prevalences are the right information for prevalences, absolute risks and means,
   and the wrong information for associations.
 - **Do not expect calibrating on one disease to help with another.** Anchoring outcome 1
-  left outcome 2 at 77.2% error against 78.4% for no correction at all. Marginal
+  left outcome 2 at 81.6% error against 80.8% for no correction at all. Marginal
   calibration fixes marginal quantities; anchor what you need corrected
-  ([transfer](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
+  ([transfer](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
 - **Do not quote a `0.00` as evidence.** An anchored margin is reproduced by construction.
   This is worth repeating because the package's own headline table invites the mistake.
 - **Do not reach for the analytic Lee-style product weight unless you know the mechanism
   is case-control on known-prevalence disorders.** It is excellent when selection really
   is one latent factor cleanly proxied by every outcome, and barely better than naive when
   a few correlated outcomes drive selection — a high-variance bet either way
-  ([Study A](docs/studies.md#study-a--the-regime-decides-and-lee-style-weights-are-a-bet)).
+  ([Study A](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#study-a--the-regime-decides-and-lee-style-weights-are-a-bet)).
 
 ### The one risk that outranks the others
 
@@ -320,27 +322,28 @@ that the base weights span the covariate-driven part of selection and the suppli
 span the outcome-driven part. That assumption is not testable from the calibration itself,
 and no robustness property covers it: if the moments miss the outcome-driven part, the
 outcome model and the propensity model fail *together*
-([what is identified](docs/theory.md#what-is-identified)).
+([what is identified](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-is-identified)).
 
-The practical consequence is recommendation 4, which is why it is not optional. Passing an
-overidentification test is not proof — it never is — but it is the difference between an
-assumption and a checked assumption, and it is the strongest positive evidence this
-framework can produce.
+The practical consequence is recommendation 4, which is why it is not optional. Passing a
+held-out balance check is not proof, but it is the difference between an assumption and a
+checked assumption, and it is the strongest positive evidence this framework currently
+produces. The package reports a standardized-mean-difference diagnostic, not a formal
+Sargan/Hansen overidentification test.
 
 ## Package layout
 
 ```
 src/i3pw/
 ├── fit.py          # calibrate: the entry point for a real cohort (arrays in, weights,
-│                   #   diagnostics and the held-out balance test out)
+│                   #   diagnostics and the held-out balance check out)
 ├── calibration.py  # the core: entropy_balance, calibration_ipw, apply_tilt,
 │                   #   calibration_mean_se, stratified/joint calibration, diagnostics
-├── balance.py      # balance_report: the falsification test (held-out moments)
+├── balance.py      # balance_report: held-out SMD specification diagnostic
 ├── uncertainty.py  # bootstrap, fixed-weight SE, prevalence-sensitivity
-├── aipw.py         # aipw_mean: doubly-robust downstream estimation (+ cross-fitting)
+├── aipw.py         # aipw_mean: augmented downstream estimation (+ cross-fitting)
 ├── liability.py    # probit / liability-threshold model: Lee et al. transform vs IPW
 ├── methods.py      # baselines: no_correction, lasso_ipw / lasso_propensity
-├── dgm.py          # simulated population + biased sampling
+├── dgm.py          # simulated population + Bernoulli-logistic participation
 ├── evaluation.py   # Monte Carlo comparison across many replications
 ├── metrics.py      # weighted (Hájek) prevalence, % difference
 └── _links.py       # stable sigmoid / logit / probability clamp
@@ -348,6 +351,9 @@ docs/               # theory.md, guide.md, studies.md
 tests/              # pytest suite
 examples/           # real_cohort_workflow.py if you have a cohort;
                     #   honest_benchmark.py if you are judging the method
+report/             # cited LaTeX review + frozen local validation results
+CITATION.cff        # software citation metadata
+CHANGELOG.md        # release-level scientific and API changes
 ```
 
 ## Tests
@@ -362,4 +368,4 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/bvilhjal/i3pw/blob/main/LICENSE).

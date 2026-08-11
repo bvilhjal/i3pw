@@ -2,7 +2,7 @@
 
 If you have a real cohort, [`calibrate`](#if-you-have-a-cohort-start-here-calibrate) is
 the entry point and the rest of this page is background. Then: the estimators, how to
-[check a weighting](#checking-the-weights-balance-as-a-falsification-test), and how to
+[check a weighting](#checking-the-weights-a-held-out-balance-diagnostic), and how to
 [put error bars on it](#uncertainty).
 
 The recipe these support is in the
@@ -33,7 +33,7 @@ fit = i3pw.calibrate(
              "% female": (female, 0.508)},
 )
 
-print(fit.summary())            # diagnostics, then the falsification verdict
+print(fit.summary())            # solve diagnostics + held-out balance diagnostic
 print(fit.mean(bmi).summary())  # a weighted mean, with an SE that knows about the tilt
 fit.weights                     # if you would rather take the weights and go
 ```
@@ -43,8 +43,9 @@ Four arguments carry the recipe, and it is worth knowing which does what.
 **`base_weights=`** is the covariate-driven half of the correction, and it comes from your
 participation model — any model, fitted however you like on whatever sampling frame you
 have. Pass `1/P̂`, or hand the predicted probabilities to `inverse_probability_weights`
-(which also offers `scheme="odds"`, the `(1−P)/P` form that composes exactly with the
-tilt). Omit it and you get pure calibration from uniform weights: correct when selection
+(the `scheme="odds"` option, `(1−P)/P`, targets nonparticipants rather than the full
+population and is appropriate only when that is the stated target). Omit it and you get
+pure calibration from uniform weights: correct when selection
 acts only through the outcome, silent about the covariate channel when it does not.
 
 **`targets=`** are the known population prevalences — the outcome-driven half.
@@ -58,12 +59,13 @@ cohorts this is usually the step that matters most.
 
 **`holdout=`** is the only part of the output that can tell you the weighting is wrong.
 Name quantities whose population value you know and are deliberately *not* constraining;
-they become a [balance report](#checking-the-weights-balance-as-a-falsification-test)
+they become a [balance report](#checking-the-weights-a-held-out-balance-diagnostic)
 whose verdict ignores the constrained columns. Leave it out and `fit.summary()` will say,
 in as many words, that nothing was tested — which is not the same as a pass.
 
 `fit.mean(values)` gives a weighted mean whose standard error accounts for the estimated
-tilt (a constrained margin correctly gets ~0; see [Uncertainty](#uncertainty)), and
+tilt (an exactly constrained margin gets approximately zero only when `shrinkage=0`; see
+[Uncertainty](#uncertainty)), and
 `fit.apply_to(...)` re-weights fresh rows under the already-fitted tilt without re-solving.
 
 ### The recipe, run end to end
@@ -137,7 +139,7 @@ asks for more constraints than the sample can support (fewer than ten units per
 constraint — the trap a fine-grained `strata=` walks into, since `A` strata by `Q`
 outcomes grows much faster than the cells backing them).
 
-## Checking the weights: balance as a falsification test
+## Checking the weights: a held-out balance diagnostic
 
 Every diagnostic in the section above describes the **solve** — did it converge, did it
 hit the targets, how concentrated are the weights. None of them can tell you the weights
@@ -167,12 +169,14 @@ constrained columns and their flags are already known, so the report comes back 
 called for you.
 
 Constrained moments match by construction and carry no information — they are excluded
-from the verdict. *Unconstrained* ones do not have to match, so when they do the model
-has survived a test it could have failed. This is an **overidentification test**: supply
-more known population quantities than you calibrate on, and the surplus becomes evidence.
+from the verdict. *Unconstrained* ones do not have to match, so they can expose a bad
+weighting. This is a held-out specification diagnostic inspired by overidentifying
+restrictions, not a formal Sargan/Hansen J-test: `balance_report` has no
+covariance-weighted statistic, reference distribution, degrees of freedom, or p-value.
 For a biobank, calibrate to known disease prevalences and check against register margins
-you held back (age, sex, region). A large held-out `|SMD|` refutes the tilt-family
-assumption that [What is identified?](theory.md#what-is-identified) rests on.
+you held back (age, sex, region). A large held-out `|SMD|` is evidence against the
+tilt-family assumption that [What is identified?](theory.md#what-is-identified) rests on;
+a small one is not proof.
 
 Measured on a population where participation depends on a covariate `X0` *and* the
 outcome, with the prevalence anchored either way:
@@ -191,40 +195,39 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
 
 - `weighted_mean_se(values, weights)` — the design-based linearization (sandwich) SE of a
   Hájek weighted mean or prevalence,
-  `Var = Σ w_i²(y_i − μ)² / (Σ w_i)²`. Exact for
-  independent units, but it treats the weights as *fixed*, so it does not describe the
+  `Var = Σ w_i²(y_i − μ)² / (Σ w_i)²`. This independent-unit linearization
+  treats the weights as *fixed*, so it does not describe the
   uncertainty of a calibration estimate — and it is **not a bound in either direction**.
   On an anchored margin it badly *overstates* (calibration reproduces the known
   prevalence exactly, so the true sampling variability is zero while the formula still
   returns ≈0.04); on an estimand uncorrelated with the anchors it is about right; it can
   understate when the weights are noisy. Use the bootstrap when the weights were
   estimated.
-- `calibration_mean_se(values, weights, features)` — the SE that **does** account for the
-  estimated calibration, in closed form. The calibration estimator is asymptotically a
-  regression (GREG) estimator, so its influence function is the residual of the outcome
-  on the constrained functions, `e_i = y_i − μ − β·(g_i − ḡ)`.
-  Constraining `g` removes exactly
-  the part of `y` that `g` explains, which gets the anchored case right for the right
-  reason: an anchored outcome *is* a column of `g`, so its residual is identically zero
-  and the SE collapses to 0. Validated against the bootstrap on a held-out estimand
-  (0.0759 closed-form vs 0.0785 from 400 replicates) — same answer, no re-solving.
+- `calibration_mean_se(values, weights, features, ridge=...)` — a first-order SE that
+  accounts for estimation of the calibration tilt. For exact calibration its influence
+  function uses the GREG residual
+  `e_i = y_i − μ − β·(g_i − ḡ)`, with `β = Cov_w(g)^{-1}Cov_w(g,y)`.
+  For a penalized solve it instead uses
+  `β_ρ = [Cov_w(g)+ρI]^{-1}Cov_w(g,y)`. Thus an anchored outcome has zero residual
+  only under exact feasible calibration (`ρ=0`); with shrinkage the target is not pinned
+  and its SE is generally nonzero.
   `fit.mean(values)` on a [`calibrate`](#if-you-have-a-cohort-start-here-calibrate) result
-  calls this with the constraints already filled in, which is the whole of the difference.
+  carries the fitted ridge and constraints into this calculation.
 - `apply_tilt(features, tilt, targets)` — the fitted dual `λ` is exposed on
-  `CalibrationDiagnostics.tilt`; it *is* the estimated `θ` of the selection decomposition
-  `a(X) + θ·g(Y)` ([what that means](theory.md#what-is-identified), and for one binary
-  outcome it is just the log odds-ratio between register and sample). Feed it
+  `CalibrationDiagnostics.tilt`; it is the outcome coefficient in the fitted
+  population-to-participant log density ratio, not generally a participation-logit
+  coefficient. For one binary outcome it is the log odds-ratio between register and
+  sample. Feed it
   here to weight a held-out fold or newly recruited participants under the same
   calibration without re-solving. Transferred weights are *not* re-calibrated, so their
   achieved moments miss the targets by ordinary sampling error — which is what makes this
   a usable check rather than a tautology.
 - `bootstrap_calibration_ipw(dataset, ...)` — a nonparametric bootstrap over the sampled
   units that re-solves the calibration each replicate, so it captures the
-  weight-*estimation* variability the linearization SE omits; `refit_base=True` also
-  refits the LASSO participation model per replicate. Anchored outcomes come back with
-  near-zero SE **by construction** — the honest read is that, conditional on the known
-  prevalences, the anchored margins carry no sampling uncertainty; the variance lives in
-  the *unanchored* and downstream estimands:
+  weight-*estimation* variability the fixed-weight SE omits; `refit_base=True` also
+  refits the LASSO participation model per replicate. Under exact feasible calibration,
+  anchored outcomes come back with near-zero SE **by construction**. With
+  `shrinkage>0` their achieved margins and bootstrap estimates vary:
 
   ```
   bootstrap (100 reps, 95% percentile CI):
@@ -242,7 +245,8 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
   or remove the cause: drop the rare anchor, or set `shrinkage > 0` so replicates stop
   failing.
 
-- `prevalence_sensitivity(dataset, ...)` — registry prevalences are not exact constants
+- `prevalence_sensitivity(dataset, ...)` — a simulation-harness helper for a `Dataset`;
+  it is not a general-array companion to `calibrate`. Registry prevalences are not exact constants
   (age/period, ascertainment, diagnostic, linkage error), so this scales the known `K`
   by `1 + δ` across a grid and reports how each estimand and the ESS move. The anchored
   outcome tracks its perturbed target by construction; the informative response is in the
@@ -253,8 +257,8 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
 Calibration fixes the *ascertained outcome*, which is not otherwise identified.
 But most analyses target a **downstream** quantity — the population mean of a
 trait or biomarker measured only on participants. When that is missing at random
-given the covariates (`S ⊥ V | X`), it is recoverable, and the efficient, robust
-estimator is augmented IPW (`aipw_mean`):
+given the covariates (`S ⊥ V | X`), it can be recovered with augmented IPW
+(`aipw_mean`):
 
 ```
 μ̂_AIPW  =  (1/N) Σ_i m(X_i)  +  Σ_{i : S_i = 1} w_i ( V_i − m(X_i) )
@@ -264,8 +268,11 @@ estimator is augmented IPW (`aipw_mean`):
 with an outcome model `m(X) = E[V | X]` fit on the sample and self-normalized
 weights `w` (from a participation model *or* from `calibration_ipw`); the first sum runs
 over everyone in the frame, the second only over participants. It is
-**doubly robust** — consistent if *either* `m` or `w` is correct — and lower
-variance than weighting alone.
+**doubly robust** — consistent if either `m` is a correct outcome regression or `w` is
+proportional to the correct full-population density ratio, under the sampling-frame and
+regularity conditions of the AIPW theory. Calibration to a few prevalences does not by
+itself make `w` correct, and lower variance than weighting alone is not guaranteed in every
+finite sample.
 
 The doubly-robust guarantee is conditional: it needs the MAR structure `S ⊥ V | X`,
 and — for the usual √n inference with a *flexible* outcome model — the fit to be
@@ -284,10 +291,10 @@ Recovering `E[V]` over 20 replications (bias from the truth, `|bias|`):
 
 ```
 method          mean bias    |bias|
-naive             -0.096      0.101     <- ascertainment inflates the trait
-ipw_lasso         -0.019      0.065
-calibration       +0.084      0.103     <- weights tuned to the ascertained margin, noisy here
-aipw              +0.003      0.050     <- doubly robust: best and most stable
+naive             -0.0905     0.1008    <- ascertainment inflates the trait
+ipw_lasso         -0.0252     0.0636
+calibration       +0.0537     0.0864    <- weights tuned to the ascertained margin, noisy here
+aipw              -0.0009     0.0584    <- best mean bias in this run
 ```
 
 Two honest lessons: (1) `calibration_ipw`'s job is the ascertained margin —
