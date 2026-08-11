@@ -130,7 +130,7 @@ $\lambda = \theta$ is attainable — when the true $a(X)$ is what $d$ supplies a
 $\theta^\top g(Y)$ lives in the span of the moments you chose.
 
 **Inverse vs odds base weights (`base_scheme`).** That separability is *exact* for one
-familiar choice. Under logistic participation $\operatorname{logit} \pi = a(X) + \theta Y$,
+familiar choice. Under logistic participation $\mathrm{logit}\,\pi = a(X) + \theta Y$,
 the **inverse-odds** weight
 
 $$
@@ -163,23 +163,7 @@ and that is where its guarantees (and its boundary) come from.
   projection* of the base weights onto the set of distributions meeting the moment constraints
   — minimize Kullback–Leibler divergence subject to linear constraints (Csiszár 1975; the
   minimum-discrimination-information principle, Kullback 1959). This is the optimization
-  `entropy_balance` solves, in its primal and dual forms:
-
-$$
-\underbrace{\min_{w}\ \sum_i w_i \log \frac{w_i}{d_i}
-  \quad \text{s.t.} \quad \sum_i w_i\, g(Y_i) = t,\ \ \sum_i w_i = 1}_{\text{primal: } n \text{ unknowns}}
-  \qquad\Longleftrightarrow\qquad
-  \underbrace{\min_{\lambda \in \mathbb{R}^{k}}\ \log \sum_i d_i\,
-  e^{\lambda^\top (g(Y_i) - t)} + \tfrac{\rho}{2}\lVert\lambda\rVert^2}_{\text{dual: } k \text{ unknowns}}
-  $$
-
-  The dual is smooth, convex and tiny — one parameter per constraint, not per unit — and its
-  solution gives back the primal weights as $w_i \propto d_i e^{\lambda^\top g(Y_i)}$. So
-  entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
-  1994) are two views of the same optimization. Matching population moments by reweighting is
-  also what kernel mean matching does for covariate shift (Gretton et al. 2009). The ridge
-  $\rho$ (`shrinkage=`) is the one term with no counterpart in the classical theory: it
-  shrinks $\lambda$ toward $0$, i.e. $w$ toward $d$, trading exact calibration for variance.
+  `entropy_balance` solves, written out [below](#the-primal-and-the-dual).
 - **This is label shift.** With no covariates in the base — pure
   `outcome_calibration_weights(Y, [K])` — i3pw *is* the classic correction for **prior
   probability shift / label shift**: sample and population differ only in the label marginal
@@ -188,6 +172,24 @@ $$
   base weight $d(X)$ from a participation model rather than uniform weights, and (ii) where
   black-box label-shift estimators must *infer* $P(Y)$ from a classifier, i3pw takes $P(Y)$ as
   a **known register quantity** — the regime where the correction is exact rather than estimated.
+
+### The primal and the dual
+
+$$
+\underbrace{\min_{w}\ \sum_i w_i \log \frac{w_i}{d_i}
+\quad \text{s.t.} \quad \sum_i w_i\, g(Y_i) = t,\ \ \sum_i w_i = 1}_{\text{primal: } n \text{ unknowns}}
+\qquad\Longleftrightarrow\qquad
+\underbrace{\min_{\lambda \in \mathbb{R}^{k}}\ \log \sum_i d_i\,
+e^{\lambda^\top (g(Y_i) - t)} + \tfrac{\rho}{2}\lVert\lambda\rVert^2}_{\text{dual: } k \text{ unknowns}}
+$$
+
+The dual is smooth, convex and tiny — one parameter per constraint, not per unit — and its
+solution gives back the primal weights as $w_i \propto d_i e^{\lambda^\top g(Y_i)}$. So
+entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
+1994) are two views of the same optimization. Matching population moments by reweighting is
+also what kernel mean matching does for covariate shift (Gretton et al. 2009). The ridge
+$\rho$ (`shrinkage=`) is the one term with no counterpart in the classical theory: it
+shrinks $\lambda$ toward $0$, i.e. $w$ toward $d$, trading exact calibration for variance.
 
 The placement also re-derives the honesty boundary. Label shift assumes the class-conditional
 `P(X | Y)` is stable between sample and population — selection acts only *through* `Y` — which is
@@ -208,13 +210,14 @@ formula can be used for all of them. That is what rescues a package whose weight
 from a solve with no closed form.
 
 Concretely, calibrating on $g$ and then taking a weighted mean of $y$ is asymptotically
-the same as *regressing $y$ on $g$ and correcting the prediction*. So the influence
+the same as *regressing the outcome on the constrained functions and correcting the
+prediction*. So the influence
 function is a **residual**:
 
 $$
 e_i = y_i - \mu - \beta^\top (g_i - \bar{g}),
 \qquad
-\widehat{\operatorname{Var}}(\hat\mu) = \frac{\sum_i w_i^2 e_i^2}{\big(\sum_i w_i\big)^2}
+\widehat{\mathrm{Var}}(\hat\mu) = \frac{\sum_i w_i^2 e_i^2}{\big(\sum_i w_i\big)^2}
 $$
 
 with $\beta$ the weighted least-squares slope of $y$ on $g$. Three consequences, all

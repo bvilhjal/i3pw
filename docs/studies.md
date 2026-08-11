@@ -298,19 +298,20 @@ liability-scale variance explained `R²_L = Var(f)/Var(L)`. The sample is
 ascertained on `Y` (cases over-represented), so the sample case fraction `P ≠ K`.
 Two corrections:
 
-- **Lee et al. (2011)** — estimate $R^2$ on the observed 0/1 scale, then multiply by
+**Lee et al. (2011)** — estimate $R^2$ on the observed 0/1 scale, then multiply by
 
-  ```math
-  \underbrace{\frac{K(1-K)}{z^2}}_{\text{observed} \to \text{liability}}
-  \times
-  \underbrace{\frac{K(1-K)}{P(1-P)}}_{\text{ascertainment}}
-  ```
+$$
+\underbrace{\frac{K(1-K)}{z^2}}_{\text{observed} \to \text{liability}}
+\times
+\underbrace{\frac{K(1-K)}{P(1-P)}}_{\text{ascertainment}}
+$$
 
-  where $z$ is the standard-normal density at the threshold.
-- **IPW** — reweight the case fraction back to $K$ (weights $K/P$ for cases and
-  $(1-K)/(1-P)$ for controls — the exact inverse-probability weights for selection on $Y$
-  alone), run a weighted moment estimator, then apply only the population
-  $K(1-K)/z^2$ factor.
+where $z$ is the standard-normal density at the threshold.
+
+**IPW** — reweight the case fraction back to $K$ (weights $K/P$ for cases and
+$(1-K)/(1-P)$ for controls — the exact inverse-probability weights for selection on $Y$
+alone), run a weighted moment estimator, then apply only the population $K(1-K)/z^2$
+factor.
 
 Both correct the ascertainment; the Lee factor is the *analytic* counterpart of what
 IPW does by *reweighting*. Benchmark (25 reps, strong-ascertainment `P = 0.5` rows):

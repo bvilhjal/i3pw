@@ -192,7 +192,7 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
 
 - `weighted_mean_se(values, weights)` — the design-based linearization (sandwich) SE of a
   Hájek weighted mean or prevalence,
-  $\operatorname{Var} = \sum_i w_i^2 (y_i - \mu)^2 / (\sum_i w_i)^2$. Exact for
+  $\mathrm{Var} = \sum_i w_i^2 (y_i - \mu)^2 / (\sum_i w_i)^2$. Exact for
   independent units, but it treats the weights as *fixed*, so it does not describe the
   uncertainty of a calibration estimate — and it is **not a bound in either direction**.
   On an anchored margin it badly *overstates* (calibration reproduces the known
