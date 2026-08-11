@@ -100,26 +100,25 @@ front door.
 
 ### What the solve actually does
 
-Given base weights $d_i$ (uniform, or the covariate-model IPW weights), find the weights
-that stay as close as possible to $d$ while hitting the known prevalences:
+Given base weights `d_i` (uniform, or the covariate-model IPW weights), find the weights
+that stay as close as possible to `d` while hitting the known prevalences:
 
-$$
-\min_{w}\ \sum_i w_i \log \frac{w_i}{d_i}
-\qquad \text{subject to} \qquad
-\frac{\sum_i w_i Y_{iq}}{\sum_i w_i} = \Pr(Y_q)\ \ \text{for each anchored outcome } q
-$$
+```
+min_w   Σ_i w_i log(w_i / d_i)
+s.t.    (Σ_i w_i Y_iq) / (Σ_i w_i) = P(Y_q)     for each anchored outcome q
+```
 
-The objective is the Kullback–Leibler divergence of $w$ from $d$; the solution is
+The objective is the Kullback–Leibler divergence of `w` from `d`; the solution is
 exponential tilting,
 
-$$
-w_i \;\propto\; d_i \cdot \exp\Big(\textstyle\sum_q \lambda_q Y_{iq}\Big)
-$$
+```
+w_i  ∝  d_i · exp( Σ_q λ_q Y_iq )
+```
 
-with $\lambda$ from a small convex dual — one parameter per constraint, not per unit
+with `λ` from a small convex dual — one parameter per constraint, not per unit
 (entropy balancing; Hainmueller 2012, Deville & Särndal 1992; the
 [dual, written out](theory.md#where-this-sits-density-ratios-i-projection-and-label-shift)).
-Because that tilt is log-linear in $Y$, calibrating on the $Q$ known prevalences supplies
+Because that tilt is log-linear in `Y`, calibrating on the `Q` known prevalences supplies
 the disease-driven part of the reweighting a covariate model cannot.
 
 What that buys and what it assumes — when these weights equal the true inverse-probability
@@ -192,7 +191,7 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
 
 - `weighted_mean_se(values, weights)` — the design-based linearization (sandwich) SE of a
   Hájek weighted mean or prevalence,
-  $\mathrm{Var} = \sum_i w_i^2 (y_i - \mu)^2 / (\sum_i w_i)^2$. Exact for
+  `Var = Σ w_i²(y_i − μ)² / (Σ w_i)²`. Exact for
   independent units, but it treats the weights as *fixed*, so it does not describe the
   uncertainty of a calibration estimate — and it is **not a bound in either direction**.
   On an anchored margin it badly *overstates* (calibration reproduces the known
@@ -203,10 +202,10 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
 - `calibration_mean_se(values, weights, features)` — the SE that **does** account for the
   estimated calibration, in closed form. The calibration estimator is asymptotically a
   regression (GREG) estimator, so its influence function is the residual of the outcome
-  on the constrained functions, $e_i = y_i - \mu - \beta^\top (g_i - \bar{g})$.
-  Constraining $g$ removes exactly
-  the part of $y$ that $g$ explains, which gets the anchored case right for the right
-  reason: an anchored outcome *is* a column of $g$, so its residual is identically zero
+  on the constrained functions, `e_i = y_i − μ − β·(g_i − ḡ)`.
+  Constraining `g` removes exactly
+  the part of `y` that `g` explains, which gets the anchored case right for the right
+  reason: an anchored outcome *is* a column of `g`, so its residual is identically zero
   and the SE collapses to 0. Validated against the bootstrap on a held-out estimand
   (0.0759 closed-form vs 0.0785 from 400 replicates) — same answer, no re-solving.
   `fit.mean(values)` on a [`calibrate`](#if-you-have-a-cohort-start-here-calibrate) result
@@ -257,15 +256,15 @@ trait or biomarker measured only on participants. When that is missing at random
 given the covariates (`S ⊥ V | X`), it is recoverable, and the efficient, robust
 estimator is augmented IPW (`aipw_mean`):
 
-$$
-\hat\mu_{\text{AIPW}} \;=\; \frac{1}{N}\sum_{i} m(X_i)
-\;+\; \sum_{i\,:\,S_i = 1} w_i\big(V_i - m(X_i)\big)
-$$
+```
+μ̂_AIPW  =  (1/N) Σ_i m(X_i)  +  Σ_{i : S_i = 1} w_i ( V_i − m(X_i) )
+              over the whole frame        over participants only
+```
 
-with an outcome model $m(X) = \mathbb{E}[V \mid X]$ fit on the sample and self-normalized
-weights $w$ (from a participation model *or* from `calibration_ipw`); the first sum runs
+with an outcome model `m(X) = E[V | X]` fit on the sample and self-normalized
+weights `w` (from a participation model *or* from `calibration_ipw`); the first sum runs
 over everyone in the frame, the second only over participants. It is
-**doubly robust** — consistent if *either* $m$ or $w$ is correct — and lower
+**doubly robust** — consistent if *either* `m` or `w` is correct — and lower
 variance than weighting alone.
 
 The doubly-robust guarantee is conditional: it needs the MAR structure `S ⊥ V | X`,
@@ -305,17 +304,12 @@ varies strongly by **sex, birth cohort, age, ancestry, region, or calendar time*
 participation varies across those same strata. When the registry reports prevalence
 *within* strata, calibrate to it directly rather than to the pooled margin.
 `stratified_calibration_weights(Y, strata, within_stratum_prevalence, stratum_share)`
-matches, for every stratum $a$ and outcome $q$,
+matches, for every stratum `a` and outcome `q`,
 
-$$
-\mathbb{E}_w\big[\mathbb{1}(A = a)\big] = \Pr(A = a)
-\qquad\text{(stratum shares)}
-$$
-
-$$
-\mathbb{E}_w\big[Y_q \cdot \mathbb{1}(A = a)\big] = \Pr(Y_q = 1,\, A = a)
-\qquad\text{(within-stratum prevalence)}
-$$
+```
+E_w[ 1(A = a) ]        =  P(A = a)             (stratum shares)
+E_w[ Y_q · 1(A = a) ]  =  P(Y_q = 1, A = a)    (within-stratum prevalence)
+```
 
 so the reweighted sample reproduces both the stratum sizes and the per-stratum
 prevalences. This matters whenever selection acts *through* the strata: pooled outcome
