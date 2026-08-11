@@ -1,9 +1,22 @@
 # i3pw — theory
 
-Start at the [README](../README.md) if you have not.
+Start at the [README](../README.md) if you have not. This file answers the
+[second research question](../README.md#the-research-question): *what do the weights
+actually identify?*
 
-In order: [what the method identifies](#what-is-identified) — beginning with a case small
-enough to check by hand — [where the construction comes from](#where-this-sits-density-ratios-i-projection-and-label-shift),
+**The whole file in one paragraph.** A biased sample and its population differ by a
+density ratio. Assume that ratio is log-linear — a covariate part plus an outcome part,
+$a(X) + \theta^\top g(Y)$. The covariate part is what a participation model estimates. The
+outcome part is what a register's known prevalences pin down, because forcing the
+reweighted sample to reproduce them is a moment condition whose dual is exactly a
+log-linear tilt $e^{\lambda^\top g(Y)}$, with $\lambda$ playing the role of $\theta$. That
+solve is an I-projection, it inherits the asymptotics of a regression estimator, and it is
+falsifiable only through moments you deliberately did *not* constrain. Everything below is
+that paragraph with the conditions attached.
+
+In order: [notation](#notation), [what the method identifies](#what-is-identified) —
+beginning with a case small enough to check by hand —
+[where the construction comes from](#where-this-sits-density-ratios-i-projection-and-label-shift),
 what follows for [estimation](#calibration-is-a-regression-estimator-and-why-the-ses-look-the-way-they-do)
 and for [testing](#what-makes-this-falsifiable), the
 [two tasks](#two-separable-tasks-predict-selection-then-anchor-to-the-population) the
@@ -15,21 +28,49 @@ A reader who wants only one thing from this file probably wants
 what would have to happen for the method to be wrong.
 
 
+## Notation
+
+Every symbol used in this file and in [guide.md](guide.md), in one place. Indices: $i$ runs
+over sampled units ($n$ of them), $q$ over outcomes ($Q$), $a$ over strata ($A$).
+
+| Symbol | Is | Where it comes from |
+| --- | --- | --- |
+| $S$ | participation indicator; $S = 1$ for the units you observe | the cohort |
+| $X$ | covariates available on the sampling frame (socioeconomic, clinical, genetic) | the frame |
+| $Y$ | the $Q$ binary outcomes (diagnoses), observed on participants | the cohort |
+| $\pi(x, y) = \Pr(S = 1 \mid X = x, Y = y)$ | the true, unknown inclusion probability | never observed |
+| $K_q = \Pr(Y_q = 1)$ | **known** population prevalence | a register or census |
+| $P_q = \Pr(Y_q = 1 \mid S = 1)$ | sample prevalence — biased | the cohort |
+| $g(Y)$ | the constrained functions: $Y$ itself, or $Y$ crossed with stratum indicators | your choice — the design decision |
+| $d_i$ | base weights, typically $1 / \hat{\pi}(X_i)$ | your participation model (`base_weights=`) |
+| $w_i$ | the calibration weights this package returns | the solve (`fit.weights`) |
+| $\lambda$ | the fitted dual — the estimated tilt | the solve (`CalibrationDiagnostics.tilt`) |
+| $a(X),\ \theta$ | the covariate-driven and outcome-driven parts of the *true* log density ratio | the world; $\theta$ is what $\lambda$ estimates |
+| $\rho$ | the ridge on $\lambda$ that shrinks toward $d$ | `shrinkage=` / `ridge=` |
+
+The one distinction to hold onto: $\theta$ is a property of reality, $\lambda$ is a number
+this package computes, and the whole of [What is identified?](#what-is-identified) is the
+question of when they are the same.
+
 ## What is identified?
 
 ### A case small enough to check by hand
 
 Before the general statement, the simplest instance, which the reader can verify with a
-pencil. One binary outcome, no covariates, a sample that is 20% cases, and a population
-known to be 40% cases. Calibration solves for a single number `λ` and assigns weights
-proportional to `exp(λ·Y)`. Working the constraint through gives
+pencil. One binary outcome, no covariates, a sample that is 20% cases ($P = 0.20$), and a
+population known to be 40% cases ($K = 0.40$). Calibration solves for a single number
+$\lambda$ and assigns weights proportional to $e^{\lambda Y}$. The constraint is that the
+weighted case fraction equal $K$:
 
-```
-λ = log[ odds(K) / odds(P) ] = log[ (0.40/0.60) / (0.20/0.80) ] = 0.9808
-```
+$$
+\frac{P e^{\lambda}}{P e^{\lambda} + (1 - P)} = K
+\qquad\Longrightarrow\qquad
+\lambda = \log \frac{\mathrm{odds}(K)}{\mathrm{odds}(P)}
+= \log \frac{0.40 / 0.60}{0.20 / 0.80} = 0.9808
+$$
 
-and therefore weights proportional to `K/P = 2.00` for each case and
-`(1−K)/(1−P) = 0.75` for each control. Those are exactly the classical weights for a
+and therefore weights proportional to $K/P = 2.00$ for each case and
+$(1-K)/(1-P) = 0.75$ for each control. Those are exactly the classical weights for a
 choice-based sample with known population shares (Manski & Lerman 1977), which is
 reassuring: the machinery had better reproduce what was already correct.
 Running `entropy_balance(Y, [0.40])` returns `λ = 0.980829` and precisely those two
@@ -37,12 +78,12 @@ weights.
 
 Two things are worth noticing, because both generalize:
 
-- **`λ` is interpretable.** It is the log odds-ratio between the population prevalence and
-  the sample prevalence — a measure of how hard the sample had to be pushed. It is the `θ`
-  of the selection model, recovered rather than assumed, and `CalibrationDiagnostics.tilt`
-  reports it.
-- **Nothing was estimated.** Given `K`, the answer is a closed form. The sample supplied
-  `P`; the register supplied `K`; no model intervened. This is why the anchored margin
+- **$\lambda$ is interpretable.** It is the log odds-ratio between the population
+  prevalence and the sample prevalence — a measure of how hard the sample had to be
+  pushed. It is the $\theta$ of the selection model, recovered rather than assumed, and
+  `CalibrationDiagnostics.tilt` reports it.
+- **Nothing was estimated.** Given $K$, the answer is a closed form. The sample supplied
+  $P$; the register supplied $K$; no model intervened. This is why the anchored margin
   later turns out to have *zero* sampling variance — there was never anything to estimate.
 
 Everything below is this calculation with more moments, an arbitrary base weight, and
@@ -50,26 +91,32 @@ consequently no closed form.
 
 ### The general statement
 
-Write the **population-to-sample
-density ratio** — the reweighting that turns the biased sample back into the population —
-as log-linear in the covariates and outcomes:
+**The assumption.** Write the **population-to-sample density ratio** — the reweighting
+that turns the biased sample back into the population — as log-linear in the covariates
+and outcomes:
 
-```
-log dP_population/dP_sample (X, Y) = a(X) + θ·g(Y)
-```
+$$
+\log \frac{\mathrm{d}P_{\text{population}}}{\mathrm{d}P_{\text{sample}}}(X, Y)
+\;=\; a(X) \;+\; \theta^\top g(Y)
+$$
 
-Calibration returns the **minimum-divergence** weights `w ∝ d(X)·exp(λ·g(Y))` (base `d(X)`
-tilted by the smallest exponential factor) that reproduce the supplied population moments
-`g(Y)`. This is a *density-ratio* model, not a claim to have recovered each unit's inclusion
-probability. Three consequences:
+**What the package does.** Calibration returns the **minimum-divergence** weights
+
+$$
+w_i \;\propto\; d(X_i)\, \exp\!\big(\lambda^\top g(Y_i)\big)
+$$
+
+— the base $d(X)$ tilted by the smallest exponential factor — that reproduce the supplied
+population moments $\mathbb{E}_w[g(Y)] = \text{target}$. This is a *density-ratio* model,
+not a claim to have recovered each unit's inclusion probability. Three consequences:
 
 - **Anchored margins are exact by construction.** The reweighted sample reproduces each
   known prevalence exactly — because that is the constraint. It is not evidence the method
   "works", only that it did what it was told.
 - **Coincidence with true IPW is conditional.** These weights equal the true
-  inverse-probability weights `1/π(X, Y)` *only* when the density ratio genuinely lies in
-  the tilt family — the base `d(X)` captures the covariate-driven part, `g(Y)` spans the
-  outcome-driven part — and positivity holds (every relevant `(X, Y)` region has sample
+  inverse-probability weights $1/\pi(X, Y)$ *only* when the density ratio genuinely lies in
+  the tilt family — the base $d(X)$ captures the covariate-driven part, $g(Y)$ spans the
+  outcome-driven part — and positivity holds (every relevant $(X, Y)$ region has sample
   support).
 - **Transfer to other estimands is conditional too.** Downstream means, variance
   components, and effect sizes are recovered only insofar as this density-ratio model is
@@ -78,14 +125,22 @@ probability. Three consequences:
 So the honest one-liner is **not** "we infer the true inverse-probability weights" but:
 *we estimate minimum-divergence weights that reproduce the known population moments, and
 they equal the true IPW weights when the population-to-sample density ratio is spanned by
-the base weights plus those moments.*
+the base weights plus those moments.* In symbols, the method is exact precisely when
+$\lambda = \theta$ is attainable — when the true $a(X)$ is what $d$ supplies and the true
+$\theta^\top g(Y)$ lives in the span of the moments you chose.
 
 **Inverse vs odds base weights (`base_scheme`).** That separability is *exact* for one
-familiar choice. Under logistic participation `logit π = a(X) + θ·Y`, the **inverse-odds**
-weight `(1−π)/π = exp(−a(X))·exp(−θ·Y)` is exactly multiplicatively separable and
-log-linear, so it composes cleanly with the `exp(λ·Y)` calibration tilt. The
-Horvitz–Thompson weight `1/π = 1 + exp(−a(X)−θ·Y)` is **not** separable; it only approaches
-the tilt family as inclusion becomes rare (`π → 0`, where `1/π ≈ (1−π)/π`).
+familiar choice. Under logistic participation $\mathrm{logit}\,\pi = a(X) + \theta Y$,
+the **inverse-odds** weight
+
+$$
+\frac{1 - \pi}{\pi} = e^{-a(X)} \cdot e^{-\theta Y}
+$$
+
+is exactly multiplicatively separable and log-linear, so it composes cleanly with the
+$e^{\lambda Y}$ calibration tilt. The Horvitz–Thompson weight
+$1/\pi = 1 + e^{-a(X) - \theta Y}$ is **not** separable; it only approaches the tilt family
+as inclusion becomes rare ($\pi \to 0$, where $1/\pi \approx (1-\pi)/\pi$).
 `calibration_ipw(base_scheme="odds")` uses the exactly-composing form; `"inverse"` (the
 default) is the standard IPW weight and is very close under strong selection. When selection
 is on the outcome alone (no covariates in the base), the two agree exactly — the reweighting
@@ -99,27 +154,42 @@ The construction is not ad hoc — it is one object seen through three establish
 and that is where its guarantees (and its boundary) come from.
 
 - **An exponential-tilt density-ratio model.** Writing
-  `log dP_population/dP_sample = a(X) + θ·g(Y)` is exactly the semiparametric *density-ratio*
-  (exponential-tilt) model of Qin (1998) — the same tilt that underlies retrospective
-  case-control sampling, where only the intercept shifts between prospective and separate-sample
-  logistic fits (Anderson 1972; Prentice & Pyke 1979). The liability `K/P` weights are its
-  one-outcome special case.
+  $\log \mathrm{d}P_{\text{pop}} / \mathrm{d}P_{\text{sample}} = a(X) + \theta^\top g(Y)$ is
+  exactly the semiparametric *density-ratio* (exponential-tilt) model of Qin (1998) — the same
+  tilt that underlies retrospective case-control sampling, where only the intercept shifts
+  between prospective and separate-sample logistic fits (Anderson 1972; Prentice & Pyke 1979).
+  The liability $K/P$ weights are its one-outcome special case.
 - **Calibration is an I-projection.** The "minimum-divergence weights" are the *information
   projection* of the base weights onto the set of distributions meeting the moment constraints
-  `E_w[g(Y)] = target`: minimize Kullback–Leibler divergence subject to linear constraints
-  (Csiszár 1975; the minimum-discrimination-information principle, Kullback 1959). Its convex
-  dual is precisely the exponential tilt `w ∝ d(X)·exp(λ·g(Y))` that `entropy_balance` solves,
-  so entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
-  1994) are two views of the same optimization. Matching population moments by reweighting is
-  also what kernel mean matching does for covariate shift (Gretton et al. 2009).
+  — minimize Kullback–Leibler divergence subject to linear constraints (Csiszár 1975; the
+  minimum-discrimination-information principle, Kullback 1959). This is the optimization
+  `entropy_balance` solves, written out [below](#the-primal-and-the-dual).
 - **This is label shift.** With no covariates in the base — pure
   `outcome_calibration_weights(Y, [K])` — i3pw *is* the classic correction for **prior
   probability shift / label shift**: sample and population differ only in the label marginal
-  `P(Y)`, and the fix is to reweight the sample to the known priors (Saerens et al. 2002;
+  $P(Y)$, and the fix is to reweight the sample to the known priors (Saerens et al. 2002;
   Storkey 2009; Lipton et al. 2018). i3pw generalises it two ways: (i) it tilts an arbitrary
-  base weight `d(X)` from a participation model rather than uniform weights, and (ii) where
-  black-box label-shift estimators must *infer* `P(Y)` from a classifier, i3pw takes `P(Y)` as
+  base weight $d(X)$ from a participation model rather than uniform weights, and (ii) where
+  black-box label-shift estimators must *infer* $P(Y)$ from a classifier, i3pw takes $P(Y)$ as
   a **known register quantity** — the regime where the correction is exact rather than estimated.
+
+### The primal and the dual
+
+$$
+\underbrace{\min_{w}\ \sum_i w_i \log \frac{w_i}{d_i}
+\quad \text{s.t.} \quad \sum_i w_i\, g(Y_i) = t,\ \ \sum_i w_i = 1}_{\text{primal: } n \text{ unknowns}}
+\qquad\Longleftrightarrow\qquad
+\underbrace{\min_{\lambda \in \mathbb{R}^{k}}\ \log \sum_i d_i\,
+e^{\lambda^\top (g(Y_i) - t)} + \tfrac{\rho}{2}\lVert\lambda\rVert^2}_{\text{dual: } k \text{ unknowns}}
+$$
+
+The dual is smooth, convex and tiny — one parameter per constraint, not per unit — and its
+solution gives back the primal weights as $w_i \propto d_i e^{\lambda^\top g(Y_i)}$. So
+entropy balancing (Hainmueller 2012) and empirical-likelihood calibration (Qin & Lawless
+1994) are two views of the same optimization. Matching population moments by reweighting is
+also what kernel mean matching does for covariate shift (Gretton et al. 2009). The ridge
+$\rho$ (`shrinkage=`) is the one term with no counterpart in the classical theory: it
+shrinks $\lambda$ toward $0$, i.e. $w$ toward $d$, trading exact calibration for variance.
 
 The placement also re-derives the honesty boundary. Label shift assumes the class-conditional
 `P(X | Y)` is stable between sample and population — selection acts only *through* `Y` — which is
@@ -139,24 +209,27 @@ asymptotically equivalent to the **generalized regression (GREG)** estimator, to
 formula can be used for all of them. That is what rescues a package whose weights come
 from a solve with no closed form.
 
-Concretely, calibrating on `g` and then taking a weighted mean of `y` is asymptotically
-the same as *regressing `y` on `g` and correcting the prediction*. So the influence
+Concretely, calibrating on $g$ and then taking a weighted mean of $y$ is asymptotically
+the same as *regressing the outcome on the constrained functions and correcting the
+prediction*. So the influence
 function is a **residual**:
 
-```
-e_i = y_i − μ − β·(g_i − ḡ),     β = weighted least squares of y on g
-Var(μ̂) = Σ wᵢ² eᵢ² / (Σ wᵢ)²
-```
+$$
+e_i = y_i - \mu - \beta^\top (g_i - \bar{g}),
+\qquad
+\widehat{\mathrm{Var}}(\hat\mu) = \frac{\sum_i w_i^2 e_i^2}{\big(\sum_i w_i\big)^2}
+$$
 
-Three consequences, all visible in the package's output:
+with $\beta$ the weighted least-squares slope of $y$ on $g$. Three consequences, all
+visible in the package's output:
 
-- **An anchored margin gets SE exactly 0, for the right reason.** If `y` is itself a
-  column of `g`, the regression fits it perfectly, the residual is identically zero, and
+- **An anchored margin gets SE exactly 0, for the right reason.** If $y$ is itself a
+  column of $g$, the regression fits it perfectly, the residual is identically zero, and
   the variance vanishes. That is not a numerical accident — it is the correct answer:
   conditional on a known prevalence, the reweighted margin has no sampling variability.
   The fixed-weight formula cannot see this and reports ≈0.04 instead.
-- **An estimand orthogonal to the constraints is unaffected.** Then `β = 0`, the residual
-  is `y − μ`, and the calibration SE reduces to the ordinary Hájek one.
+- **An estimand orthogonal to the constraints is unaffected.** Then $\beta = 0$, the
+  residual is $y - \mu$, and the calibration SE reduces to the ordinary Hájek one.
 - **Everything in between is shrunk** by exactly the variance the constraints absorbed —
   which is also why calibration *reduces* variance for quantities correlated with the
   anchors, not just corrects bias.
@@ -209,19 +282,35 @@ never is — but it is the difference between an assumption and a checked assump
 ## Two separable tasks: predict selection, then anchor to the population
 
 It clarifies everything to split selection-bias correction into two tasks that i3pw
-deliberately keeps separate:
+deliberately keeps separate — one per term of $a(X) + \theta^\top g(Y)$:
+
+```mermaid
+flowchart LR
+    subgraph T1["Task 1 — predict participation"]
+        X["Covariates X<br/>(socioeconomic, clinical, genetic)"] --> M["Model Pr(S=1 ∣ X)"]
+        M --> D["Base weights<br/>d = 1 / P̂"]
+    end
+    subgraph T2["Task 2 — anchor to the population"]
+        K["Register prevalences<br/>K = Pr(Y), incl. within strata"] --> C["Calibrate:<br/>solve for tilt λ"]
+        D --> C
+        C --> W["Weights<br/>w ∝ d · exp(λᵀg(Y))"]
+    end
+    W --> H{"Held-out register margins<br/>(age, sex, region)"}
+    H -->|"small SMD"| OK["survives a test it could have failed"]
+    H -->|"large SMD"| BAD["tilt family refuted"]
+```
 
 1. **Predict who is in the sample** — an individual-level participation model
-   `P(S = 1 | X)`, inverted to base weights. The predictors `X` can be socioeconomic
+   $\Pr(S = 1 \mid X)$, inverted to base weights. The predictors $X$ can be socioeconomic
    *and* clinical or genetic (any measured proxy of participation), not just
    demographics. This corrects selection on *measured* covariates but is blind to
-   selection on the disorder itself.
+   selection on the disorder itself. **It estimates $a(X)$.**
 2. **Anchor the weighted sample to the target population** — calibrate those base
    weights so the reweighted sample reproduces known register quantities: disease
    prevalence, and prevalence *within* demographic and clinical strata. This is the
    task the known prevalences make possible, and where register data (e.g. iPSYCH,
    Danish registers) supplies what a selected genetic sample (UK Biobank, PGC-style
-   cohorts) cannot.
+   cohorts) cannot. **It estimates $\theta$.**
 
 `calibration_ipw` / `entropy_balance` implement task 2 on top of *any* task-1 base
 weights — `entropy_balance(Y_sample, targets, base_weights=1/P̂)`. Keeping the two

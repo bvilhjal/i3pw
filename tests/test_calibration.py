@@ -593,7 +593,7 @@ def test_calibration_se_matches_a_bootstrap_on_a_held_out_estimand(dataset):
 
 
 def test_single_outcome_tilt_matches_the_documented_closed_form():
-    """The worked example in the README, pinned.
+    """The worked example in docs/theory.md ("a case small enough to check by hand"), pinned.
 
     One binary outcome, uniform base, sample prevalence P, target K. The dual has a
     closed form -- the log odds-ratio between the two -- and the weights reduce to the
