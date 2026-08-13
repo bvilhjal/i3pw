@@ -270,9 +270,12 @@ weights `w` (from a participation model *or* from `calibration_ipw`); the first 
 over everyone in the frame, the second only over participants. It is
 **doubly robust** — consistent if either `m` is a correct outcome regression or `w` is
 proportional to the correct full-population density ratio, under the sampling-frame and
-regularity conditions of the AIPW theory. Calibration to a few prevalences does not by
-itself make `w` correct, and lower variance than weighting alone is not guaranteed in every
-finite sample.
+regularity conditions of the AIPW theory. This is a *downstream* estimator for a
+participant-only trait when `X` is known on the frame. It does not repair a misspecified
+tilt family: if `g(Y)` misses the outcome-driven part of selection, the weighting piece
+and the outcome-regression piece can fail together. Calibration to a few prevalences does
+not by itself make `w` correct, and lower variance than weighting alone is not guaranteed
+in every finite sample.
 
 The doubly-robust guarantee is conditional: it needs the MAR structure `S ⊥ V | X`,
 and — for the usual √n inference with a *flexible* outcome model — the fit to be
@@ -287,14 +290,16 @@ exact in-sample behaviour.
 A binary outcome is ascertained (cases over-represented; population prevalence `K`
 known); a trait `V` — a biomarker, say — is measured only on participants and
 correlates with the outcome's liability, so the sample's mean `V` is inflated.
-Recovering `E[V]` over 20 replications (bias from the truth, `|bias|`):
+Recovering `E[V]` over 20 replications (bias from the truth, `|bias|`), copied
+from the `doubly_robust_trait.py` rows of
+[`report/validation_results.tsv`](../report/validation_results.tsv):
 
 ```
 method          mean bias    |bias|
 naive             -0.0905     0.1008    <- ascertainment inflates the trait
 ipw_lasso         -0.0252     0.0636
 calibration       +0.0537     0.0864    <- weights tuned to the ascertained margin, noisy here
-aipw              -0.0009     0.0584    <- best mean bias in this run
+aipw              -0.0009     0.0584    <- best mean bias in this design, not a ranking
 ```
 
 Two honest lessons: (1) `calibration_ipw`'s job is the ascertained margin —

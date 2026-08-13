@@ -13,6 +13,9 @@
 \usepackage{float}
 \usetikzlibrary{arrows.meta,calc}
 \pgfplotsset{compat=1.18}
+\usepackage{setspace}
+\usepackage{caption}
+\usepackage{placeins}
 \usepackage[hidelinks]{hyperref}
 
 \definecolor{i3Blue}{HTML}{356D91}
@@ -21,8 +24,9 @@
 \definecolor{i3Gray}{HTML}{747C82}
 
 \hypersetup{
-  pdftitle={Prevalence-Calibrated Weighting for Selected Genetic Cohorts},
-  pdfauthor={i3pw methodological review}
+  pdftitle={Prevalence-calibrated density-ratio weighting},
+  pdfauthor={Bjarni Johann Vilhjalmsson},
+  colorlinks=true,linkcolor=i3Blue,citecolor=i3Blue,urlcolor=i3Blue
 }
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.55em}
@@ -39,53 +43,56 @@
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\pkg}{\texttt{i3pw}}
 
-\title{\textbf{Prevalence-Calibrated Weighting for Selected Genetic Cohorts}\\
-\large The idea, theory, implementation, and evidential status of \pkg}
-\author{Methodological review for statistical geneticists}
-\date{11 August 2026}
+\title{%
+  \vspace{-1.4em}
+  {\large Notes}\\[0.4em]
+  {\LARGE\bfseries Prevalence-calibrated density-ratio weighting}\\[0.15em]
+  {\large Estimand, identification, and evidence in \texttt{i3pw}}}
+\author{Bjarni J\'ohann Vilhj\'almsson\\[0.35em]
+  {\small\texttt{https://github.com/bvilhjal/i3pw}\quad$\cdot$\quad v0.3.1}}
+\date{13 August 2026}
 
 \begin{document}
 \maketitle
+\thispagestyle{plain}
 
 \begin{abstract}
+\noindent
 Volunteer biobanks and ascertained genetic cohorts need not have the same
-distribution as their source populations.  The \pkg\ package combines weights from
-a conventional participation model with an exponential tilt chosen to reproduce
-externally known disease prevalences.  In the one-disease case this reduces to the
-familiar case--control weights \(K/P\) for cases and
-\((1-K)/(1-P)\) for controls.  In the general case it is an entropy-calibration
-estimator: useful, computationally modest, and scientifically interpretable, but not
-a machine for reconstructing unobserved inclusion probabilities from prevalence
-alone.  This report derives the estimator, states the identifying condition, explains
-its connection to ascertainment correction and label shift, reviews the software, and
-separates algebraic calibration from empirical evidence.  It is written for readers
-comfortable with likelihoods, generalized linear models, and GWAS, but not
-necessarily with survey sampling or epidemiologic terminology.
+distribution as their source populations.  \pkg\ combines a base weight from a
+participation model with an exponential tilt chosen to reproduce externally
+known disease prevalences.  In the one-disease case this is the classical
+choice-based correction: cases receive relative weight \(K/P\) and controls
+\((1-K)/(1-P)\).  In general it is an entropy-calibration estimator.  The
+weights equal full-population inverse-probability weights only when the
+population-to-participant density ratio lies in the span of the base plus the
+chosen moments.  Matching a register prevalence is an identity.  Held-out
+margins can refute the tilt; they do not prove it.  Numeric claims below are
+copied from the frozen table \path{report/validation_results.tsv} (i3pw 0.3.0,
+11 August 2026).  They are fixed-seed simulations, not external-cohort
+validation.
 \end{abstract}
 
-\textbf{Review scope.}
-This report describes the local version-0.3.1 worktree reviewed on the date above.
-It evaluates the scientific contract as well as the code structure.  Numerical
-results reported below were regenerated after the simulator corrections and frozen
-in \code{report/validation\_results.tsv}; the exact local runtime is recorded in
-\code{report/validation\_environment.txt}.  They remain fixed-seed synthetic evidence
-rather than independent validation.
+\vspace{0.4em}
+\noindent
+The intended reader already uses GWAS, case--control ascertainment, and the
+Lee liability transform.  These notes do not re-derive those.  They fix the
+estimand, the identifying density-ratio family, what \(\lambda\) is, which
+genetic analyses the weights can repair, and which simulation claims survive
+their design.  The import name \code{i3pw} is historical.  The accurate name
+for the estimator is prevalence-calibrated density-ratio weighting.
 
-\section{Executive assessment}
+\tableofcontents
+\vspace{0.6em}
 
-The central idea is sound and classical in its mathematical form.  A register margin
-is used as a moment constraint; among all participant weights satisfying that
-constraint, \pkg\ chooses the weights closest in Kullback--Leibler divergence to a
-user-supplied base weighting.  This joins survey calibration
-\cite{deville1992,kott2010}, entropy balancing \cite{hainmueller2012}, density-ratio
-models \cite{qin1998}, and the case--control correction familiar in statistical
-genetics \cite{manski1977,lee2011}.
+\section{Estimand}
+\label{sec:estimand}
 
-Its scientific claim must nevertheless be kept narrow.  Exact agreement with an
-input prevalence is an identity, not validation.  The weights equal full-population
-inverse-probability weights only under a stated density-ratio model.  If selection
-also changes ancestry, severity, genotype, or exposure distributions within disease
-classes, a marginal prevalence cannot repair those joint distributions.
+A register margin is a moment constraint.  Among participant weights
+satisfying that constraint, \pkg\ chooses the weights closest in
+Kullback--Leibler divergence to a user-supplied base
+\cite{deville1992,kott2010,hainmueller2012,qin1998,manski1977,lee2011}.
+Table~\ref{tab:executive} is the shortest accurate description.
 
 \begin{table}[htbp]
 \centering
@@ -115,8 +122,9 @@ Does matching prevalence validate the method? &
 No.  A held-out margin can diagnose failure, but its standardized mean difference is
 a heuristic discrepancy, not a formal Sargan--Hansen \(J\)-test. \\
 How strong is the present evidence? &
-Theoretical links, unit tests, and synthetic studies.  The package currently has no
-reported external-cohort validation; its evidential base is simulation-only. \\
+Theoretical links, unit tests, and the 0.3.0 synthetic freeze in
+\path{report/validation_results.tsv}.  There is no reported external-cohort
+validation. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -170,7 +178,7 @@ the resulting weights, whereas held-out margins provide a diagnostic that can fa
 \label{fig:pipeline}
 \end{figure}
 
-\section{The problem in a geneticist's language}
+\subsection{The problem in a geneticist's language}
 
 Let \(S=1\) denote participation, \(X\) variables available on the sampling frame,
 and \(Y\) one or more diagnoses observed in participants.  Let \(T\) denote the
@@ -680,7 +688,11 @@ consistent when either the outcome regression or the participation weighting is
 correct \cite{robins1994,bang2005}; flexible regressions call for sample splitting or
 cross-fitting \cite{chernozhukov2018}.  This is not a blanket double-robustness theorem
 for prevalence
-calibration.  Similarly, the result that entropy balancing is doubly robust in
+calibration.  AIPW is a \emph{downstream} estimator for a participant-only
+trait when \(X\) is observed on the frame.  It does not repair a misspecified
+tilt family: if \(g(Y)\) misses the outcome-driven part of selection, the
+weighting piece and the outcome-regression piece can fail together.
+Similarly, the result that entropy balancing is doubly robust in
 particular causal models \cite{zhao2017} does not prove that arbitrary
 outcome-dependent volunteer selection is repaired by a few prevalence margins.
 
@@ -753,204 +765,8 @@ Selecting constraints after inspecting held-out failures converts validation int
 training.  Reporting only anchored prevalence error produces impressive zeros and no
 evidence whatsoever.
 
-\section{Software review}
-
-\subsection{Architecture and public contract}
-
-The reviewed source declares version 0.3.1 and an alpha development status.  Its
-design has a sensible separation between a real-cohort interface and simulation
-machinery.
-
-\begin{table}[htbp]
-\centering
-\caption{Main software components in the reviewed \pkg\ worktree.}
-\label{tab:architecture}
-\footnotesize
-\begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}p{0.24\textwidth}
->{\raggedright\arraybackslash}p{0.28\textwidth}X}
-\toprule
-Component & Public role & Review \\
-\midrule
-\code{calibrate} and \code{CalibrationFit} &
-Real-cohort entry point using participant outcomes, external targets, optional base
-weights, strata, joint moments, and held-out margins. &
-The correct conceptual front door; it avoids requiring simulated ground truth. \\
-\code{entropy\_balance} and \code{apply\_tilt} &
-Core dual solve and transfer of a fitted tilt to new rows. &
-Small convex problem, log-scale stabilization, explicit diagnostics, and preservation
-of zero-weight support. \\
-\code{lasso\_propensity} and \code{lasso\_ipw} &
-Covariate-only participation baseline. &
-Useful comparator, but a real application needs frame-level participation labels and
-compatible covariates for participants and nonparticipants. \\
-\code{calibration\_ipw} and \code{monte\_carlo} &
-Simulation wrappers with known population truth. &
-Appropriate for method development, not the interface to advertise as real-data
-inference. \\
-\code{balance} and \code{uncertainty} &
-Held-out discrepancies, effective sample size, linearization, bootstrap, and target
-sensitivity. &
-Good instincts; target uncertainty, clustering, and a formal specification test
-remain user responsibilities. \\
-\code{aipw} &
-Outcome-regression augmentation for a participant-only trait when \(X\) is known for
-the population frame. &
-Cross-fitting is available; robustness claims still require the usual missing-data
-conditions. \\
-\code{liability} &
-Threshold-model simulations and weighted pairwise moment estimators. &
-Scientifically relevant, but the explicit \(n\times n\) similarity matrix does not
-scale to biobank sample sizes. \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\subsection{Scientific contracts that must remain explicit}
-
-\begin{table}[htbp]
-\centering
-\caption{High-impact semantic and numerical contracts in the corrected design.}
-\label{tab:contracts}
-\footnotesize
-\begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}p{0.25\textwidth}
->{\raggedright\arraybackslash}p{0.33\textwidth}X}
-\toprule
-Issue & Correct contract & Consequence \\
-\midrule
-Meaning of the tilt &
-\(\lambda\) belongs to the log population-to-participant density ratio, as in
-equations~\eqref{eq:lambda-density}--\eqref{eq:gamma-relation}. &
-Do not report it as the outcome coefficient in a participation logit. \\
-Target of base weights &
-\(1/\widehat\pi\) transports participants to the full population;
-\((1-\widehat\pi)/\widehat\pi\) transports them to nonparticipants. &
-The inverse scheme is the full-population default; an odds option needs an explicit
-different target. \\
-Simulation oracle &
-A full-population oracle is the complete simulated test-fold mean, unavailable in
-real data. &
-An inverse-odds mixture is not a full-population oracle and should not be labelled one. \\
-Ridge calibration &
-The achieved residual equals \(-\rho\widehat\lambda_\rho\), and the influence
-projection contains the same \(\rho\). &
-Only exact \(\rho=0\) anchors have zero conditional standard error. \\
-Zero base weights &
-Zero-weight rows are excluded from the exponential shift and remain zero. &
-An extreme feature value outside the positive support must not destabilize all
-weights. \\
-Held-out balance &
-The SMD is a heuristic discrepancy using an unused margin. &
-It may be called a falsification diagnostic, not a formal \(J\)-test. \\
-Synthetic selection &
-The generator uses Bernoulli logistic participation with coefficients chosen so
-expected sample count and outcome totals meet configured targets. &
-Realized sample size and prevalences are random; the mechanism is not fixed-size
-probability-proportional-to-size sampling. \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\subsection{Computational properties}
-
-Let \(n\) be the number of participants with positive base weight, \(k\) the number
-of constraints, \(p\) the number of frame covariates, \(I\) optimizer iterations,
-and \(B\) bootstrap replicates.
-
-\begin{table}[htbp]
-\centering
-\caption{Leading computational costs.  These are algorithmic orders, not timing
-benchmarks.}
-\label{tab:complexity}
-\footnotesize
-\begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}p{0.25\textwidth}
->{\raggedright\arraybackslash}p{0.22\textwidth}
->{\raggedright\arraybackslash}p{0.18\textwidth}X}
-\toprule
-Operation & Approximate time & Approximate memory & Comment \\
-\midrule
-Entropy dual &
-\(O(Ink)\) &
-\(O(nk)\) for features &
-L-BFGS avoids forming a dense \(k\times k\) Hessian. \\
-Stratified design &
-\(O(nk)\) &
-\(O(nk)\) &
-\(k\) can be roughly strata times outcomes, plus share and interaction constraints. \\
-LASSO participation model &
-Solver- and CV-dependent &
-\(O(np)\) before expansion &
-Pairwise interactions increase the design toward \(O(np^2)\). \\
-Calibration bootstrap &
-\(O(BInk)\) plus optional base refits &
-One replicate plus stored output &
-Parallelization is natural, but rare anchors can cause infeasible replicates. \\
-Liability pairwise moment &
-\(O(n^2p)\) to form \(XX^\mathsf{T}\) &
-\(O(n^2)\) &
-This is the principal barrier to biobank-scale use.  Blocked matrix products or
-summary-statistic identities are needed. \\
-Synthetic data generator &
-Repeated \(O(Nq)\) selection objectives, plus covariance work &
-\(O(Np+Nq+p^2)\) &
-Useful for controlled experiments; not normally a production bottleneck. \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-For the core calibration, \(k\) is normally small and the implementation is
-reasonable.  The main practical failure is statistical rather than computational:
-adding many sparse stratum-by-disease constraints can exhaust support before it
-exhausts RAM.  The liability module is the exception; materializing \(n^2\) pairwise
-similarities is untenable at modern biobank scale.
-
-\subsection{Remaining release gaps}
-
-\begin{table}[htbp]
-\centering
-\caption{Important gaps that remain after correcting the scientific semantics.}
-\label{tab:release-gaps}
-\footnotesize
-\begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}p{0.25\textwidth}
->{\raggedright\arraybackslash}p{0.34\textwidth}X}
-\toprule
-Gap & Consequence & Recommended next step \\
-\midrule
-Real-data resampling interface &
-The bootstrap and prevalence-sensitivity helpers take the simulation
-\code{Dataset}; users of \code{calibrate} must assemble equivalent refits themselves. &
-Provide a callback- or array-based bootstrap that refits the base, tilt, and estimand
-without simulated ground truth. \\
-External-target and cluster variance &
-\code{CalibrationFit.mean} treats external targets as fixed and independent units as
-the sampling units. &
-Accept target covariance and cluster identifiers, or document a supported
-cluster-bootstrap recipe. \\
-Liability scaling &
-The explicit \(n\times n\) similarity matrix is incompatible with biobank-scale
-\(n\). &
-Use blocked accumulations, randomized trace methods, or algebraic sufficient
-statistics that avoid storing pairwise matrices. \\
-Rendered documentation &
-The corrected distributions include the Markdown theory, examples, LaTeX report, and
-citation record, but there is no rendered versioned site or link checker. &
-Publish versioned HTML/PDF documentation and check external and internal links in CI. \\
-Frozen environment and automated evidence &
-A citation file, structured post-correction results, and a local environment manifest
-are now present, and CI smoke-tests one packaged example; there is no cross-platform
-dependency lock, replicated-validation job, or comparison of outputs with the frozen
-table. &
-Record a locked environment and add a reproducible benchmark job with explicit
-tolerances and retained logs. \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\clearpage
-\section{Evidence review}
+\section{Simulation evidence}
+\label{sec:evidence}
 
 The mathematical ingredients of \pkg\ are well established.  What is new is their
 particular packaging and proposed use of register prevalences to augment
@@ -993,15 +809,16 @@ follows from the repository alone. \\
 \end{tabularx}
 \end{table}
 
-\subsection{Fresh post-correction smoke evidence}
+\subsection{Frozen synthetic table}
 
-Table~\ref{tab:fresh-results} records the most informative results from a fresh local
-run on 11 August 2026 using Python 3.11.15, NumPy 2.4.6, SciPy 1.17.1, and
-scikit-learn 1.9.0 with the corrected \pkg\ 0.3.0 worktree.  Replicated scripts
-use seeds \(0,\ldots,R-1\).  These are
-regression and plausibility checks, not a substitute for an independently designed
-validation study.  Figure~\ref{fig:fresh-benchmarks} visualizes the three contrasts
-that are most useful for interpreting those checks.
+Every number in Table~\ref{tab:fresh-results} and Figure~\ref{fig:fresh-benchmarks}
+is copied from \path{report/validation_results.tsv}.  That freeze was produced
+on 11 August 2026 with i3pw 0.3.0, Python 3.11.15, NumPy 2.4.6, SciPy 1.17.1,
+and scikit-learn 1.9.0; the runtime is recorded in
+\path{report/validation_environment.txt}.  The present package version is 0.3.1;
+the numeric artifact was not regenerated.  Replicated scripts use seeds
+\(0,\ldots,R-1\).  These are regression checks, not a substitute for an
+independently designed validation study.
 
 \begin{table}[htbp]
 \centering
@@ -1275,7 +1092,229 @@ External discrepancies with uncertainty, not merely anchored matches. \\
 \end{tabularx}
 \end{table}
 
-\section{Practical analysis protocol}
+\section{Limits and conclusion}
+\label{sec:limits}
+
+The estimator is prevalence-calibrated density-ratio weighting, not
+unrestricted inference of individual inclusion probabilities.  It is
+true full-population IPW when equation~\eqref{eq:identification-model}
+holds.  Otherwise it is the information projection of the base weights
+onto the supplied moments.
+
+For statistical genetics the method is a generalization of case--control
+ascertainment correction: a frame-based participation model, several
+diagnoses or stratum-specific margins, and an inspectable tilt.  A
+marginal prevalence cannot identify a joint law.  Exact anchors are
+tautologies.  Weak support creates extreme weights.  Downstream AIPW
+does not repair a misspecified tilt family.
+
+The numeric evidence in \S\ref{sec:evidence} is the 0.3.0 freeze in
+\path{report/validation_results.tsv}.  It supports the narrow messages
+already in the documentation: transfer across unanchored diseases is
+weak, the covariate base matters when selection has a covariate
+channel, and anchored zeros are identities.  It does not establish
+bias reduction in a real cohort.  The next scientific milestone is a
+prespecified held-out-register or later-wave study.
+
+\appendix
+\section{Software and remaining engineering limits}
+
+\subsection{Architecture and public contract}
+
+The source declares version 0.3.1 and an alpha development status.  Its
+design has a sensible separation between a real-cohort interface and simulation
+machinery.  The numeric freeze cited in \S\ref{sec:evidence} is still 0.3.0.
+
+\begin{table}[htbp]
+\centering
+\caption{Main software components in the reviewed \pkg\ worktree.}
+\label{tab:architecture}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.24\textwidth}
+>{\raggedright\arraybackslash}p{0.28\textwidth}X}
+\toprule
+Component & Public role & Review \\
+\midrule
+\code{calibrate} and \code{CalibrationFit} &
+Real-cohort entry point using participant outcomes, external targets, optional base
+weights, strata, joint moments, and held-out margins. &
+The correct conceptual front door; it avoids requiring simulated ground truth. \\
+\code{entropy\_balance} and \code{apply\_tilt} &
+Core dual solve and transfer of a fitted tilt to new rows. &
+Small convex problem, log-scale stabilization, explicit diagnostics, and preservation
+of zero-weight support. \\
+\code{lasso\_propensity} and \code{lasso\_ipw} &
+Covariate-only participation baseline. &
+Useful comparator, but a real application needs frame-level participation labels and
+compatible covariates for participants and nonparticipants. \\
+\code{calibration\_ipw} and \code{monte\_carlo} &
+Simulation wrappers with known population truth. &
+Appropriate for method development, not the interface to advertise as real-data
+inference. \\
+\code{balance} and \code{uncertainty} &
+Held-out discrepancies, effective sample size, linearization, bootstrap, and target
+sensitivity. &
+Good instincts; target uncertainty, clustering, and a formal specification test
+remain user responsibilities. \\
+\code{aipw} &
+Outcome-regression augmentation for a participant-only trait when \(X\) is known for
+the population frame. &
+Cross-fitting is available; robustness claims still require the usual missing-data
+conditions. \\
+\code{liability} &
+Threshold-model simulations and weighted pairwise moment estimators. &
+Scientifically relevant, but the explicit \(n\times n\) similarity matrix does not
+scale to biobank sample sizes. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Scientific contracts that must remain explicit}
+
+\begin{table}[htbp]
+\centering
+\caption{High-impact semantic and numerical contracts in the corrected design.}
+\label{tab:contracts}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.33\textwidth}X}
+\toprule
+Issue & Correct contract & Consequence \\
+\midrule
+Meaning of the tilt &
+\(\lambda\) belongs to the log population-to-participant density ratio, as in
+equations~\eqref{eq:lambda-density}--\eqref{eq:gamma-relation}. &
+Do not report it as the outcome coefficient in a participation logit. \\
+Target of base weights &
+\(1/\widehat\pi\) transports participants to the full population;
+\((1-\widehat\pi)/\widehat\pi\) transports them to nonparticipants. &
+The inverse scheme is the full-population default; an odds option needs an explicit
+different target. \\
+Simulation oracle &
+A full-population oracle is the complete simulated test-fold mean, unavailable in
+real data. &
+An inverse-odds mixture is not a full-population oracle and should not be labelled one. \\
+Ridge calibration &
+The achieved residual equals \(-\rho\widehat\lambda_\rho\), and the influence
+projection contains the same \(\rho\). &
+Only exact \(\rho=0\) anchors have zero conditional standard error. \\
+Zero base weights &
+Zero-weight rows are excluded from the exponential shift and remain zero. &
+An extreme feature value outside the positive support must not destabilize all
+weights. \\
+Held-out balance &
+The SMD is a heuristic discrepancy using an unused margin. &
+It may be called a falsification diagnostic, not a formal \(J\)-test. \\
+Synthetic selection &
+The generator uses Bernoulli logistic participation with coefficients chosen so
+expected sample count and outcome totals meet configured targets. &
+Realized sample size and prevalences are random; the mechanism is not fixed-size
+probability-proportional-to-size sampling. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Computational properties}
+
+Let \(n\) be the number of participants with positive base weight, \(k\) the number
+of constraints, \(p\) the number of frame covariates, \(I\) optimizer iterations,
+and \(B\) bootstrap replicates.
+
+\begin{table}[htbp]
+\centering
+\caption{Leading computational costs.  These are algorithmic orders, not timing
+benchmarks.}
+\label{tab:complexity}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.18\textwidth}X}
+\toprule
+Operation & Approximate time & Approximate memory & Comment \\
+\midrule
+Entropy dual &
+\(O(Ink)\) &
+\(O(nk)\) for features &
+L-BFGS avoids forming a dense \(k\times k\) Hessian. \\
+Stratified design &
+\(O(nk)\) &
+\(O(nk)\) &
+\(k\) can be roughly strata times outcomes, plus share and interaction constraints. \\
+LASSO participation model &
+Solver- and CV-dependent &
+\(O(np)\) before expansion &
+Pairwise interactions increase the design toward \(O(np^2)\). \\
+Calibration bootstrap &
+\(O(BInk)\) plus optional base refits &
+One replicate plus stored output &
+Parallelization is natural, but rare anchors can cause infeasible replicates. \\
+Liability pairwise moment &
+\(O(n^2p)\) to form \(XX^\mathsf{T}\) &
+\(O(n^2)\) &
+This is the principal barrier to biobank-scale use.  Blocked matrix products or
+summary-statistic identities are needed. \\
+Synthetic data generator &
+Repeated \(O(Nq)\) selection objectives, plus covariance work &
+\(O(Np+Nq+p^2)\) &
+Useful for controlled experiments; not normally a production bottleneck. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+For the core calibration, \(k\) is normally small and the implementation is
+reasonable.  The main practical failure is statistical rather than computational:
+adding many sparse stratum-by-disease constraints can exhaust support before it
+exhausts RAM.  The liability module is the exception; materializing \(n^2\) pairwise
+similarities is untenable at modern biobank scale.
+
+\subsection{Remaining release gaps}
+
+\begin{table}[htbp]
+\centering
+\caption{Important gaps that remain after correcting the scientific semantics.}
+\label{tab:release-gaps}
+\footnotesize
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.34\textwidth}X}
+\toprule
+Gap & Consequence & Recommended next step \\
+\midrule
+Real-data resampling interface &
+The bootstrap and prevalence-sensitivity helpers take the simulation
+\code{Dataset}; users of \code{calibrate} must assemble equivalent refits themselves. &
+Provide a callback- or array-based bootstrap that refits the base, tilt, and estimand
+without simulated ground truth. \\
+External-target and cluster variance &
+\code{CalibrationFit.mean} treats external targets as fixed and independent units as
+the sampling units. &
+Accept target covariance and cluster identifiers, or document a supported
+cluster-bootstrap recipe. \\
+Liability scaling &
+The explicit \(n\times n\) similarity matrix is incompatible with biobank-scale
+\(n\). &
+Use blocked accumulations, randomized trace methods, or algebraic sufficient
+statistics that avoid storing pairwise matrices. \\
+Rendered documentation &
+The corrected distributions include the Markdown theory, examples, LaTeX report, and
+citation record, but there is no rendered versioned site or link checker. &
+Publish versioned HTML/PDF documentation and check external and internal links in CI. \\
+Frozen environment and automated evidence &
+A citation file, structured post-correction results, and a local environment manifest
+are now present, and CI smoke-tests one packaged example; there is no cross-platform
+dependency lock, replicated-validation job, or comparison of outputs with the frozen
+table. &
+Record a locked environment and add a reproducible benchmark job with explicit
+tolerances and retained logs. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\clearpage
+\section{Analysis protocol}
 
 A defensible analysis can be organized in nine steps.
 
@@ -1353,30 +1392,6 @@ recreates every reported number. \\
 \end{tabularx}
 \end{table}
 
-\section{Overall judgment}
-
-\pkg\ is best described as \emph{prevalence-calibrated density-ratio weighting}.
-That description is more precise than the expansion of the package name.  The
-package does not infer unrestricted individual participation probabilities.  It fits
-the smallest exponential modification of base weights that matches trusted
-population moments, and it becomes true full-population IPW when the density-ratio
-assumption in equation~\eqref{eq:identification-model} is correct.
-
-For statistical genetics, the method is most persuasive as a generalization of
-case--control ascertainment correction:
-\begin{itemize}
-\item it naturally combines a frame-based participation model with known register
-prevalences;
-\item it accommodates several diagnoses, joint moments, and stratum-specific margins;
-and
-\item it makes the correction inspectable through the tilt and weight diagnostics.
-\end{itemize}
-The risks are clear: marginal prevalences cannot identify a joint distribution;
-exact anchors are tautologies; weak support creates extreme weights; and validation
-remains synthetic.  The next milestone is a prespecified external-cohort or
-held-out-register study of quantities withheld from fitting.
-
-\clearpage
 \begin{thebibliography}{99}
 
 \bibitem{austin2009}

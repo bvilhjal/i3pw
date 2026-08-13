@@ -1,7 +1,10 @@
-"""i3pw — Informed Inference of Inverse Probability Weights.
+"""i3pw — prevalence-calibrated density-ratio weighting.
 
-Correcting outcome-dependent selection (ascertainment) bias by reweighting, when the
-population prevalences of the outcomes are known a priori.
+The import name is historical. The estimator computes minimum-divergence
+weights that match known population prevalences, optionally on a
+participation-model base. Those weights equal full-population inverse-probability
+weights only when the population-to-sample density ratio is spanned by that
+base plus the chosen moments.
 
 The motivating problem: the standard approach predicts participation probabilities
 ``P(selected | X)`` from covariates (e.g. socioeconomic features via LASSO) — but

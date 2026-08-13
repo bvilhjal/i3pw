@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "i3pw"
 version = "0.3.1"
-description = "Informed Inference of Inverse Probability Weights: selection-bias correction by calibrating IPW weights to known population prevalences."
+description = "Prevalence-calibrated density-ratio weighting: minimum-divergence weights that match known population prevalences, optionally on a participation-model base."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -56,6 +56,7 @@ i3pw = ["py.typed"]
 "share/i3pw/examples" = ["examples/*.py"]
 "share/i3pw/report" = [
     "report/i3pw_report.tex",
+    "report/README.md",
     "report/validation_results.tsv",
     "report/validation_environment.txt",
 ]

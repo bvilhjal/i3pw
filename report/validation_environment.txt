@@ -1,3 +1,4 @@
+freeze_note=numeric results frozen at i3pw 0.3.0 on 2026-08-11; later package versions must cite this freeze or regenerate the TSV
 i3pw_version=0.3.0
 python_version=3.11.15
 platform=macOS-26.5.2-arm64-arm-64bit

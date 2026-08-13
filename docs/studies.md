@@ -2,7 +2,11 @@
 
 The evidence behind the claims in the [README](../README.md) and
 [theory.md](theory.md). Every study here is a simulation with a known truth, run by a
-script in `examples/`, so any number can be reproduced by running it. Between them these
+script in `examples/`. Numbers that also appear in
+[`report/validation_results.tsv`](../report/validation_results.tsv) are copied
+from that freeze (i3pw 0.3.0, 11 August 2026; environment in
+[`report/validation_environment.txt`](../report/validation_environment.txt)).
+Do not retype them from a fresh local run without updating the TSV. Between them these
 studies answer research questions [1 and 3](../README.md#the-research-question) — *can
 known prevalences supply what the covariate model misses*, and *which estimands does that
 fix*.
@@ -70,12 +74,10 @@ calibration_ipw       0.00±0.00       0.00±0.00      <- by construction
                                     (Kish effective sample size: 153 ± 19)
 ```
 
-These numbers were regenerated after correcting the generator to use Bernoulli-logistic
-participation with expected, rather than fixed, sample margins (Python 3.11.15,
-NumPy 2.4.6, SciPy 1.17.1, scikit-learn 1.9.0, i3pw 0.3.0). The structured results
-are frozen in [`report/validation_results.tsv`](../report/validation_results.tsv).
-They are still local fixed-seed
-synthetic results, not independent empirical evidence.
+The Monte Carlo and honest-benchmark rows above are the corresponding lines of
+[`report/validation_results.tsv`](../report/validation_results.tsv) (i3pw 0.3.0
+freeze; see the file header of this page). They are local fixed-seed synthetic
+results, not independent empirical evidence.
 
 The value of calibration is *not* that it "predicts" a prevalence it was told. It is
 that the resulting **weights** are correct along the ascertained dimensions, which

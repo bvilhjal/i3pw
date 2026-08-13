@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The package is named prevalence-calibrated density-ratio weighting. The
+  import `i3pw` is unchanged. The methods PDF is recast as a research note
+  (estimand, identification, frozen 0.3.0 simulation table); software review
+  and the analysis protocol are appendices. README and studies copy numbers
+  from `report/validation_results.tsv` rather than implying a 0.3.1 rerun.
+
 ## 0.3.1 — 2026-08-11
 
 - Add a rendered PDF of the statistical-genetics report, with a vector workflow

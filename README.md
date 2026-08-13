@@ -1,7 +1,10 @@
-# i3pw — Informed Inference of Inverse Probability Weights
+# i3pw — prevalence-calibrated density-ratio weighting
 
-Correcting **outcome-dependent selection (ascertainment) bias** by reweighting a biased
-sample, when the population prevalences of the outcomes are known a priori.
+The import name is historical. The estimator is **minimum-divergence
+reweighting that matches known population prevalences**, optionally on top of
+a participation-model base. Those weights equal full-population inverse-probability
+weights only under a stated density-ratio family. They are not unrestricted
+inference of per-unit inclusion probabilities.
 
 ## Aim
 
@@ -203,8 +206,9 @@ Run the full benchmark comparison:
 python examples/benchmark.py
 ```
 
-Fixed-seed output (8k population, one common + one rare outcome; runtime is
-machine-dependent):
+Fixed-seed illustration from
+[`report/validation_results.tsv`](report/validation_results.tsv)
+(`examples/benchmark.py`, seed 97, i3pw 0.3.0 freeze):
 
 ```
 method                       % diff Y1   % diff Y2
@@ -218,10 +222,9 @@ calibration_ipw                   0.00        0.00
 **Read those two zeros carefully.** Every outcome here is anchored, so `calibration_ipw`
 is reproducing prevalences it was *handed* — an algebraic identity, not a result. And
 `lasso_ipw` looks useless because this simulation gives selection no covariate channel to
-learn. `examples/honest_benchmark.py` measures the questions that can actually fail —
-transfer to an *unanchored* outcome, and balance against quantities never supplied — and
-[its section](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) is
-the one to trust.
+learn. The numbers that can fail — unanchored transfer and held-out balance — are the
+`honest_benchmark.py` rows of the same TSV, narrated in
+[studies.md](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy).
 
 ## Where everything is
 
@@ -231,10 +234,10 @@ of them — and each one is the answer to one of the
 
 | | | |
 | --- | --- | --- |
-| [**docs/theory.md**](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md) | *question 2.* [notation](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-makes-this-falsifiable), and the [bibliography](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#references) | read before quoting a number in a paper |
-| [**docs/guide.md**](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md) | *how to run it.* [`calibrate`, start to finish](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic), how to [put error bars on it](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#uncertainty) | read if you have a cohort |
-| [**docs/studies.md**](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [the one that tries hardest to make the method look bad](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy) | read if you doubt a claim |
-| [**report PDF**](https://github.com/bvilhjal/i3pw/blob/main/output/pdf/i3pw_report.pdf) ([LaTeX source](https://github.com/bvilhjal/i3pw/blob/main/report/i3pw_report.tex)) | a self-contained mathematical review, implementation audit, fresh validation table, figures, and cited bibliography for statistical geneticists | read before developing or reviewing the method |
+| [**docs/theory.md**](docs/theory.md) | *question 2.* [notation](docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
+| [**docs/guide.md**](docs/guide.md) | *how to run it.* [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
+| [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [the honest benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy). Numbers that live in the freeze are copied from [`report/validation_results.tsv`](report/validation_results.tsv) | read if you doubt a claim |
+| [**report PDF**](output/pdf/i3pw_report.pdf) ([LaTeX source](report/i3pw_report.tex)) | methods note: estimand, identification, and the frozen simulation evidence | read before quoting a number in a paper |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
 below, is the whole thing in a page: a five-step recipe, a list of things not to do, and
@@ -267,8 +270,9 @@ for each argument.
    model alone — `targets=`.
    *Why:* participation depends on *having the disease*, which the covariates barely
    proxy, so the covariate model alone leaves the ascertainment uncorrected. The two
-   ingredients are complementary and the combination is best in **every** channel mix
-   tested ([Study D](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
+   ingredients are complementary and the combination is best in **every simulated**
+   channel mix in Study D
+   ([Study D](docs/studies.md#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
 3. **Calibrate within strata — sex, birth year, ancestry, severity — not just the pooled
    margin** (`strata=` with `stratum_share=`).
    *Why:* a known prevalence fixes the *number* of cases, not their *type*. If the
