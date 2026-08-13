@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- Add `benchmarks/`, a seven-benchmark evidence suite covering the report's
+  validation matrix: recruitment mechanism, register information, target error,
+  case mix, interval coverage, support, and the ridge. Every benchmark scores
+  held-out estimands against oracle weights `1/π` and writes to one artifact,
+  `report/benchmark_results.tsv`, with provenance in
+  `report/benchmark_environment.txt`. The suite is not part of the installed
+  package; `tests/test_benchmarks.py` holds its contract tests.
+- Generate the report's data tables and figures from that artifact
+  (`benchmarks/make_figures.py` → `report/figures/`), so a number in the PDF
+  cannot drift from the table it came from. CI regenerates them and fails on a
+  diff. Redraw every figure in one shared visual language
+  (`report/figures/i3pw-viz.tex`): a fixed hue and marker per estimator, a
+  colour-vision-validated palette, achromatic reference rows for the
+  uncorrected and oracle weightings, and no constrained quantity plotted
+  anywhere.
+- Four documented findings change how the estimator should be used. Base
+  weights are part of the specification, not a free improvement — under
+  outcome-only recruitment a covariate base is 11× worse than a uniform one.
+  Interval coverage is nominal only when the tilt family contains the truth and
+  falls to 0.64 under ordinary applied misspecification, with no change in
+  width. Stratification must follow the axis recruitment acts on; demographic
+  strata do not repair severity-dependent recruitment. And the bootstrap starts
+  discarding replicates about an order of magnitude in prevalence before the
+  point estimate stops solving. README, `docs/studies.md` and the report are
+  updated accordingly, including a sixth recommendation on how to read an
+  interval.
+
 - The package is named prevalence-calibrated density-ratio weighting. The
   import `i3pw` is unchanged. The methods PDF is recast as a research note
   (estimand, identification, frozen 0.3.0 simulation table); software review

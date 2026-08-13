@@ -236,8 +236,9 @@ of them — and each one is the answer to one of the
 | --- | --- | --- |
 | [**docs/theory.md**](docs/theory.md) | *question 2.* [notation](docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
 | [**docs/guide.md**](docs/guide.md) | *how to run it.* [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
-| [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [the honest benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy). Numbers that live in the freeze are copied from [`report/validation_results.tsv`](report/validation_results.tsv) | read if you doubt a claim |
-| [**report PDF**](output/pdf/i3pw_report.pdf) ([LaTeX source](report/i3pw_report.tex)) | methods note: estimand, identification, and the frozen simulation evidence | read before quoting a number in a paper |
+| [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [what breaks and when](docs/studies.md#the-benchmark-suite-what-breaks-and-when) and [the honest benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy). Numbers are copied from [`report/validation_results.tsv`](report/validation_results.tsv) and [`report/benchmark_results.tsv`](report/benchmark_results.tsv) | read if you doubt a claim |
+| [**benchmarks/**](benchmarks/README.md) | *when does it fail?* seven benchmarks over the recruitment mechanism, the register information, the target error, the case mix, the support and the ridge — every one scored on estimands nobody was given, against oracle weights | read if you are judging the method |
+| [**report PDF**](output/pdf/i3pw_report.pdf) ([LaTeX source](report/i3pw_report.tex)) | methods note: estimand, identification, and both layers of simulation evidence in full | read before quoting a number in a paper |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
 below, is the whole thing in a page: a five-step recipe, a list of things not to do, and
@@ -257,7 +258,7 @@ recommendation, the disagreement is really with the evidence behind it, so go th
 
 Steps 1–4 are one `calibrate` call — `base_weights=` for step 1's output, `targets=` for
 step 2, `strata=` for step 3, `holdout=` for step 4 — so the reasons below are the reasons
-for each argument.
+for each argument. Steps 5 and 6 are what to report afterwards.
 
 1. **Fit a participation model on whatever predicts participation** — demographic,
    socioeconomic, clinical, genetic, or outcomes observed frame-wide — and invert it for
@@ -266,6 +267,12 @@ for each argument.
    only ingredient that can. On a population where participation genuinely depends on a
    covariate, dropping this step costs a factor of 2.3 in held-out balance
    ([benchmark](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
+   *But it is not free.* Where recruitment acts through the diagnosis alone, a
+   covariate base makes the estimate **11× worse** than a uniform one, because
+   `1/P̂(S|X)` still varies with `X` — through `X → Y → S` — and imports a covariate
+   tilt the outcome constraint cannot remove. The base weights are part of the
+   specification, so omit them when you believe selection is outcome-driven
+   ([benchmark suite](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#neither-ingredient-is-enough-and-the-base-model-is-not-free)).
 2. **Calibrate those weights to known register quantities** rather than trusting the
    model alone — `targets=`.
    *Why:* participation depends on *having the disease*, which the covariates barely
@@ -273,15 +280,22 @@ for each argument.
    ingredients are complementary and the combination is best in **every simulated**
    channel mix in Study D
    ([Study D](docs/studies.md#study-d--where-schoeler-et-al-fits-in-covariate-model-and-calibration-are-complementary)).
-3. **Calibrate within strata — sex, birth year, ancestry, severity — not just the pooled
-   margin** (`strata=` with `stratum_share=`).
+3. **Calibrate along the axis recruitment acts on — sex, birth year, ancestry,
+   severity — not just the pooled margin** (`strata=` with `stratum_share=`, or
+   severity-specific prevalences as extra outcome columns).
    *Why:* a known prevalence fixes the *number* of cases, not their *type*. If the
    sampled cases are milder than the population's, matching the margin leaves that
-   uncorrected ([case mix](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#prevalence-sets-the-scale-not-the-case-mix)). For psychiatric
-   cohorts this is usually the single most important step. Watch the constraint count as
-   the strata get finer — `A` strata by `Q` outcomes outgrows the cells backing them, and
-   the solve reports success either way, so the package warns below ten units per
-   constraint.
+   uncorrected ([case mix](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#prevalence-sets-the-scale-not-the-case-mix)). Where cases are recruited
+   unevenly *across strata*, a pooled margin leaves a within-stratum prevalence wrong by
+   more than the prevalence itself (0.169 against `K = 0.10`) and stratifying nearly
+   closes the held-out gap to the oracle. But **the wrong axis does not help**:
+   demographic strata do nothing for severity-dependent recruitment, where separate
+   mild- and severe-case prevalences cut the case-mix error 3.5×
+   ([evidence](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#prevalence-fixes-the-case-count-not-the-case-mix--and-strata-are-not-a-cure-all)).
+   Which axis is right is a claim about the recruitment mechanism, and the calibration
+   cannot supply it. Watch the constraint count as the strata get finer — `A` strata by
+   `Q` outcomes outgrows the cells backing them, and the solve reports success either
+   way, so the package warns below ten units per constraint.
 4. **Hold back some known margins and check against them** (`holdout=`, which returns a
    `balance_report`).
    *Why:* a just-identified calibration reproduces its constraints whatever the truth, so
@@ -289,12 +303,31 @@ for each argument.
    ([falsifiability](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#what-makes-this-falsifiable)) — and in a worked case every other
    diagnostic *preferred* the broken weighting, whose ESS looked 3× healthier
    ([demonstration](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic)).
+   *Read it as an alarm, not a ranking.* Across the benchmark suite the held-out
+   `|SMD|` correctly flagged one broken weighting and ranked two others backwards —
+   preferring an estimator with 3× the bias — so a large discrepancy is evidence of
+   misspecification, and a small one is not a reason to choose one weighting over
+   another ([evidence](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#neither-ingredient-is-enough-and-the-base-model-is-not-free)).
 5. **Report the effective sample size, a sensitivity sweep over `K`, and an interval that
    accounts for the estimated weights** (`fit.mean(values)`, or the bootstrap).
    *Why:* the correction costs variance, register prevalences are not exact constants, and
    the fixed-weight SE is not a bound in either direction ([uncertainty](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#uncertainty)).
+   Register error is the cheapest of the three: ±30% on `K` moved a held-out estimand by
+   about 0.011 SD per 10 percentage points, against a 0.479 SD naive bias — but the
+   sweep *bounds* the estimate and does not locate the truth inside the bound, since
+   the smallest error in that sweep occurred at a 30% wrong target.
    If you bootstrap, read its `failure_rate` first: discarded replicates are dropped
-   selectively from the tail, so a non-zero rate means the interval is too narrow.
+   selectively from the tail, so a non-zero rate means the interval is too narrow. That
+   begins at about **five sampled cases** — roughly an order of magnitude in prevalence
+   before the point estimate stops solving
+   ([support](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#a-wrong-register-prevalence-is-survivable-a-rare-disease-under-recruited-is-not)).
+6. **Do not read the interval as evidence that the weighting is right.** At nominal 95%
+   it covered 0.95 when the tilt family contained the truth and **0.64** under the
+   ordinary combination of a fitted base and a marginal constraint — with almost no
+   change in width, because the loss is bias and no variance formula covers a bias
+   ([coverage](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#the-intervals-cover-only-when-the-tilt-family-is-right)).
+   An interval belongs next to the held-out check of step 4 and the sweep of step 5,
+   never alone.
 
 ### What not to do
 
@@ -355,7 +388,10 @@ docs/               # theory.md, guide.md, studies.md
 tests/              # pytest suite
 examples/           # real_cohort_workflow.py if you have a cohort;
                     #   honest_benchmark.py if you are judging the method
-report/             # cited LaTeX review + frozen local validation results
+benchmarks/         # the evidence base: seven benchmarks over the report's
+                    #   validation matrix, plus the generator for the report's
+                    #   tables and figures. Not part of the installed package.
+report/             # cited LaTeX methods note + both frozen results artifacts
 CITATION.cff        # software citation metadata
 CHANGELOG.md        # release-level scientific and API changes
 ```
@@ -369,6 +405,25 @@ pytest
 # disable plugin autoload:
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 ```
+
+## Benchmarks
+
+The evidence base. Seven benchmarks over the recruitment mechanism, the register
+information, the target error, the case mix, interval coverage, support and the ridge
+— all seeds fixed, all scored on estimands the estimators were never given. See
+[benchmarks/README.md](benchmarks/README.md).
+
+```bash
+python -m benchmarks.run_all          # rewrites report/benchmark_results.tsv (~17 min)
+python -m benchmarks.make_figures     # rewrites the report's tables and figures
+```
+
+```bash
+python -m benchmarks.run_all --quick
+```
+
+The quick run is a smoke test — far too noisy to quote — and writes to a separate
+file so it cannot be mistaken for the freeze.
 
 ## License
 

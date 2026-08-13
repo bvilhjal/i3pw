@@ -28,6 +28,16 @@ jobs:
       - name: Test (pytest)
         run: pytest
 
+      - name: Smoke-test the benchmark suite and the figure generator
+        # A few replications only: this checks that every benchmark and every
+        # generated table and figure still runs end to end. It is far too noisy to
+        # quote, and writes to a separate file so it cannot be mistaken for the
+        # freeze in report/benchmark_results.tsv.
+        run: |
+          python -m benchmarks.run_all --quick
+          python -m benchmarks.make_figures
+          git diff --exit-code -- report/figures report/benchmark_results.tsv
+
   distribution:
     runs-on: ubuntu-latest
     steps:
@@ -56,8 +66,12 @@ jobs:
               "report/i3pw_report.tex",
               "report/validation_results.tsv",
               "report/validation_environment.txt",
+              "report/benchmark_results.tsv",
+              "report/benchmark_environment.txt",
+              "benchmarks/README.md",
               *(str(path) for path in Path("docs").glob("*.md")),
               *(str(path) for path in Path("examples").glob("*.py")),
+              *(str(path) for path in Path("benchmarks").glob("*.py")),
           }
           wheel = next(Path("dist").glob("*.whl"))
           sdist = next(Path("dist").glob("*.tar.gz"))

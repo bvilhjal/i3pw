@@ -1,0 +1,743 @@
+benchmark	condition	estimator	metric	mean	sd	mcse	n_reps	notes
+B1_selection_law	X only	naive	trait_bias_sd	0.388831	0.0565781	0.00894578	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	naive	trait_rmse_sd	0.392824	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X only	naive	unanchored_prevalence_error_pct	4.63078	32.6514	5.16264	40	disease 2, whose register value was never supplied
+B1_selection_law	X only	naive	worst_held_out_smd	0.419823	0.129148	0.02042	40	four covariate margins excluded from the solve
+B1_selection_law	X only	naive	kish_ess	2511.43	48.7131	7.70222	40	participants ~2500
+B1_selection_law	X only	naive	max_weight_share	1	1.44428e-16	2.2836e-17	40	largest weight in units of an equal share
+B1_selection_law	X only	naive	case_mix_liability_error	0.00206913	0.0372267	0.00588606	40	mean liability among cases minus its population value; held out
+B1_selection_law	X only	ipw	trait_bias_sd	0.00188796	0.0247302	0.00391019	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	ipw	trait_rmse_sd	0.024492	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X only	ipw	unanchored_prevalence_error_pct	-1.04967	12.8103	2.02548	40	disease 2, whose register value was never supplied
+B1_selection_law	X only	ipw	worst_held_out_smd	0.0291629	0.0126714	0.00200352	40	four covariate margins excluded from the solve
+B1_selection_law	X only	ipw	kish_ess	1370.21	90.0868	14.244	40	participants ~2500
+B1_selection_law	X only	ipw	max_weight_share	13.7927	4.58099	0.724318	40	largest weight in units of an equal share
+B1_selection_law	X only	ipw	case_mix_liability_error	-0.00176159	0.0331937	0.00524838	40	mean liability among cases minus its population value; held out
+B1_selection_law	X only	cal	trait_bias_sd	0.382853	0.0320101	0.00506125	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	cal	trait_rmse_sd	0.384155	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X only	cal	unanchored_prevalence_error_pct	4.59312	32.4018	5.12317	40	disease 2, whose register value was never supplied
+B1_selection_law	X only	cal	worst_held_out_smd	0.415828	0.130258	0.0205956	40	four covariate margins excluded from the solve
+B1_selection_law	X only	cal	kish_ess	2492.68	50.539	7.99091	40	participants ~2500
+B1_selection_law	X only	cal	max_weight_share	1.14241	0.195995	0.0309895	40	largest weight in units of an equal share
+B1_selection_law	X only	cal	case_mix_liability_error	0.00206913	0.0372267	0.00588606	40	mean liability among cases minus its population value; held out
+B1_selection_law	X only	ipw+cal	trait_bias_sd	0.00265645	0.0250265	0.00395704	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	ipw+cal	trait_rmse_sd	0.0248541	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X only	ipw+cal	unanchored_prevalence_error_pct	-1.04999	12.8987	2.03946	40	disease 2, whose register value was never supplied
+B1_selection_law	X only	ipw+cal	worst_held_out_smd	0.0294857	0.0123437	0.00195171	40	four covariate margins excluded from the solve
+B1_selection_law	X only	ipw+cal	kish_ess	1370.57	89.9873	14.2282	40	participants ~2500
+B1_selection_law	X only	ipw+cal	max_weight_share	13.8205	4.56477	0.721753	40	largest weight in units of an equal share
+B1_selection_law	X only	ipw+cal	case_mix_liability_error	-0.00176159	0.0331937	0.00524838	40	mean liability among cases minus its population value; held out
+B1_selection_law	X only	ipw+cal/s	trait_bias_sd	0.0038004	0.0244177	0.00386078	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	ipw+cal/s	trait_rmse_sd	0.0244082	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X only	ipw+cal/s	unanchored_prevalence_error_pct	-1.2065	12.5243	1.98026	40	disease 2, whose register value was never supplied
+B1_selection_law	X only	ipw+cal/s	worst_held_out_smd	0.029732	0.0129991	0.00205534	40	four covariate margins excluded from the solve
+B1_selection_law	X only	ipw+cal/s	kish_ess	1376.69	86.1977	13.6291	40	participants ~2500
+B1_selection_law	X only	ipw+cal/s	max_weight_share	13.4435	4.22368	0.667822	40	largest weight in units of an equal share
+B1_selection_law	X only	ipw+cal/s	case_mix_liability_error	-0.00163744	0.0313763	0.00496102	40	mean liability among cases minus its population value; held out
+B1_selection_law	X only	oracle	trait_bias_sd	-0.00240471	0.0242471	0.0038338	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	oracle	trait_rmse_sd	0.0240625	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X only	oracle	unanchored_prevalence_error_pct	-0.690419	13.0372	2.06136	40	disease 2, whose register value was never supplied
+B1_selection_law	X only	oracle	worst_held_out_smd	0.0415675	0.0156161	0.00246913	40	four covariate margins excluded from the solve
+B1_selection_law	X only	oracle	kish_ess	1355.85	69.6454	11.0119	40	participants ~2500
+B1_selection_law	X only	oracle	max_weight_share	13.9873	4.74904	0.750889	40	largest weight in units of an equal share
+B1_selection_law	X only	oracle	case_mix_liability_error	-0.00244476	0.0339612	0.00536974	40	mean liability among cases minus its population value; held out
+B1_selection_law	X only	aipw	trait_bias_sd	-0.00244382	0.0203489	0.00321744	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X only	aipw	trait_rmse_sd	0.020241	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	naive	trait_bias_sd	0.301473	0.0431308	0.00681958	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	naive	trait_rmse_sd	0.304466	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	naive	unanchored_prevalence_error_pct	-1.41574	14.4395	2.28309	40	disease 2, whose register value was never supplied
+B1_selection_law	Y only	naive	worst_held_out_smd	0.164043	0.0453077	0.00716377	40	four covariate margins excluded from the solve
+B1_selection_law	Y only	naive	kish_ess	2508.9	52.5376	8.30692	40	participants ~2500
+B1_selection_law	Y only	naive	max_weight_share	1	1.13833e-16	1.79986e-17	40	largest weight in units of an equal share
+B1_selection_law	Y only	naive	case_mix_liability_error	-0.000249785	0.0105282	0.00166465	40	mean liability among cases minus its population value; held out
+B1_selection_law	Y only	ipw	trait_bias_sd	0.150335	0.0267139	0.00422384	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	ipw	trait_rmse_sd	0.152631	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	ipw	unanchored_prevalence_error_pct	2.15321	9.13398	1.44421	40	disease 2, whose register value was never supplied
+B1_selection_law	Y only	ipw	worst_held_out_smd	0.027233	0.0103042	0.00162924	40	four covariate margins excluded from the solve
+B1_selection_law	Y only	ipw	kish_ess	2223.92	63.0472	9.96863	40	participants ~2500
+B1_selection_law	Y only	ipw	max_weight_share	3.25233	0.497767	0.0787039	40	largest weight in units of an equal share
+B1_selection_law	Y only	ipw	case_mix_liability_error	-0.0322655	0.010443	0.00165118	40	mean liability among cases minus its population value; held out
+B1_selection_law	Y only	cal	trait_bias_sd	0.00584304	0.0216931	0.00342998	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	cal	trait_rmse_sd	0.0222028	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	cal	unanchored_prevalence_error_pct	-0.404662	9.91282	1.56736	40	disease 2, whose register value was never supplied
+B1_selection_law	Y only	cal	worst_held_out_smd	0.0338541	0.0119624	0.00189143	40	four covariate margins excluded from the solve
+B1_selection_law	Y only	cal	kish_ess	1906.28	53.6971	8.49025	40	participants ~2500
+B1_selection_law	Y only	cal	max_weight_share	1.43282	0.0191526	0.00302828	40	largest weight in units of an equal share
+B1_selection_law	Y only	cal	case_mix_liability_error	-0.000249785	0.0105282	0.00166465	40	mean liability among cases minus its population value; held out
+B1_selection_law	Y only	ipw+cal	trait_bias_sd	-0.0651874	0.0522039	0.00825417	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	ipw+cal	trait_rmse_sd	0.0831055	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	ipw+cal	unanchored_prevalence_error_pct	3.68342	13.5878	2.14842	40	disease 2, whose register value was never supplied
+B1_selection_law	Y only	ipw+cal	worst_held_out_smd	0.145828	0.041381	0.00654291	40	four covariate margins excluded from the solve
+B1_selection_law	Y only	ipw+cal	kish_ess	1733.05	59.0183	9.33162	40	participants ~2500
+B1_selection_law	Y only	ipw+cal	max_weight_share	4.11124	0.615687	0.0973487	40	largest weight in units of an equal share
+B1_selection_law	Y only	ipw+cal	case_mix_liability_error	-0.0322655	0.010443	0.00165118	40	mean liability among cases minus its population value; held out
+B1_selection_law	Y only	ipw+cal/s	trait_bias_sd	-0.0516044	0.0535357	0.00846474	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	ipw+cal/s	trait_rmse_sd	0.0738744	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	ipw+cal/s	unanchored_prevalence_error_pct	3.90894	13.9649	2.20805	40	disease 2, whose register value was never supplied
+B1_selection_law	Y only	ipw+cal/s	worst_held_out_smd	0.148633	0.0412793	0.00652683	40	four covariate margins excluded from the solve
+B1_selection_law	Y only	ipw+cal/s	kish_ess	1761.16	57.5279	9.09596	40	participants ~2500
+B1_selection_law	Y only	ipw+cal/s	max_weight_share	3.82687	0.553254	0.0874771	40	largest weight in units of an equal share
+B1_selection_law	Y only	ipw+cal/s	case_mix_liability_error	-0.0257031	0.0105552	0.00166893	40	mean liability among cases minus its population value; held out
+B1_selection_law	Y only	oracle	trait_bias_sd	0.00609021	0.0220647	0.00348873	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	oracle	trait_rmse_sd	0.0226223	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	Y only	oracle	unanchored_prevalence_error_pct	-0.390156	9.89748	1.56493	40	disease 2, whose register value was never supplied
+B1_selection_law	Y only	oracle	worst_held_out_smd	0.0335393	0.0118449	0.00187285	40	four covariate margins excluded from the solve
+B1_selection_law	Y only	oracle	kish_ess	1907.45	46.4257	7.34055	40	participants ~2500
+B1_selection_law	Y only	oracle	max_weight_share	1.43214	0.0139755	0.00220972	40	largest weight in units of an equal share
+B1_selection_law	Y only	oracle	case_mix_liability_error	-0.000249785	0.0105282	0.00166465	40	mean liability among cases minus its population value; held out
+B1_selection_law	Y only	aipw	trait_bias_sd	0.0456033	0.0143368	0.00226684	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	Y only	aipw	trait_rmse_sd	0.04775	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	naive	trait_bias_sd	0.479315	0.0728278	0.0115151	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	naive	trait_rmse_sd	0.484679	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	naive	unanchored_prevalence_error_pct	2.57295	26.0047	4.1117	40	disease 2, whose register value was never supplied
+B1_selection_law	X + Y	naive	worst_held_out_smd	0.314251	0.100609	0.0159077	40	four covariate margins excluded from the solve
+B1_selection_law	X + Y	naive	kish_ess	2511.3	45.4263	7.18253	40	participants ~2500
+B1_selection_law	X + Y	naive	max_weight_share	1	1.51894e-16	2.40165e-17	40	largest weight in units of an equal share
+B1_selection_law	X + Y	naive	case_mix_liability_error	-0.00225424	0.0212147	0.00335435	40	mean liability among cases minus its population value; held out
+B1_selection_law	X + Y	ipw	trait_bias_sd	0.11955	0.0319021	0.00504417	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	ipw	trait_rmse_sd	0.123631	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	ipw	unanchored_prevalence_error_pct	1.4619	9.88929	1.56363	40	disease 2, whose register value was never supplied
+B1_selection_law	X + Y	ipw	worst_held_out_smd	0.0239909	0.00845206	0.00133639	40	four covariate margins excluded from the solve
+B1_selection_law	X + Y	ipw	kish_ess	1755.2	160.351	25.3538	40	participants ~2500
+B1_selection_law	X + Y	ipw	max_weight_share	7.93712	2.76079	0.43652	40	largest weight in units of an equal share
+B1_selection_law	X + Y	ipw	case_mix_liability_error	-0.0283828	0.0147775	0.00233652	40	mean liability among cases minus its population value; held out
+B1_selection_law	X + Y	cal	trait_bias_sd	0.291855	0.0268756	0.0042494	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	cal	trait_rmse_sd	0.293059	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	cal	unanchored_prevalence_error_pct	3.85006	26.0426	4.1177	40	disease 2, whose register value was never supplied
+B1_selection_law	X + Y	cal	worst_held_out_smd	0.312659	0.0942175	0.0148971	40	four covariate margins excluded from the solve
+B1_selection_law	X + Y	cal	kish_ess	2147.08	92.3028	14.5944	40	participants ~2500
+B1_selection_law	X + Y	cal	max_weight_share	1.26217	0.0587398	0.00928758	40	largest weight in units of an equal share
+B1_selection_law	X + Y	cal	case_mix_liability_error	-0.00225424	0.0212147	0.00335435	40	mean liability among cases minus its population value; held out
+B1_selection_law	X + Y	ipw+cal	trait_bias_sd	-0.0355462	0.0449354	0.00710491	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	ipw+cal	trait_rmse_sd	0.0568528	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	ipw+cal	unanchored_prevalence_error_pct	2.60965	11.9659	1.89198	40	disease 2, whose register value was never supplied
+B1_selection_law	X + Y	ipw+cal	worst_held_out_smd	0.105929	0.0300707	0.0047546	40	four covariate margins excluded from the solve
+B1_selection_law	X + Y	ipw+cal	kish_ess	1516.9	187.827	29.6981	40	participants ~2500
+B1_selection_law	X + Y	ipw+cal	max_weight_share	9.11635	3.3313	0.526725	40	largest weight in units of an equal share
+B1_selection_law	X + Y	ipw+cal	case_mix_liability_error	-0.0283828	0.0147775	0.00233652	40	mean liability among cases minus its population value; held out
+B1_selection_law	X + Y	ipw+cal/s	trait_bias_sd	-0.0255641	0.0445866	0.00704976	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	ipw+cal/s	trait_rmse_sd	0.0509096	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	ipw+cal/s	unanchored_prevalence_error_pct	2.47119	12.3265	1.949	40	disease 2, whose register value was never supplied
+B1_selection_law	X + Y	ipw+cal/s	worst_held_out_smd	0.108039	0.0303587	0.00480013	40	four covariate margins excluded from the solve
+B1_selection_law	X + Y	ipw+cal/s	kish_ess	1532.94	189.214	29.9174	40	participants ~2500
+B1_selection_law	X + Y	ipw+cal/s	max_weight_share	8.77942	2.99783	0.473998	40	largest weight in units of an equal share
+B1_selection_law	X + Y	ipw+cal/s	case_mix_liability_error	-0.0230542	0.0145529	0.00230101	40	mean liability among cases minus its population value; held out
+B1_selection_law	X + Y	oracle	trait_bias_sd	0.00173186	0.0230811	0.00364944	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	oracle	trait_rmse_sd	0.0228565	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X + Y	oracle	unanchored_prevalence_error_pct	-0.0735995	11.2593	1.78025	40	disease 2, whose register value was never supplied
+B1_selection_law	X + Y	oracle	worst_held_out_smd	0.0367756	0.014617	0.00231115	40	four covariate margins excluded from the solve
+B1_selection_law	X + Y	oracle	kish_ess	1542.6	79.1499	12.5147	40	participants ~2500
+B1_selection_law	X + Y	oracle	max_weight_share	8.30438	1.79268	0.283448	40	largest weight in units of an equal share
+B1_selection_law	X + Y	oracle	case_mix_liability_error	-0.0043331	0.0152837	0.00241656	40	mean liability among cases minus its population value; held out
+B1_selection_law	X + Y	aipw	trait_bias_sd	0.0288155	0.0177113	0.0028004	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X + Y	aipw	trait_rmse_sd	0.0337073	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	naive	trait_bias_sd	0.557753	0.105343	0.0166562	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	naive	trait_rmse_sd	0.56737	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	naive	unanchored_prevalence_error_pct	2.57548	30.0415	4.74998	40	disease 2, whose register value was never supplied
+B1_selection_law	X x Y	naive	worst_held_out_smd	0.375411	0.118315	0.0187072	40	four covariate margins excluded from the solve
+B1_selection_law	X x Y	naive	kish_ess	2512.75	49.716	7.86079	40	participants ~2500
+B1_selection_law	X x Y	naive	max_weight_share	1	1.5085e-16	2.38514e-17	40	largest weight in units of an equal share
+B1_selection_law	X x Y	naive	case_mix_liability_error	-0.00168796	0.0300628	0.00475334	40	mean liability among cases minus its population value; held out
+B1_selection_law	X x Y	ipw	trait_bias_sd	0.0745614	0.0423702	0.00669932	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	ipw	trait_rmse_sd	0.0854971	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	ipw	unanchored_prevalence_error_pct	1.50961	11.1386	1.76116	40	disease 2, whose register value was never supplied
+B1_selection_law	X x Y	ipw	worst_held_out_smd	0.0563777	0.0246792	0.00390213	40	four covariate margins excluded from the solve
+B1_selection_law	X x Y	ipw	kish_ess	1450.54	249.752	39.4892	40	participants ~2500
+B1_selection_law	X x Y	ipw	max_weight_share	12.7355	6.21582	0.982807	40	largest weight in units of an equal share
+B1_selection_law	X x Y	ipw	case_mix_liability_error	-0.0300202	0.0176245	0.00278668	40	mean liability among cases minus its population value; held out
+B1_selection_law	X x Y	cal	trait_bias_sd	0.310141	0.0251845	0.00398202	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	cal	trait_rmse_sd	0.311136	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	cal	unanchored_prevalence_error_pct	3.5461	27.597	4.36347	40	disease 2, whose register value was never supplied
+B1_selection_law	X x Y	cal	worst_held_out_smd	0.337679	0.102935	0.0162754	40	four covariate margins excluded from the solve
+B1_selection_law	X x Y	cal	kish_ess	2072.5	172.945	27.3451	40	participants ~2500
+B1_selection_law	X x Y	cal	max_weight_share	1.31883	0.12271	0.0194022	40	largest weight in units of an equal share
+B1_selection_law	X x Y	cal	case_mix_liability_error	-0.00168796	0.0300628	0.00475334	40	mean liability among cases minus its population value; held out
+B1_selection_law	X x Y	ipw+cal	trait_bias_sd	-0.0832301	0.0656763	0.0103843	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	ipw+cal	trait_rmse_sd	0.105512	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	ipw+cal	unanchored_prevalence_error_pct	2.63284	13.9817	2.21071	40	disease 2, whose register value was never supplied
+B1_selection_law	X x Y	ipw+cal	worst_held_out_smd	0.124982	0.0543846	0.00859897	40	four covariate margins excluded from the solve
+B1_selection_law	X x Y	ipw+cal	kish_ess	1237.62	274.765	43.4441	40	participants ~2500
+B1_selection_law	X x Y	ipw+cal	max_weight_share	14.6457	7.27983	1.15104	40	largest weight in units of an equal share
+B1_selection_law	X x Y	ipw+cal	case_mix_liability_error	-0.0300202	0.0176245	0.00278668	40	mean liability among cases minus its population value; held out
+B1_selection_law	X x Y	ipw+cal/s	trait_bias_sd	-0.0713067	0.0639945	0.0101184	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	ipw+cal/s	trait_rmse_sd	0.0952762	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	ipw+cal/s	unanchored_prevalence_error_pct	2.55613	14.5091	2.29409	40	disease 2, whose register value was never supplied
+B1_selection_law	X x Y	ipw+cal/s	worst_held_out_smd	0.127151	0.0547712	0.00866009	40	four covariate margins excluded from the solve
+B1_selection_law	X x Y	ipw+cal/s	kish_ess	1257.66	272.799	43.1333	40	participants ~2500
+B1_selection_law	X x Y	ipw+cal/s	max_weight_share	13.9485	6.34253	1.00284	40	largest weight in units of an equal share
+B1_selection_law	X x Y	ipw+cal/s	case_mix_liability_error	-0.0237969	0.0187748	0.00296855	40	mean liability among cases minus its population value; held out
+B1_selection_law	X x Y	oracle	trait_bias_sd	0.001769	0.0235904	0.00372997	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	oracle	trait_rmse_sd	0.0233608	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	X x Y	oracle	unanchored_prevalence_error_pct	-0.862488	11.2717	1.78221	40	disease 2, whose register value was never supplied
+B1_selection_law	X x Y	oracle	worst_held_out_smd	0.0379696	0.015508	0.00245203	40	four covariate margins excluded from the solve
+B1_selection_law	X x Y	oracle	kish_ess	1411.31	141.817	22.4232	40	participants ~2500
+B1_selection_law	X x Y	oracle	max_weight_share	11.3704	7.98034	1.2618	40	largest weight in units of an equal share
+B1_selection_law	X x Y	oracle	case_mix_liability_error	-0.00191073	0.0239898	0.00379313	40	mean liability among cases minus its population value; held out
+B1_selection_law	X x Y	aipw	trait_bias_sd	0.0333242	0.0199042	0.00314713	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	X x Y	aipw	trait_rmse_sd	0.0386882	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	naive	trait_bias_sd	0.547168	0.0829738	0.0131193	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	naive	trait_rmse_sd	0.553268	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	naive	unanchored_prevalence_error_pct	2.73676	26.3571	4.16742	40	disease 2, whose register value was never supplied
+B1_selection_law	severity	naive	worst_held_out_smd	0.312126	0.109091	0.0172488	40	four covariate margins excluded from the solve
+B1_selection_law	severity	naive	kish_ess	2511.9	48.4693	7.66367	40	participants ~2500
+B1_selection_law	severity	naive	max_weight_share	1	1.4874e-16	2.35178e-17	40	largest weight in units of an equal share
+B1_selection_law	severity	naive	case_mix_liability_error	0.083914	0.0135517	0.00214271	40	mean liability among cases minus its population value; held out
+B1_selection_law	severity	ipw	trait_bias_sd	0.157648	0.0394195	0.00623276	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	ipw	trait_rmse_sd	0.162382	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	ipw	unanchored_prevalence_error_pct	2.73203	10.0283	1.58561	40	disease 2, whose register value was never supplied
+B1_selection_law	severity	ipw	worst_held_out_smd	0.0332642	0.0152465	0.00241069	40	four covariate margins excluded from the solve
+B1_selection_law	severity	ipw	kish_ess	1700.63	223.275	35.3028	40	participants ~2500
+B1_selection_law	severity	ipw	max_weight_share	8.87626	3.81353	0.602972	40	largest weight in units of an equal share
+B1_selection_law	severity	ipw	case_mix_liability_error	0.0555336	0.0213144	0.00337011	40	mean liability among cases minus its population value; held out
+B1_selection_law	severity	cal	trait_bias_sd	0.297625	0.0297256	0.00470003	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	cal	trait_rmse_sd	0.299069	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	cal	unanchored_prevalence_error_pct	4.18377	26.3909	4.17277	40	disease 2, whose register value was never supplied
+B1_selection_law	severity	cal	worst_held_out_smd	0.312906	0.0933215	0.0147554	40	four covariate margins excluded from the solve
+B1_selection_law	severity	cal	kish_ess	1982.28	99.6755	15.7601	40	participants ~2500
+B1_selection_law	severity	cal	max_weight_share	1.37852	0.0696162	0.0110073	40	largest weight in units of an equal share
+B1_selection_law	severity	cal	case_mix_liability_error	0.083914	0.0135517	0.00214271	40	mean liability among cases minus its population value; held out
+B1_selection_law	severity	ipw+cal	trait_bias_sd	-0.0404063	0.0556814	0.008804	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	ipw+cal	trait_rmse_sd	0.0682318	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	ipw+cal	unanchored_prevalence_error_pct	4.37745	14.3417	2.26762	40	disease 2, whose register value was never supplied
+B1_selection_law	severity	ipw+cal	worst_held_out_smd	0.147806	0.0412015	0.00651453	40	four covariate margins excluded from the solve
+B1_selection_law	severity	ipw+cal	kish_ess	1366.27	226.934	35.8815	40	participants ~2500
+B1_selection_law	severity	ipw+cal	max_weight_share	10.7448	4.74047	0.749535	40	largest weight in units of an equal share
+B1_selection_law	severity	ipw+cal	case_mix_liability_error	0.0555336	0.0213144	0.00337011	40	mean liability among cases minus its population value; held out
+B1_selection_law	severity	ipw+cal/s	trait_bias_sd	-0.026314	0.0556753	0.00880303	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	ipw+cal/s	trait_rmse_sd	0.0609481	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	ipw+cal/s	unanchored_prevalence_error_pct	4.30736	15.0166	2.37433	40	disease 2, whose register value was never supplied
+B1_selection_law	severity	ipw+cal/s	worst_held_out_smd	0.150196	0.0414468	0.00655331	40	four covariate margins excluded from the solve
+B1_selection_law	severity	ipw+cal/s	kish_ess	1394.9	229.488	36.2853	40	participants ~2500
+B1_selection_law	severity	ipw+cal/s	max_weight_share	10.1592	4.18641	0.661929	40	largest weight in units of an equal share
+B1_selection_law	severity	ipw+cal/s	case_mix_liability_error	0.0626775	0.0211047	0.00333694	40	mean liability among cases minus its population value; held out
+B1_selection_law	severity	oracle	trait_bias_sd	0.00230324	0.0250426	0.00395958	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	oracle	trait_rmse_sd	0.0248346	NA	NA	40	root mean square of the per-replication signed error
+B1_selection_law	severity	oracle	unanchored_prevalence_error_pct	0.257998	12.1665	1.9237	40	disease 2, whose register value was never supplied
+B1_selection_law	severity	oracle	worst_held_out_smd	0.0388017	0.0157513	0.0024905	40	four covariate margins excluded from the solve
+B1_selection_law	severity	oracle	kish_ess	1414.72	82.8352	13.0974	40	participants ~2500
+B1_selection_law	severity	oracle	max_weight_share	9.14578	2.02141	0.319613	40	largest weight in units of an equal share
+B1_selection_law	severity	oracle	case_mix_liability_error	-0.00143555	0.0107017	0.00169209	40	mean liability among cases minus its population value; held out
+B1_selection_law	severity	aipw	trait_bias_sd	0.0498694	0.0193453	0.00305876	40	signed error of the weighted trait mean, in population SD units; held out
+B1_selection_law	severity	aipw	trait_rmse_sd	0.0534026	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	none	ipw+cal	trait_bias_sd	0.125018	0.0309655	0.00489608	40	held-out trait mean, population SD units
+B2_anchor_information	none	ipw+cal	trait_rmse_sd	0.128703	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	none	ipw+cal	kish_ess	1755.86	167.327	26.4567	40	cost of each extra constraint
+B2_anchor_information	none	ipw+cal	max_weight_share	7.95728	2.8693	0.453676	40	
+B2_anchor_information	none	ipw+cal	worst_held_out_smd	0.0242582	0.00869298	0.00137448	40	four covariate margins excluded from every rung
+B2_anchor_information	none	ipw+cal	comorbidity_error	0.0187794	0.00663012	0.00104831	40	held out at this rung
+B2_anchor_information	K(Y1)	ipw+cal	trait_bias_sd	-0.0365103	0.0453038	0.00716316	40	held-out trait mean, population SD units
+B2_anchor_information	K(Y1)	ipw+cal	trait_rmse_sd	0.0577419	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	K(Y1)	ipw+cal	kish_ess	1500.25	192.668	30.4635	40	cost of each extra constraint
+B2_anchor_information	K(Y1)	ipw+cal	max_weight_share	9.25221	3.47865	0.550022	40	
+B2_anchor_information	K(Y1)	ipw+cal	worst_held_out_smd	0.110722	0.0319335	0.00504912	40	four covariate margins excluded from every rung
+B2_anchor_information	K(Y1)	ipw+cal	comorbidity_error	0.00442445	0.00164077	0.000259429	40	held out at this rung
+B2_anchor_information	K(Y1), K(Y2)	ipw+cal	trait_bias_sd	-0.0360731	0.0451183	0.00713384	40	held-out trait mean, population SD units
+B2_anchor_information	K(Y1), K(Y2)	ipw+cal	trait_rmse_sd	0.057324	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	K(Y1), K(Y2)	ipw+cal	kish_ess	1500.61	192.121	30.377	40	cost of each extra constraint
+B2_anchor_information	K(Y1), K(Y2)	ipw+cal	max_weight_share	9.15413	3.46719	0.54821	40	
+B2_anchor_information	K(Y1), K(Y2)	ipw+cal	worst_held_out_smd	0.109833	0.0319598	0.00505329	40	four covariate margins excluded from every rung
+B2_anchor_information	K(Y1), K(Y2)	ipw+cal	comorbidity_error	0.00372818	0.00171264	0.000270793	40	held out at this rung
+B2_anchor_information	+ co-occurrence	ipw+cal	trait_bias_sd	-0.0356071	0.0450343	0.00712054	40	held-out trait mean, population SD units
+B2_anchor_information	+ co-occurrence	ipw+cal	trait_rmse_sd	0.0569671	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	+ co-occurrence	ipw+cal	kish_ess	1499.63	191.723	30.3141	40	cost of each extra constraint
+B2_anchor_information	+ co-occurrence	ipw+cal	max_weight_share	9.16931	3.47805	0.549928	40	
+B2_anchor_information	+ co-occurrence	ipw+cal	worst_held_out_smd	0.109785	0.0317891	0.0050263	40	four covariate margins excluded from every rung
+B2_anchor_information	+ co-occurrence	ipw+cal	comorbidity_error	-3.66911e-10	1.14537e-09	1.81099e-10	40	constrained at this rung: an identity, not a finding
+B2_anchor_information	per stratum	ipw+cal	trait_bias_sd	-0.026107	0.0450313	0.00712007	40	held-out trait mean, population SD units
+B2_anchor_information	per stratum	ipw+cal	trait_rmse_sd	0.0515626	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	per stratum	ipw+cal	kish_ess	1517.54	194.338	30.7275	40	cost of each extra constraint
+B2_anchor_information	per stratum	ipw+cal	max_weight_share	8.89316	3.14176	0.496756	40	
+B2_anchor_information	per stratum	ipw+cal	worst_held_out_smd	0.112798	0.032326	0.00511119	40	four covariate margins excluded from every rung
+B2_anchor_information	per stratum	ipw+cal	comorbidity_error	0.00439899	0.00159876	0.000252786	40	held out at this rung
+B2_anchor_information	oracle	ipw+cal	trait_bias_sd	0.00118682	0.0227661	0.00359964	40	held-out trait mean, population SD units
+B2_anchor_information	oracle	ipw+cal	trait_rmse_sd	0.0225111	NA	NA	40	root mean square of the per-replication signed error
+B2_anchor_information	oracle	ipw+cal	kish_ess	1522.98	79.5052	12.5709	40	cost of each extra constraint
+B2_anchor_information	oracle	ipw+cal	max_weight_share	8.42677	1.83055	0.289435	40	
+B2_anchor_information	oracle	ipw+cal	worst_held_out_smd	0.0363842	0.0144531	0.00228523	40	four covariate margins excluded from every rung
+B2_anchor_information	oracle	ipw+cal	comorbidity_error	-1.50172e-05	0.000317896	5.02637e-05	40	held out at this rung
+B3_target_error	-0.30	ipw+cal	trait_bias_sd	-0.067367	0.0494505	0.00781881	40	held-out trait mean under a mis-stated register value
+B3_target_error	-0.30	ipw+cal	trait_rmse_sd	0.0832018	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	-0.30	ipw+cal	anchored_prevalence_error_pct	-30	2.58837e-06	4.09258e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	-0.30	ipw+cal	unanchored_prevalence_error_pct	2.83319	12.7559	2.01688	40	disease 2, never supplied
+B3_target_error	-0.30	ipw+cal	kish_ess	1444.15	183.279	28.9789	40	
+B3_target_error	-0.20	ipw+cal	trait_bias_sd	-0.0567601	0.0479342	0.00757906	40	held-out trait mean under a mis-stated register value
+B3_target_error	-0.20	ipw+cal	trait_rmse_sd	0.073905	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	-0.20	ipw+cal	anchored_prevalence_error_pct	-20	1.18606e-06	1.87533e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	-0.20	ipw+cal	unanchored_prevalence_error_pct	2.75868	12.4826	1.97367	40	disease 2, never supplied
+B3_target_error	-0.20	ipw+cal	kish_ess	1468.81	185.102	29.2672	40	
+B3_target_error	-0.10	ipw+cal	trait_bias_sd	-0.0461531	0.0464288	0.00734104	40	held-out trait mean under a mis-stated register value
+B3_target_error	-0.10	ipw+cal	trait_rmse_sd	0.0650527	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	-0.10	ipw+cal	anchored_prevalence_error_pct	-10	2.33474e-06	3.69155e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	-0.10	ipw+cal	unanchored_prevalence_error_pct	2.68416	12.219	1.932	40	disease 2, never supplied
+B3_target_error	-0.10	ipw+cal	kish_ess	1493.08	186.627	29.5082	40	
+B3_target_error	-0.05	ipw+cal	trait_bias_sd	-0.0408496	0.0456805	0.00722272	40	held-out trait mean under a mis-stated register value
+B3_target_error	-0.05	ipw+cal	trait_rmse_sd	0.0608542	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	-0.05	ipw+cal	anchored_prevalence_error_pct	-5	2.63519e-06	4.1666e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	-0.05	ipw+cal	unanchored_prevalence_error_pct	2.64691	12.0911	1.91178	40	disease 2, never supplied
+B3_target_error	-0.05	ipw+cal	kish_ess	1505.05	187.269	29.6098	40	
+B3_target_error	+0.00	ipw+cal	trait_bias_sd	-0.0355462	0.0449354	0.00710491	40	held-out trait mean under a mis-stated register value
+B3_target_error	+0.00	ipw+cal	trait_rmse_sd	0.0568528	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	+0.00	ipw+cal	anchored_prevalence_error_pct	9.65585e-07	1.73374e-06	2.74128e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	+0.00	ipw+cal	unanchored_prevalence_error_pct	2.60965	11.9659	1.89198	40	disease 2, never supplied
+B3_target_error	+0.00	ipw+cal	kish_ess	1516.9	187.827	29.6981	40	
+B3_target_error	+0.05	ipw+cal	trait_bias_sd	-0.0302427	0.0441936	0.00698762	40	held-out trait mean under a mis-stated register value
+B3_target_error	+0.05	ipw+cal	trait_rmse_sd	0.053093	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	+0.05	ipw+cal	anchored_prevalence_error_pct	5	2.84479e-06	4.49801e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	+0.05	ipw+cal	unanchored_prevalence_error_pct	2.57239	11.8435	1.87262	40	disease 2, never supplied
+B3_target_error	+0.05	ipw+cal	kish_ess	1528.61	188.299	29.7726	40	
+B3_target_error	+0.10	ipw+cal	trait_bias_sd	-0.0249392	0.0434552	0.00687088	40	held-out trait mean under a mis-stated register value
+B3_target_error	+0.10	ipw+cal	trait_rmse_sd	0.0496298	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	+0.10	ipw+cal	anchored_prevalence_error_pct	10	3.19121e-06	5.04575e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	+0.10	ipw+cal	unanchored_prevalence_error_pct	2.53513	11.724	1.85372	40	disease 2, never supplied
+B3_target_error	+0.10	ipw+cal	kish_ess	1540.17	188.68	29.833	40	
+B3_target_error	+0.20	ipw+cal	trait_bias_sd	-0.0143323	0.0419897	0.00663916	40	held-out trait mean under a mis-stated register value
+B3_target_error	+0.20	ipw+cal	trait_rmse_sd	0.0438688	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	+0.20	ipw+cal	anchored_prevalence_error_pct	20	2.81767e-06	4.45512e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	+0.20	ipw+cal	unanchored_prevalence_error_pct	2.46062	11.4938	1.81733	40	disease 2, never supplied
+B3_target_error	+0.20	ipw+cal	kish_ess	1562.82	189.165	29.9096	40	
+B3_target_error	+0.30	ipw+cal	trait_bias_sd	-0.0037253	0.0405404	0.00641	40	held-out trait mean under a mis-stated register value
+B3_target_error	+0.30	ipw+cal	trait_rmse_sd	0.0402034	NA	NA	40	root mean square of the per-replication signed error
+B3_target_error	+0.30	ipw+cal	anchored_prevalence_error_pct	30	2.03764e-06	3.22179e-07	40	tracks delta by construction: an identity, not a finding
+B3_target_error	+0.30	ipw+cal	unanchored_prevalence_error_pct	2.38611	11.2761	1.78291	40	disease 2, never supplied
+B3_target_error	+0.30	ipw+cal	kish_ess	1584.77	189.261	29.9248	40	
+B3_target_error	reference	naive	trait_bias_sd	0.479315	0.0728278	0.0115151	40	does not depend on delta; a horizontal reference line
+B3_target_error	reference	ipw	trait_bias_sd	0.11955	0.0319021	0.00504417	40	does not depend on delta; a horizontal reference line
+B3_target_error	reference	oracle	trait_bias_sd	0.00173186	0.0230811	0.00364944	40	does not depend on delta; a horizontal reference line
+B4_case_mix	pooled only	naive	trait_bias_sd	0.479315	0.0728278	0.0115151	40	held out in every arm
+B4_case_mix	pooled only	naive	trait_rmse_sd	0.484679	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	pooled only	naive	case_mix_liability_error	-0.00225424	0.0212147	0.00335435	40	mean liability among cases; held out in every arm
+B4_case_mix	pooled only	naive	severe_case_share_error	-0.00308389	0.021138	0.00334221	40	held out
+B4_case_mix	pooled only	naive	worst_within_stratum_prevalence_error	0.274057	0.043248	0.00683811	40	held out
+B4_case_mix	pooled only	naive	kish_ess	2511.3	45.4263	7.18253	40	
+B4_case_mix	pooled only	ipw	trait_bias_sd	0.11955	0.0319021	0.00504417	40	held out in every arm
+B4_case_mix	pooled only	ipw	trait_rmse_sd	0.123631	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	pooled only	ipw	case_mix_liability_error	-0.0283828	0.0147775	0.00233652	40	mean liability among cases; held out in every arm
+B4_case_mix	pooled only	ipw	severe_case_share_error	-0.025315	0.0182791	0.00289018	40	held out
+B4_case_mix	pooled only	ipw	worst_within_stratum_prevalence_error	0.245842	0.0247437	0.00391232	40	held out
+B4_case_mix	pooled only	ipw	kish_ess	1755.2	160.351	25.3538	40	
+B4_case_mix	pooled only	ipw+cal	trait_bias_sd	-0.0355462	0.0449354	0.00710491	40	held out in every arm
+B4_case_mix	pooled only	ipw+cal	trait_rmse_sd	0.0568528	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	pooled only	ipw+cal	case_mix_liability_error	-0.0283828	0.0147775	0.00233652	40	mean liability among cases; held out in every arm
+B4_case_mix	pooled only	ipw+cal	severe_case_share_error	-0.025315	0.0182791	0.00289018	40	held out
+B4_case_mix	pooled only	ipw+cal	worst_within_stratum_prevalence_error	0.0172619	0.0102359	0.00161843	40	held out
+B4_case_mix	pooled only	ipw+cal	kish_ess	1516.9	187.827	29.6981	40	
+B4_case_mix	pooled only	ipw+cal/s	trait_bias_sd	-0.0255641	0.0445866	0.00704976	40	held out in every arm
+B4_case_mix	pooled only	ipw+cal/s	trait_rmse_sd	0.0509096	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	pooled only	ipw+cal/s	case_mix_liability_error	-0.0230542	0.0145529	0.00230101	40	mean liability among cases; held out in every arm
+B4_case_mix	pooled only	ipw+cal/s	severe_case_share_error	-0.0198844	0.0175587	0.00277627	40	held out
+B4_case_mix	pooled only	ipw+cal/s	worst_within_stratum_prevalence_error	3.41244e-08	4.73266e-08	7.48299e-09	40	constrained for ipw+cal/s: an identity there
+B4_case_mix	pooled only	ipw+cal/s	kish_ess	1532.94	189.214	29.9174	40	
+B4_case_mix	pooled only	ipw+cal/v	trait_bias_sd	-0.034515	0.0448528	0.00709185	40	held out in every arm
+B4_case_mix	pooled only	ipw+cal/v	trait_rmse_sd	0.0561495	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	pooled only	ipw+cal/v	case_mix_liability_error	-0.0103548	0.00717044	0.00113375	40	mean liability among cases; held out in every arm
+B4_case_mix	pooled only	ipw+cal/v	severe_case_share_error	-2.7644e-08	2.91314e-08	4.60608e-09	40	constrained for ipw+cal/v: an identity there
+B4_case_mix	pooled only	ipw+cal/v	worst_within_stratum_prevalence_error	0.0179436	0.0106916	0.00169048	40	held out
+B4_case_mix	pooled only	ipw+cal/v	kish_ess	1516.97	187.67	29.6733	40	
+B4_case_mix	pooled only	oracle	trait_bias_sd	0.00173186	0.0230811	0.00364944	40	held out in every arm
+B4_case_mix	pooled only	oracle	trait_rmse_sd	0.0228565	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	pooled only	oracle	case_mix_liability_error	-0.0043331	0.0152837	0.00241656	40	mean liability among cases; held out in every arm
+B4_case_mix	pooled only	oracle	severe_case_share_error	-0.00320157	0.0179035	0.0028308	40	held out
+B4_case_mix	pooled only	oracle	worst_within_stratum_prevalence_error	0.0136894	0.00843398	0.00133353	40	held out
+B4_case_mix	pooled only	oracle	kish_ess	1542.6	79.1499	12.5147	40	
+B4_case_mix	stratum-differential	naive	trait_bias_sd	0.547515	0.0735146	0.0116237	40	held out in every arm
+B4_case_mix	stratum-differential	naive	trait_rmse_sd	0.552306	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	stratum-differential	naive	case_mix_liability_error	0.0234621	0.0133495	0.00211075	40	mean liability among cases; held out in every arm
+B4_case_mix	stratum-differential	naive	severe_case_share_error	0.0212774	0.0124284	0.0019651	40	held out
+B4_case_mix	stratum-differential	naive	worst_within_stratum_prevalence_error	0.464254	0.0268216	0.00424087	40	held out
+B4_case_mix	stratum-differential	naive	kish_ess	2509.95	46.8215	7.40313	40	
+B4_case_mix	stratum-differential	ipw	trait_bias_sd	0.124983	0.0401722	0.00635178	40	held out in every arm
+B4_case_mix	stratum-differential	ipw	trait_rmse_sd	0.131127	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	stratum-differential	ipw	case_mix_liability_error	-0.0150276	0.0131012	0.00207148	40	mean liability among cases; held out in every arm
+B4_case_mix	stratum-differential	ipw	severe_case_share_error	-0.013532	0.0129548	0.00204833	40	held out
+B4_case_mix	stratum-differential	ipw	worst_within_stratum_prevalence_error	0.448151	0.0161896	0.0025598	40	held out
+B4_case_mix	stratum-differential	ipw	kish_ess	1615.84	209.33	33.0979	40	
+B4_case_mix	stratum-differential	ipw+cal	trait_bias_sd	-0.0439199	0.0530586	0.00838931	40	held out in every arm
+B4_case_mix	stratum-differential	ipw+cal	trait_rmse_sd	0.0683652	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	stratum-differential	ipw+cal	case_mix_liability_error	-0.0150276	0.0131012	0.00207148	40	mean liability among cases; held out in every arm
+B4_case_mix	stratum-differential	ipw+cal	severe_case_share_error	-0.013532	0.0129548	0.00204833	40	held out
+B4_case_mix	stratum-differential	ipw+cal	worst_within_stratum_prevalence_error	0.168688	0.0166778	0.00263699	40	held out
+B4_case_mix	stratum-differential	ipw+cal	kish_ess	1292.28	195.163	30.8579	40	
+B4_case_mix	stratum-differential	ipw+cal/s	trait_bias_sd	-0.0158085	0.053004	0.00838067	40	held out in every arm
+B4_case_mix	stratum-differential	ipw+cal/s	trait_rmse_sd	0.0546727	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	stratum-differential	ipw+cal/s	case_mix_liability_error	-0.0269271	0.0140624	0.00222347	40	mean liability among cases; held out in every arm
+B4_case_mix	stratum-differential	ipw+cal/s	severe_case_share_error	-0.0251436	0.0153468	0.00242654	40	held out
+B4_case_mix	stratum-differential	ipw+cal/s	worst_within_stratum_prevalence_error	6.60787e-08	9.36324e-08	1.48046e-08	40	constrained for ipw+cal/s: an identity there
+B4_case_mix	stratum-differential	ipw+cal/s	kish_ess	1378.54	197.289	31.1941	40	
+B4_case_mix	stratum-differential	ipw+cal/v	trait_bias_sd	-0.0433742	0.0528838	0.00836166	40	held out in every arm
+B4_case_mix	stratum-differential	ipw+cal/v	trait_rmse_sd	0.067883	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	stratum-differential	ipw+cal/v	case_mix_liability_error	-0.00535898	0.00760685	0.00120275	40	mean liability among cases; held out in every arm
+B4_case_mix	stratum-differential	ipw+cal/v	severe_case_share_error	-2.81225e-09	1.5197e-08	2.40286e-09	40	constrained for ipw+cal/v: an identity there
+B4_case_mix	stratum-differential	ipw+cal/v	worst_within_stratum_prevalence_error	0.16947	0.0168658	0.00266672	40	held out
+B4_case_mix	stratum-differential	ipw+cal/v	kish_ess	1292.37	195.145	30.8551	40	
+B4_case_mix	stratum-differential	oracle	trait_bias_sd	0.00160123	0.0233873	0.00369785	40	held out in every arm
+B4_case_mix	stratum-differential	oracle	trait_rmse_sd	0.0231485	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	stratum-differential	oracle	case_mix_liability_error	-0.00347227	0.0141518	0.00223759	40	mean liability among cases; held out in every arm
+B4_case_mix	stratum-differential	oracle	severe_case_share_error	-0.00395419	0.0161902	0.0025599	40	held out
+B4_case_mix	stratum-differential	oracle	worst_within_stratum_prevalence_error	0.0113693	0.00622606	0.000984426	40	held out
+B4_case_mix	stratum-differential	oracle	kish_ess	1352.91	66.2465	10.4745	40	
+B4_case_mix	within-case severity	naive	trait_bias_sd	0.547168	0.0829738	0.0131193	40	held out in every arm
+B4_case_mix	within-case severity	naive	trait_rmse_sd	0.553268	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	within-case severity	naive	case_mix_liability_error	0.083914	0.0135517	0.00214271	40	mean liability among cases; held out in every arm
+B4_case_mix	within-case severity	naive	severe_case_share_error	0.0757874	0.0140717	0.00222493	40	held out
+B4_case_mix	within-case severity	naive	worst_within_stratum_prevalence_error	0.350377	0.038731	0.00612391	40	held out
+B4_case_mix	within-case severity	naive	kish_ess	2511.9	48.4693	7.66367	40	
+B4_case_mix	within-case severity	ipw	trait_bias_sd	0.157648	0.0394195	0.00623276	40	held out in every arm
+B4_case_mix	within-case severity	ipw	trait_rmse_sd	0.162382	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	within-case severity	ipw	case_mix_liability_error	0.0555336	0.0213144	0.00337011	40	mean liability among cases; held out in every arm
+B4_case_mix	within-case severity	ipw	severe_case_share_error	0.0527739	0.0183967	0.00290878	40	held out
+B4_case_mix	within-case severity	ipw	worst_within_stratum_prevalence_error	0.307882	0.021204	0.00335264	40	held out
+B4_case_mix	within-case severity	ipw	kish_ess	1700.63	223.275	35.3028	40	
+B4_case_mix	within-case severity	ipw+cal	trait_bias_sd	-0.0404063	0.0556814	0.008804	40	held out in every arm
+B4_case_mix	within-case severity	ipw+cal	trait_rmse_sd	0.0682318	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	within-case severity	ipw+cal	case_mix_liability_error	0.0555336	0.0213144	0.00337011	40	mean liability among cases; held out in every arm
+B4_case_mix	within-case severity	ipw+cal	severe_case_share_error	0.0527739	0.0183967	0.00290878	40	held out
+B4_case_mix	within-case severity	ipw+cal	worst_within_stratum_prevalence_error	0.0257542	0.0121263	0.00191734	40	held out
+B4_case_mix	within-case severity	ipw+cal	kish_ess	1366.27	226.934	35.8815	40	
+B4_case_mix	within-case severity	ipw+cal/s	trait_bias_sd	-0.026314	0.0556753	0.00880303	40	held out in every arm
+B4_case_mix	within-case severity	ipw+cal/s	trait_rmse_sd	0.0609481	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	within-case severity	ipw+cal/s	case_mix_liability_error	0.0626775	0.0211047	0.00333694	40	mean liability among cases; held out in every arm
+B4_case_mix	within-case severity	ipw+cal/s	severe_case_share_error	0.0592982	0.0179404	0.00283662	40	held out
+B4_case_mix	within-case severity	ipw+cal/s	worst_within_stratum_prevalence_error	3.39383e-08	3.81809e-08	6.03693e-09	40	constrained for ipw+cal/s: an identity there
+B4_case_mix	within-case severity	ipw+cal/s	kish_ess	1394.9	229.488	36.2853	40	
+B4_case_mix	within-case severity	ipw+cal/v	trait_bias_sd	-0.0421904	0.0554878	0.0087734	40	held out in every arm
+B4_case_mix	within-case severity	ipw+cal/v	trait_rmse_sd	0.0691517	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	within-case severity	ipw+cal/v	case_mix_liability_error	0.0155781	0.00945141	0.0014944	40	mean liability among cases; held out in every arm
+B4_case_mix	within-case severity	ipw+cal/v	severe_case_share_error	-3.84044e-10	2.1827e-08	3.45115e-09	40	constrained for ipw+cal/v: an identity there
+B4_case_mix	within-case severity	ipw+cal/v	worst_within_stratum_prevalence_error	0.0237777	0.0117669	0.0018605	40	held out
+B4_case_mix	within-case severity	ipw+cal/v	kish_ess	1365.67	226.707	35.8456	40	
+B4_case_mix	within-case severity	oracle	trait_bias_sd	0.00230324	0.0250426	0.00395958	40	held out in every arm
+B4_case_mix	within-case severity	oracle	trait_rmse_sd	0.0248346	NA	NA	40	root mean square of the per-replication signed error
+B4_case_mix	within-case severity	oracle	case_mix_liability_error	-0.00143555	0.0107017	0.00169209	40	mean liability among cases; held out in every arm
+B4_case_mix	within-case severity	oracle	severe_case_share_error	-0.000472023	0.0125479	0.001984	40	held out
+B4_case_mix	within-case severity	oracle	worst_within_stratum_prevalence_error	0.0122516	0.00661759	0.00104633	40	held out
+B4_case_mix	within-case severity	oracle	kish_ess	1414.72	82.8352	13.0974	40	
+B5_interval_coverage	correct	fixed-weight	coverage_95	0.96	NA	0.0113137	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	correct	fixed-weight	interval_width_sd	0.0868502	0.00193367	0.00011164	300	width in population SD units
+B5_interval_coverage	correct	calibration-aware	coverage_95	0.953333	NA	0.0121777	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	correct	calibration-aware	interval_width_sd	0.0853276	0.00215402	0.000124362	300	width in population SD units
+B5_interval_coverage	correct	bootstrap	coverage_95	0.94	NA	0.0137113	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	correct	bootstrap	interval_width_sd	0.0838847	0.00429911	0.000248209	300	width in population SD units
+B5_interval_coverage	correct	estimator	trait_bias_sd	0.000364447	0.0223436	0.00129001	300	the bias the intervals are being asked to cover
+B5_interval_coverage	correct	bootstrap	discard_rate	0.000408333	0.00125206	7.22878e-05	300	replicates whose calibration did not solve
+B5_interval_coverage	base + margin	fixed-weight	coverage_95	0.653333	NA	0.0274766	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	base + margin	fixed-weight	interval_width_sd	0.10995	0.0129325	0.000746657	300	width in population SD units
+B5_interval_coverage	base + margin	calibration-aware	coverage_95	0.643333	NA	0.027656	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	base + margin	calibration-aware	interval_width_sd	0.105131	0.0114059	0.000658521	300	width in population SD units
+B5_interval_coverage	base + margin	bootstrap	coverage_95	0.64	NA	0.0277128	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	base + margin	bootstrap	interval_width_sd	0.10422	0.0120899	0.00069801	300	width in population SD units
+B5_interval_coverage	base + margin	estimator	trait_bias_sd	-0.0359311	0.0413063	0.00238482	300	the bias the intervals are being asked to cover
+B5_interval_coverage	base + margin	bootstrap	discard_rate	0.000216667	0.00076157	4.39693e-05	300	replicates whose calibration did not solve
+B5_interval_coverage	misspecified	fixed-weight	coverage_95	0.373333	NA	0.0279258	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	misspecified	fixed-weight	interval_width_sd	0.130378	0.0257096	0.00148435	300	width in population SD units
+B5_interval_coverage	misspecified	calibration-aware	coverage_95	0.356667	NA	0.027656	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	misspecified	calibration-aware	interval_width_sd	0.122171	0.0231556	0.00133689	300	width in population SD units
+B5_interval_coverage	misspecified	bootstrap	coverage_95	0.343333	NA	0.0274138	300	nominal 0.95; Monte Carlo error is binomial
+B5_interval_coverage	misspecified	bootstrap	interval_width_sd	0.119776	0.0227919	0.00131589	300	width in population SD units
+B5_interval_coverage	misspecified	estimator	trait_bias_sd	-0.0826299	0.0611981	0.00353327	300	the bias the intervals are being asked to cover
+B5_interval_coverage	misspecified	bootstrap	discard_rate	0.000275	0.00080977	4.67521e-05	300	replicates whose calibration did not solve
+B6_support	over-recruited | K=0.2	ipw+cal	sampled_cases	1273.93	117.445	21.4425	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.2	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.2	ipw+cal	bootstrap_discard_rate	0.000833333	0.00189525	0.000346023	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.2	ipw+cal	trait_bias_sd	-0.0317873	0.0480986	0.00878157	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.2	ipw+cal	trait_rmse_sd	0.0569806	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.2	naive	trait_bias_sd	0.589829	0.0835337	0.0152511	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.2	ipw+cal	kish_ess	1209.48	227.996	41.6262	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.2	ipw+cal	max_weight_share	12.1805	4.60398	0.840568	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.2	ipw+cal	max_abs_residual	1.53688e-09	1.67392e-09	3.05614e-10	30	
+B6_support	over-recruited | K=0.1	ipw+cal	sampled_cases	763.333	98.7551	18.0301	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.1	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.1	ipw+cal	bootstrap_discard_rate	0.000333333	0.00126854	0.000231603	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.1	ipw+cal	trait_bias_sd	-0.0388555	0.045992	0.00839695	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.1	ipw+cal	trait_rmse_sd	0.0596196	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.1	naive	trait_bias_sd	0.516677	0.0814438	0.0148695	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.1	ipw+cal	kish_ess	1420.25	218.823	39.9514	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.1	ipw+cal	max_weight_share	10.2737	6.53475	1.19308	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.1	ipw+cal	max_abs_residual	1.82742e-09	2.73762e-09	4.99819e-10	30	
+B6_support	over-recruited | K=0.05	ipw+cal	sampled_cases	421.6	69.556	12.6991	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.05	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.05	ipw+cal	bootstrap_discard_rate	0	0	0	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.05	ipw+cal	trait_bias_sd	-0.0316416	0.0395615	0.00722291	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.05	ipw+cal	trait_rmse_sd	0.0501412	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.05	naive	trait_bias_sd	0.439454	0.0719478	0.0131358	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.05	ipw+cal	kish_ess	1583.83	170.31	31.0942	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.05	ipw+cal	max_weight_share	8.53149	4.87115	0.889347	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.05	ipw+cal	max_abs_residual	5.18054e-10	1.46927e-09	2.68251e-10	30	
+B6_support	over-recruited | K=0.02	ipw+cal	sampled_cases	178.833	34.3733	6.27568	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.02	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.02	ipw+cal	bootstrap_discard_rate	0	0	0	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.02	ipw+cal	trait_bias_sd	-0.0180233	0.0299989	0.00547703	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.02	ipw+cal	trait_rmse_sd	0.0345656	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.02	naive	trait_bias_sd	0.373363	0.0585358	0.0106871	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.02	ipw+cal	kish_ess	1687.03	99.5027	18.1666	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.02	ipw+cal	max_weight_share	7.67779	3.42669	0.625625	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.02	ipw+cal	max_abs_residual	7.46359e-10	1.51666e-09	2.76902e-10	30	
+B6_support	over-recruited | K=0.01	ipw+cal	sampled_cases	89.4333	19.0384	3.47592	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.01	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.01	ipw+cal	bootstrap_discard_rate	0	0	0	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.01	ipw+cal	trait_bias_sd	-0.00831199	0.0270371	0.00493627	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.01	ipw+cal	trait_rmse_sd	0.0278519	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.01	naive	trait_bias_sd	0.343276	0.0524461	0.0095753	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.01	ipw+cal	kish_ess	1726.18	77.1092	14.0782	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.01	ipw+cal	max_weight_share	7.39412	3.04541	0.556014	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.01	ipw+cal	max_abs_residual	1.19897e-09	2.34544e-09	4.28217e-10	30	
+B6_support	over-recruited | K=0.005	ipw+cal	sampled_cases	45.4	10.817	1.9749	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.005	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.005	ipw+cal	bootstrap_discard_rate	0	0	0	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.005	ipw+cal	trait_bias_sd	-0.00354718	0.0259294	0.00473404	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.005	ipw+cal	trait_rmse_sd	0.0257392	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.005	naive	trait_bias_sd	0.326946	0.0489691	0.0089405	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.005	ipw+cal	kish_ess	1742.71	68.2434	12.4595	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.005	ipw+cal	max_weight_share	7.22479	2.86342	0.522787	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.005	ipw+cal	max_abs_residual	9.62718e-10	1.95401e-09	3.56752e-10	30	
+B6_support	over-recruited | K=0.002	ipw+cal	sampled_cases	17.6	5.67268	1.03569	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.002	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.002	ipw+cal	bootstrap_discard_rate	0	0	0	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.002	ipw+cal	trait_bias_sd	-0.000399711	0.0249902	0.00456256	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.002	ipw+cal	trait_rmse_sd	0.0245734	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.002	naive	trait_bias_sd	0.315461	0.0474662	0.0086661	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.002	ipw+cal	kish_ess	1749.98	65.9065	12.0328	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.002	ipw+cal	max_weight_share	7.17968	2.74548	0.501253	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.002	ipw+cal	max_abs_residual	9.98955e-10	1.4737e-09	2.69059e-10	30	
+B6_support	over-recruited | K=0.001	ipw+cal	sampled_cases	8.83333	3.64912	0.666235	30	cases among ~2500 participants
+B6_support	over-recruited | K=0.001	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	over-recruited | K=0.001	ipw+cal	bootstrap_discard_rate	0.007	0.0232898	0.00425211	30	resamples that could not reach the target; conditional on the solve
+B6_support	over-recruited | K=0.001	ipw+cal	trait_bias_sd	0.000889396	0.0249259	0.00455082	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.001	ipw+cal	trait_rmse_sd	0.024523	NA	NA	30	conditional on the solve succeeding
+B6_support	over-recruited | K=0.001	naive	trait_bias_sd	0.311142	0.0460135	0.00840088	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	over-recruited | K=0.001	ipw+cal	kish_ess	1752.17	63.4856	11.5908	30	population 30,000 for this sweep only
+B6_support	over-recruited | K=0.001	ipw+cal	max_weight_share	7.15421	2.70885	0.494566	30	largest weight in units of an equal share
+B6_support	over-recruited | K=0.001	ipw+cal	max_abs_residual	2.29984e-09	3.46444e-09	6.32517e-10	30	
+B6_support	under-recruited | K=0.2	ipw+cal	sampled_cases	123.033	27.6673	5.05134	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.2	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	under-recruited | K=0.2	ipw+cal	bootstrap_discard_rate	0.00166667	0.00273336	0.000499041	30	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.2	ipw+cal	trait_bias_sd	0.0274328	0.0404281	0.00738113	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.2	ipw+cal	trait_rmse_sd	0.0482961	NA	NA	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.2	naive	trait_bias_sd	0.15466	0.019998	0.00365112	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.2	ipw+cal	kish_ess	1159.2	214.476	39.1577	30	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.2	ipw+cal	max_weight_share	18.4491	8.76369	1.60002	30	largest weight in units of an equal share
+B6_support	under-recruited | K=0.2	ipw+cal	max_abs_residual	2.56832e-09	3.61367e-09	6.59763e-10	30	
+B6_support	under-recruited | K=0.1	ipw+cal	sampled_cases	54.3667	14.9793	2.73483	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.1	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	under-recruited | K=0.1	ipw+cal	bootstrap_discard_rate	0.000166667	0.000912871	0.000166667	30	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.1	ipw+cal	trait_bias_sd	0.0249008	0.0324246	0.00591989	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.1	ipw+cal	trait_rmse_sd	0.0404519	NA	NA	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.1	naive	trait_bias_sd	0.219682	0.0258508	0.00471969	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.1	ipw+cal	kish_ess	1342.99	199.923	36.5008	30	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.1	ipw+cal	max_weight_share	17.5497	7.54989	1.37842	30	largest weight in units of an equal share
+B6_support	under-recruited | K=0.1	ipw+cal	max_abs_residual	1.74534e-09	3.03094e-09	5.53372e-10	30	
+B6_support	under-recruited | K=0.05	ipw+cal	sampled_cases	26.2	8.33935	1.52255	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.05	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	under-recruited | K=0.05	ipw+cal	bootstrap_discard_rate	0	0	0	30	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.05	ipw+cal	trait_bias_sd	0.0166316	0.0266486	0.00486535	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.05	ipw+cal	trait_rmse_sd	0.0310336	NA	NA	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.05	naive	trait_bias_sd	0.257417	0.0327489	0.00597909	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.05	ipw+cal	kish_ess	1516.35	155.237	28.3424	30	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.05	ipw+cal	max_weight_share	14.6373	6.93859	1.26681	30	largest weight in units of an equal share
+B6_support	under-recruited | K=0.05	ipw+cal	max_abs_residual	1.58456e-09	2.67966e-09	4.89237e-10	30	
+B6_support	under-recruited | K=0.02	ipw+cal	sampled_cases	10.8333	4.39501	0.802415	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.02	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	under-recruited | K=0.02	ipw+cal	bootstrap_discard_rate	0.00133333	0.00642373	0.00117281	30	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.02	ipw+cal	trait_bias_sd	0.00977131	0.0241752	0.00441377	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.02	ipw+cal	trait_rmse_sd	0.025699	NA	NA	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.02	naive	trait_bias_sd	0.284108	0.038284	0.00698966	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.02	ipw+cal	kish_ess	1657.55	82.3351	15.0323	30	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.02	ipw+cal	max_weight_share	12.1152	4.40682	0.804571	30	largest weight in units of an equal share
+B6_support	under-recruited | K=0.02	ipw+cal	max_abs_residual	8.73722e-10	1.39522e-09	2.54732e-10	30	
+B6_support	under-recruited | K=0.01	ipw+cal	sampled_cases	5.5	3.02575	0.552424	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.01	ipw+cal	solve_success_rate	1	NA	0	30	calibration reached the target
+B6_support	under-recruited | K=0.01	ipw+cal	bootstrap_discard_rate	0.0341667	0.0575967	0.0105157	30	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.01	ipw+cal	trait_bias_sd	0.00680333	0.023951	0.00437284	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.01	ipw+cal	trait_rmse_sd	0.0245115	NA	NA	30	conditional on the solve succeeding
+B6_support	under-recruited | K=0.01	naive	trait_bias_sd	0.293896	0.0414311	0.00756424	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.01	ipw+cal	kish_ess	1704.23	65.3967	11.9397	30	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.01	ipw+cal	max_weight_share	10.3428	3.71177	0.677674	30	largest weight in units of an equal share
+B6_support	under-recruited | K=0.01	ipw+cal	max_abs_residual	1.73457e-09	2.6552e-09	4.84771e-10	30	
+B6_support	under-recruited | K=0.005	ipw+cal	sampled_cases	3	2.21282	0.404003	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.005	ipw+cal	solve_success_rate	0.933333	NA	0.045542	30	calibration reached the target
+B6_support	under-recruited | K=0.005	ipw+cal	bootstrap_discard_rate	0.101786	0.102724	0.019413	28	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.005	ipw+cal	trait_bias_sd	0.00652559	0.0237352	0.00448553	28	conditional on the solve succeeding
+B6_support	under-recruited | K=0.005	ipw+cal	trait_rmse_sd	0.0242038	NA	NA	28	conditional on the solve succeeding
+B6_support	under-recruited | K=0.005	naive	trait_bias_sd	0.299655	0.042938	0.00783937	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.005	ipw+cal	kish_ess	1736.73	65.7825	12.4317	28	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.005	ipw+cal	max_weight_share	7.99808	2.83627	0.536004	28	largest weight in units of an equal share
+B6_support	under-recruited | K=0.005	ipw+cal	max_abs_residual	1.49181e-09	2.44638e-09	4.62323e-10	28	
+B6_support	under-recruited | K=0.002	ipw+cal	sampled_cases	1.13333	1.00801	0.184037	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.002	ipw+cal	solve_success_rate	0.733333	NA	0.0807373	30	calibration reached the target
+B6_support	under-recruited | K=0.002	ipw+cal	bootstrap_discard_rate	0.274091	0.146861	0.0313109	22	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.002	ipw+cal	trait_bias_sd	0.0049851	0.0216195	0.00460929	22	conditional on the solve succeeding
+B6_support	under-recruited | K=0.002	ipw+cal	trait_rmse_sd	0.0217027	NA	NA	22	conditional on the solve succeeding
+B6_support	under-recruited | K=0.002	naive	trait_bias_sd	0.303323	0.044206	0.00807088	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.002	ipw+cal	kish_ess	1758.32	56.723	12.0934	22	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.002	ipw+cal	max_weight_share	6.43132	0.860481	0.183455	22	largest weight in units of an equal share
+B6_support	under-recruited | K=0.002	ipw+cal	max_abs_residual	1.53035e-09	2.3482e-09	5.00638e-10	22	
+B6_support	under-recruited | K=0.001	ipw+cal	sampled_cases	0.666667	0.660895	0.120662	30	cases among ~2500 participants
+B6_support	under-recruited | K=0.001	ipw+cal	solve_success_rate	0.566667	NA	0.090472	30	calibration reached the target
+B6_support	under-recruited | K=0.001	ipw+cal	bootstrap_discard_rate	0.331471	0.0936377	0.0227105	17	resamples that could not reach the target; conditional on the solve
+B6_support	under-recruited | K=0.001	ipw+cal	trait_bias_sd	0.000213853	0.0220606	0.00535049	17	conditional on the solve succeeding
+B6_support	under-recruited | K=0.001	ipw+cal	trait_rmse_sd	0.021403	NA	NA	17	conditional on the solve succeeding
+B6_support	under-recruited | K=0.001	naive	trait_bias_sd	0.304564	0.0446328	0.0081488	30	the bias being corrected; it shrinks with K because a rarer disease tilts less
+B6_support	under-recruited | K=0.001	ipw+cal	kish_ess	1746.09	49.6253	12.0359	17	population 30,000 for this sweep only
+B6_support	under-recruited | K=0.001	ipw+cal	max_weight_share	6.53691	1.01091	0.245183	17	largest weight in units of an equal share
+B6_support	under-recruited | K=0.001	ipw+cal	max_abs_residual	9.1226e-10	1.13859e-09	2.7615e-10	17	
+B7_shrinkage	correct | ridge=0	cal	trait_bias_sd	0.00584304	0.0216931	0.00342998	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0	cal	trait_abs_bias_sd	0.00584304	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0	cal	trait_rmse_sd	0.0222028	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0	cal	kish_ess	1906.28	53.6971	8.49025	40	
+B7_shrinkage	correct | ridge=0	cal	max_weight_share	1.43282	0.0191526	0.00302828	40	
+B7_shrinkage	correct | ridge=0	cal	max_abs_residual	1.72055e-12	1.14121e-12	1.80441e-13	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.0001	cal	trait_bias_sd	0.00602484	0.0216896	0.00342942	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.0001	cal	trait_abs_bias_sd	0.00602484	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.0001	cal	trait_rmse_sd	0.022248	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.0001	cal	kish_ess	1906.84	53.7003	8.49077	40	
+B7_shrinkage	correct | ridge=0.0001	cal	max_weight_share	1.43256	0.0191433	0.00302682	40	
+B7_shrinkage	correct | ridge=0.0001	cal	max_abs_residual	0.000167053	3.59479e-06	5.68386e-07	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.001	cal	trait_bias_sd	0.00764329	0.0216596	0.00342468	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.001	cal	trait_abs_bias_sd	0.00764329	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.001	cal	trait_rmse_sd	0.0227119	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.001	cal	kish_ess	1911.85	53.7291	8.49532	40	
+B7_shrinkage	correct | ridge=0.001	cal	max_weight_share	1.43019	0.0190607	0.00301376	40	
+B7_shrinkage	correct | ridge=0.001	cal	max_abs_residual	0.00165414	3.55963e-05	5.62827e-06	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.003	cal	trait_bias_sd	0.0111308	0.0216028	0.0034157	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.003	cal	trait_abs_bias_sd	0.0111308	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.003	cal	trait_rmse_sd	0.0240605	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.003	cal	kish_ess	1922.64	53.7891	8.50481	40	
+B7_shrinkage	correct | ridge=0.003	cal	max_weight_share	1.42508	0.0188827	0.00298562	40	
+B7_shrinkage	correct | ridge=0.003	cal	max_abs_residual	0.00485859	0.000104617	1.65414e-05	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.01	cal	trait_bias_sd	0.0223247	0.0214924	0.00339824	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.01	cal	trait_abs_bias_sd	0.0223247	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.01	cal	trait_rmse_sd	0.030802	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.01	cal	kish_ess	1957.2	53.9604	8.53188	40	
+B7_shrinkage	correct | ridge=0.01	cal	max_weight_share	1.4087	0.0183088	0.00289488	40	
+B7_shrinkage	correct | ridge=0.01	cal	max_abs_residual	0.0151441	0.00032771	5.18155e-05	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.03	cal	trait_bias_sd	0.0482553	0.0216617	0.00342502	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.03	cal	trait_abs_bias_sd	0.0482553	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.03	cal	trait_rmse_sd	0.0527833	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.03	cal	kish_ess	2036.47	54.2145	8.57206	40	
+B7_shrinkage	correct | ridge=0.03	cal	max_weight_share	1.37076	0.0169497	0.00267998	40	
+B7_shrinkage	correct | ridge=0.03	cal	max_abs_residual	0.0389712	0.000863173	0.00013648	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.1	cal	trait_bias_sd	0.105448	0.0239848	0.00379234	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.1	cal	trait_abs_bias_sd	0.105448	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.1	cal	trait_rmse_sd	0.108075	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.1	cal	kish_ess	2202.56	54.092	8.5527	40	
+B7_shrinkage	correct | ridge=0.1	cal	max_weight_share	1.28706	0.0137255	0.00217019	40	
+B7_shrinkage	correct | ridge=0.1	cal	max_abs_residual	0.0915312	0.00218629	0.000345683	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=0.3	cal	trait_bias_sd	0.178393	0.0297979	0.00471145	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=0.3	cal	trait_abs_bias_sd	0.178393	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=0.3	cal	trait_rmse_sd	0.180803	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=0.3	cal	kish_ess	2378.42	53.2367	8.41746	40	
+B7_shrinkage	correct | ridge=0.3	cal	max_weight_share	1.18026	0.00908058	0.00143577	40	
+B7_shrinkage	correct | ridge=0.3	cal	max_abs_residual	0.158584	0.00420805	0.000665352	40	non-zero by design once the ridge is positive
+B7_shrinkage	correct | ridge=1	cal	trait_bias_sd	0.246957	0.0368902	0.00583285	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	correct | ridge=1	cal	trait_abs_bias_sd	0.246957	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	correct | ridge=1	cal	trait_rmse_sd	0.249629	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	correct | ridge=1	cal	kish_ess	2482.17	52.6613	8.32648	40	
+B7_shrinkage	correct | ridge=1	cal	max_weight_share	1.07986	0.00418242	0.000661298	40	
+B7_shrinkage	correct | ridge=1	cal	max_abs_residual	0.221625	0.00644242	0.00101864	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0	ipw+cal	trait_bias_sd	-0.0355462	0.0449354	0.00710491	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0	ipw+cal	trait_abs_bias_sd	0.0355462	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0	ipw+cal	trait_rmse_sd	0.0568528	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0	ipw+cal	kish_ess	1516.9	187.827	29.6981	40	
+B7_shrinkage	base + margin | ridge=0	ipw+cal	max_weight_share	9.11635	3.3313	0.526725	40	
+B7_shrinkage	base + margin | ridge=0	ipw+cal	max_abs_residual	9.7688e-10	1.72724e-09	2.731e-10	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.0001	ipw+cal	trait_bias_sd	-0.035432	0.044923	0.00710295	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.0001	ipw+cal	trait_abs_bias_sd	0.035432	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.0001	ipw+cal	trait_rmse_sd	0.0567719	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.0001	ipw+cal	kish_ess	1517.15	187.848	29.7014	40	
+B7_shrinkage	base + margin | ridge=0.0001	ipw+cal	max_weight_share	9.11527	3.33095	0.52667	40	
+B7_shrinkage	base + margin | ridge=0.0001	ipw+cal	max_abs_residual	0.000108332	7.11234e-06	1.12456e-06	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.001	ipw+cal	trait_bias_sd	-0.0344161	0.0448125	0.00708548	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.001	ipw+cal	trait_abs_bias_sd	0.0344161	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.001	ipw+cal	trait_rmse_sd	0.0560573	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.001	ipw+cal	kish_ess	1519.42	188.034	29.7308	40	
+B7_shrinkage	base + margin | ridge=0.001	ipw+cal	max_weight_share	9.10565	3.32786	0.526182	40	
+B7_shrinkage	base + margin | ridge=0.001	ipw+cal	max_abs_residual	0.00107265	7.0425e-05	1.11352e-05	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.003	ipw+cal	trait_bias_sd	-0.0322275	0.0445748	0.0070479	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.003	ipw+cal	trait_abs_bias_sd	0.0322275	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.003	ipw+cal	trait_rmse_sd	0.0545514	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.003	ipw+cal	kish_ess	1524.3	188.423	29.7923	40	
+B7_shrinkage	base + margin | ridge=0.003	ipw+cal	max_weight_share	9.08493	3.32121	0.525129	40	
+B7_shrinkage	base + margin | ridge=0.003	ipw+cal	max_abs_residual	0.00314998	0.000206893	3.27127e-05	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.01	ipw+cal	trait_bias_sd	-0.0252208	0.043818	0.00692824	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.01	ipw+cal	trait_abs_bias_sd	0.0252208	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.01	ipw+cal	trait_rmse_sd	0.050081	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.01	ipw+cal	kish_ess	1539.73	189.549	29.9703	40	
+B7_shrinkage	base + margin | ridge=0.01	ipw+cal	max_weight_share	9.01858	3.29991	0.521762	40	
+B7_shrinkage	base + margin | ridge=0.01	ipw+cal	max_abs_residual	0.00980081	0.000646018	0.000102144	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.03	ipw+cal	trait_bias_sd	-0.00921251	0.0421218	0.00666004	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.03	ipw+cal	trait_abs_bias_sd	0.00921251	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.03	ipw+cal	trait_rmse_sd	0.0426	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.03	ipw+cal	kish_ess	1573.86	191.419	30.266	40	
+B7_shrinkage	base + margin | ridge=0.03	ipw+cal	max_weight_share	8.86703	3.25147	0.514103	40	
+B7_shrinkage	base + margin | ridge=0.03	ipw+cal	max_abs_residual	0.0249988	0.0016776	0.000265251	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.1	ipw+cal	trait_bias_sd	0.0243697	0.038778	0.00613134	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.1	ipw+cal	trait_abs_bias_sd	0.0243697	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.1	ipw+cal	trait_rmse_sd	0.0453875	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.1	ipw+cal	kish_ess	1639.15	191.79	30.3247	40	
+B7_shrinkage	base + margin | ridge=0.1	ipw+cal	max_weight_share	8.54939	3.15147	0.498291	40	
+B7_shrinkage	base + margin | ridge=0.1	ipw+cal	max_abs_residual	0.0569044	0.00406679	0.000643016	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=0.3	ipw+cal	trait_bias_sd	0.0632312	0.0354107	0.00559892	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=0.3	ipw+cal	trait_abs_bias_sd	0.0632312	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=0.3	ipw+cal	trait_rmse_sd	0.0722547	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=0.3	ipw+cal	kish_ess	1700.74	185.153	29.2752	40	
+B7_shrinkage	base + margin | ridge=0.3	ipw+cal	max_weight_share	8.19915	3.03053	0.479169	40	
+B7_shrinkage	base + margin | ridge=0.3	ipw+cal	max_abs_residual	0.0938798	0.00736112	0.00116389	40	non-zero by design once the ridge is positive
+B7_shrinkage	base + margin | ridge=1	ipw+cal	trait_bias_sd	0.0958855	0.033141	0.00524005	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	base + margin | ridge=1	ipw+cal	trait_abs_bias_sd	0.0958855	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	base + margin | ridge=1	ipw+cal	trait_rmse_sd	0.101316	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	base + margin | ridge=1	ipw+cal	kish_ess	1737.88	172.962	27.3477	40	
+B7_shrinkage	base + margin | ridge=1	ipw+cal	max_weight_share	8.02201	2.8793	0.455257	40	
+B7_shrinkage	base + margin | ridge=1	ipw+cal	max_abs_residual	0.125005	0.0106696	0.00168701	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0	ipw+cal	trait_bias_sd	-0.0832301	0.0656763	0.0103843	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0	ipw+cal	trait_abs_bias_sd	0.0832301	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0	ipw+cal	trait_rmse_sd	0.105512	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0	ipw+cal	kish_ess	1237.62	274.765	43.4441	40	
+B7_shrinkage	misspecified | ridge=0	ipw+cal	max_weight_share	14.6457	7.27983	1.15104	40	
+B7_shrinkage	misspecified | ridge=0	ipw+cal	max_abs_residual	1.57093e-09	2.74414e-09	4.33887e-10	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.0001	ipw+cal	trait_bias_sd	-0.0831076	0.0656578	0.0103814	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.0001	ipw+cal	trait_abs_bias_sd	0.0831076	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.0001	ipw+cal	trait_rmse_sd	0.105404	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.0001	ipw+cal	kish_ess	1237.8	274.772	43.4453	40	
+B7_shrinkage	misspecified | ridge=0.0001	ipw+cal	max_weight_share	14.6442	7.27904	1.15092	40	
+B7_shrinkage	misspecified | ridge=0.0001	ipw+cal	max_abs_residual	9.17153e-05	6.97868e-06	1.10343e-06	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.001	ipw+cal	trait_bias_sd	-0.0820171	0.0654932	0.0103554	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.001	ipw+cal	trait_abs_bias_sd	0.0820171	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.001	ipw+cal	trait_rmse_sd	0.104446	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.001	ipw+cal	kish_ess	1239.47	274.837	43.4556	40	
+B7_shrinkage	misspecified | ridge=0.001	ipw+cal	max_weight_share	14.6307	7.27204	1.14981	40	
+B7_shrinkage	misspecified | ridge=0.001	ipw+cal	max_abs_residual	0.000908136	6.90902e-05	1.09241e-05	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.003	ipw+cal	trait_bias_sd	-0.0796683	0.0651389	0.0102994	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.003	ipw+cal	trait_abs_bias_sd	0.0796683	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.003	ipw+cal	trait_rmse_sd	0.102392	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.003	ipw+cal	kish_ess	1243.04	274.967	43.4762	40	
+B7_shrinkage	misspecified | ridge=0.003	ipw+cal	max_weight_share	14.6018	7.25696	1.14743	40	
+B7_shrinkage	misspecified | ridge=0.003	ipw+cal	max_abs_residual	0.00266671	0.000202942	3.20879e-05	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.01	ipw+cal	trait_bias_sd	-0.0721537	0.0640079	0.0101205	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.01	ipw+cal	trait_abs_bias_sd	0.0721537	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.01	ipw+cal	trait_rmse_sd	0.0959205	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.01	ipw+cal	kish_ess	1254.43	275.297	43.5282	40	
+B7_shrinkage	misspecified | ridge=0.01	ipw+cal	max_weight_share	14.5092	7.2087	1.1398	40	
+B7_shrinkage	misspecified | ridge=0.01	ipw+cal	max_abs_residual	0.00829277	0.000632906	0.000100071	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.03	ipw+cal	trait_bias_sd	-0.0550525	0.0614393	0.0097144	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.03	ipw+cal	trait_abs_bias_sd	0.0550525	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.03	ipw+cal	trait_rmse_sd	0.0819219	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.03	ipw+cal	kish_ess	1280.06	275.515	43.5628	40	
+B7_shrinkage	misspecified | ridge=0.03	ipw+cal	max_weight_share	14.2985	7.09877	1.12241	40	
+B7_shrinkage	misspecified | ridge=0.03	ipw+cal	max_abs_residual	0.0210946	0.00163399	0.000258357	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.1	ipw+cal	trait_bias_sd	-0.0197149	0.0561219	0.00887365	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.1	ipw+cal	trait_abs_bias_sd	0.0197149	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.1	ipw+cal	trait_rmse_sd	0.0588184	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.1	ipw+cal	kish_ess	1331.31	273.406	43.2293	40	
+B7_shrinkage	misspecified | ridge=0.1	ipw+cal	max_weight_share	13.8628	6.87071	1.08635	40	
+B7_shrinkage	misspecified | ridge=0.1	ipw+cal	max_abs_residual	0.0475355	0.00388438	0.000614175	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=0.3	ipw+cal	trait_bias_sd	0.0199383	0.0501645	0.00793171	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=0.3	ipw+cal	trait_abs_bias_sd	0.0199383	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=0.3	ipw+cal	trait_rmse_sd	0.0533957	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=0.3	ipw+cal	kish_ess	1385.13	266.643	42.1599	40	
+B7_shrinkage	misspecified | ridge=0.3	ipw+cal	max_weight_share	13.3735	6.61274	1.04557	40	
+B7_shrinkage	misspecified | ridge=0.3	ipw+cal	max_abs_residual	0.0771764	0.00682746	0.00107952	40	non-zero by design once the ridge is positive
+B7_shrinkage	misspecified | ridge=1	ipw+cal	trait_bias_sd	0.0520456	0.0454713	0.00718965	40	mean is the bias; sd is the across-replication spread the ridge is buying
+B7_shrinkage	misspecified | ridge=1	ipw+cal	trait_abs_bias_sd	0.0520456	NA	NA	40	absolute value of the mean signed error
+B7_shrinkage	misspecified | ridge=1	ipw+cal	trait_rmse_sd	0.0687364	NA	NA	40	root mean square of the per-replication signed error
+B7_shrinkage	misspecified | ridge=1	ipw+cal	kish_ess	1424.97	257.735	40.7515	40	
+B7_shrinkage	misspecified | ridge=1	ipw+cal	max_weight_share	12.9877	6.39152	1.01059	40	
+B7_shrinkage	misspecified | ridge=1	ipw+cal	max_abs_residual	0.101149	0.00961556	0.00152035	40	non-zero by design once the ridge is positive

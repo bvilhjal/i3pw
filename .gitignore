@@ -32,3 +32,14 @@ env/
 # Scratch
 *.log
 scratch/
+tmp/
+
+# Benchmark smoke runs. The freeze is report/benchmark_results.tsv and is tracked;
+# --quick output is too noisy to quote and must never be mistaken for it.
+report/benchmark_results_quick.tsv
+
+# LaTeX build products (the PDF itself is tracked)
+report/*.aux
+report/*.out
+report/*.toc
+report/*.log

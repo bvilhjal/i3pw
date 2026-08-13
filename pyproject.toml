@@ -54,11 +54,14 @@ i3pw = ["py.typed"]
 "share/i3pw" = ["README.md", "LICENSE", "CITATION.cff", "CHANGELOG.md"]
 "share/i3pw/docs" = ["docs/*.md"]
 "share/i3pw/examples" = ["examples/*.py"]
+"share/i3pw/benchmarks" = ["benchmarks/*.py", "benchmarks/README.md"]
 "share/i3pw/report" = [
     "report/i3pw_report.tex",
     "report/README.md",
     "report/validation_results.tsv",
     "report/validation_environment.txt",
+    "report/benchmark_results.tsv",
+    "report/benchmark_environment.txt",
 ]
 
 [tool.pytest.ini_options]

@@ -1,0 +1,14 @@
+artifact=report/benchmark_results.tsv
+generator=benchmarks/run_all.py
+run_date=2026-08-13
+mode=full
+rows=742
+wall_seconds=989.4
+i3pw_version=0.3.1
+python_version=3.11.15
+numpy_version=2.4.6
+scipy_version=1.17.1
+scikit_learn_version=1.9.0
+platform=macOS-26.5.2-arm64-arm-64bit
+machine=arm64
+note=every seed is fixed; rerunning the generator on this environment reproduces the table exactly

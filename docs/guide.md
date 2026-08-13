@@ -189,6 +189,18 @@ outcome, with the prevalence anchored either way:
 Every shipped diagnostic prefers the broken run — its ESS is 3× "healthier". Only the
 held-out covariate separates them.
 
+**Read it as an alarm, not as a ranking.** The benchmark suite ran the same diagnostic
+across five recruitment mechanisms and it went both ways. Under outcome-only
+recruitment it correctly flagged the worse weighting (worst held-out `|SMD|` 0.146
+against 0.034, matching the biases 0.065 against 0.006). Under additive recruitment it
+ranked two weightings backwards, preferring the one with 3× the bias (`|SMD|` 0.024 at
+a bias of 0.120, against 0.106 at a bias of 0.036). The reason is structural: the
+diagnostic measures balance on the margins you happened to hold out, and an estimator
+can buy balance on those while moving the estimand the wrong way. Use a large
+discrepancy as evidence against the specification; do not use a small one to pick
+between two candidate weightings
+([evidence](studies.md#neither-ingredient-is-enough-and-the-base-model-is-not-free)).
+
 ## Uncertainty
 
 Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces:
@@ -250,7 +262,32 @@ Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces
   (age/period, ascertainment, diagnostic, linkage error), so this scales the known `K`
   by `1 + δ` across a grid and reports how each estimand and the ESS move. The anchored
   outcome tracks its perturbed target by construction; the informative response is in the
-  unanchored outcomes and the ESS.
+  unanchored outcomes and the ESS. A ±30% sweep on this package's own benchmark moved a
+  held-out estimand by about 0.011 SD per 10 percentage points of relative error, so
+  plausible register error is small next to the bias being removed — but the sweep's
+  *minimum* fell at a 30% wrong target, so it bounds the estimate and does not locate
+  the truth inside the bound.
+
+### What none of these SEs can tell you
+
+All three procedures — fixed-weight, calibration-aware, and bootstrap — describe
+sampling variability under the density-ratio model you assumed. None of them describes
+the risk that the model is wrong, and that risk dominates. Measured coverage of a
+nominal 95% interval for a held-out trait mean, 300 replications:
+
+| specification | fixed-weight | calibration-aware | bootstrap | mean width |
+| --- | --- | --- | --- | --- |
+| tilt family contains the truth | 0.960 | 0.953 | 0.940 | 0.085 |
+| fitted base + marginal constraint | 0.653 | 0.643 | 0.640 | 0.105 |
+| covariate × outcome recruitment | 0.373 | 0.357 | 0.343 | 0.122 |
+
+The widths barely move; the coverage collapses. The calibration-aware half-widths are
+0.043, 0.053 and 0.061 SD, so the middle row's 0.036 SD bias is 68% of the half-width
+it would have to fit inside, and the last row's 0.083 SD is 135% of it. The middle row is not a
+pathological design — it is a fitted participation model plus one known prevalence,
+which is what this package recommends. So report an interval next to the held-out
+diagnostic and the `K` sweep, and never as evidence that the weighting is right
+([evidence](studies.md#the-intervals-cover-only-when-the-tilt-family-is-right)).
 
 ## Downstream estimands: doubly-robust estimation
 
@@ -332,3 +369,14 @@ and, being calibration to richer moments, it also reaches past purely marginal s
 toward the interaction structure marginal calibration cannot represent. It reduces to
 `outcome_calibration_weights` when there is a single stratum, and composes with covariate
 base weights exactly like the other calibrators.
+
+**Choose the strata to match the mechanism, not the metadata you happen to have.**
+Where cases were recruited unevenly *across* strata, a pooled margin left a
+within-stratum prevalence wrong by 0.169 against a population `K` of 0.10, and
+stratifying took a held-out trait mean from −0.044 to −0.016 SD (oracle +0.002). Where
+recruitment instead depended on severity *within* case status, the same demographic
+strata did nothing — the case-mix error went from +0.056 pooled to +0.063 stratified —
+and what worked was anchoring the register's mild- and severe-case prevalences as two
+outcome columns, which brought it to +0.016. Stratifying on the wrong axis costs
+effective sample size and buys nothing
+([evidence](studies.md#prevalence-fixes-the-case-count-not-the-case-mix--and-strata-are-not-a-cure-all)).

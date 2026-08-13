@@ -375,6 +375,14 @@ comorbidity stays biased. The fixes climb the ladder:
   (`stratified_calibration_weights`), not just the marginal, so the weighted case mix
   matches the register's — this is usually the single most important step for
   psychiatric cohorts;
+- but **stratify along the axis recruitment acts on**, which is a claim about the
+  mechanism that the calibration cannot supply. Measured on two mechanisms that both
+  leave the pooled prevalence matched: where cases are recruited unevenly *across
+  strata*, stratifying takes a held-out estimand from −0.044 to −0.016 SD (oracle
+  +0.002); where recruitment depends on severity *within* case status, demographic
+  strata leave the case mix marginally worse than the pooled margin (+0.063 against
+  +0.056) and only separate mild- and severe-case prevalences repair it (+0.016).
+  ([evidence](studies.md#prevalence-fixes-the-case-count-not-the-case-mix--and-strata-are-not-a-cure-all));
 - past that, within-case selection on things you *cannot* stratify on (unmeasured
   severity, differential survival) is the residual risk that prevalence cannot fix.
   Fold the available proxies into the task-1 participation model, and report a
