@@ -28,6 +28,7 @@ from scipy.stats import norm
 
 from .calibration import (
     CalibrationWarning,
+    _require_finite,
     compute_base_weights,
     effective_sample_size,
     entropy_balance,
@@ -76,6 +77,8 @@ def weighted_mean_se(values: np.ndarray, weights: np.ndarray, *, level: float = 
     w = np.asarray(weights, dtype=float).ravel()
     if y.shape != w.shape:
         raise ValueError("values and weights must have the same length.")
+    _require_finite(y, "values")
+    _require_finite(w, "weights")
     if np.any(w < 0):
         raise ValueError("weights must be non-negative.")
     total = w.sum()
@@ -204,7 +207,10 @@ def bootstrap_calibration_ipw(
         """
         w, diag = entropy_balance(Yb[:, anchors], anchor_targets, base_weights=bw,
                                   ridge=shrinkage, warn=False, return_diagnostics=True)
-        if shrinkage == 0.0 and (not diag.converged or diag.max_abs_residual > 1e-6):
+        # ``diag.converged`` is residual-certified (see entropy_balance), so a
+        # replicate that met its targets is kept even if the optimizer's stop flag
+        # grumbled; only a genuinely unreached target discards the replicate.
+        if shrinkage == 0.0 and not diag.converged:
             return None
         return np.array([weighted_prevalence(w, Yb[:, j]) for j in range(q)])
 

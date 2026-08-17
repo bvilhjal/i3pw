@@ -392,6 +392,14 @@ def entropy_balance(
     w[support] = mass / mass.sum()
 
     max_abs_residual = float(np.max(np.abs(w @ F - t))) if k else 0.0
+    # For the unpenalized dual, the residual ``w @ F - t`` *is* the gradient at the
+    # returned point, so a small residual certifies approximate optimality of this
+    # convex solve on its own. An optimizer flag saying otherwise must not override
+    # that certificate: L-BFGS-B's line-search "ABNORMAL" termination fires at
+    # machine precision on some scipy versions (observed on 1.18), and treating it
+    # as failure would report a solved calibration as failed — and, downstream,
+    # discard a valid bootstrap replicate from the tail of the sampling distribution.
+    certified = ridge == 0.0 and max_abs_residual <= tol
     if warn:
         # The unmet-target diagnosis is the *informative* one — an unreachable target
         # is exactly the case where the optimizer also fails to converge, so it must
@@ -403,7 +411,7 @@ def entropy_balance(
                 "the sample's convex hull (e.g. an anchored outcome with no cases sampled).",
                 CalibrationWarning, stacklevel=2,
             )
-        elif not success:
+        elif not success and not certified:
             warnings.warn(
                 f"entropy_balance: optimizer did not converge ({message!r}); "
                 "weights may be unreliable.",
@@ -411,7 +419,9 @@ def entropy_balance(
             )
 
     if return_diagnostics:
-        converged = success and (ridge > 0.0 or max_abs_residual <= tol)
+        # Unpenalized: the residual certificate above. Penalized: the residual is
+        # non-zero by design, so the optimizer's own flag is all there is.
+        converged = certified if ridge == 0.0 else success
         return w, _diagnostics(w, converged, n_iter, max_abs_residual, message, tilt=tilt)
     return w
 
@@ -607,6 +617,23 @@ def calibration_mean_se(
     return Estimate(value=mu, se=se, ci_low=mu - z * se, ci_high=mu + z * se, level=level)
 
 
+def _check_binary_outcomes(Y: np.ndarray) -> None:
+    """Require 0/1 outcomes for the prevalence-constraint design builders.
+
+    Both builders speak prevalence: constraints are case fractions, and the
+    no-support diagnostics count cases as ``Y.sum()``. A continuous column would
+    be silently misdiagnosed (e.g. a zero-mean outcome flagged unreachable when an
+    exponential tilt could move its mean). Continuous calibration targets are
+    supported — through :func:`entropy_balance`, which makes no prevalence claims.
+    """
+    if np.any((Y != 0.0) & (Y != 1.0)):
+        raise ValueError(
+            "Y must contain 0/1 outcomes: prevalence constraints and the "
+            "no-support diagnostics assume cases and controls. To calibrate the "
+            "mean of a continuous quantity, call entropy_balance directly."
+        )
+
+
 def _marginal_design(
     Y: npt.ArrayLike,
     prevalences,
@@ -628,6 +655,7 @@ def _marginal_design(
         Y = Y.T
     if Y.shape[1] != prev.shape[0]:
         raise ValueError("prevalences must have one entry per outcome column of Y.")
+    _check_binary_outcomes(Y)
     names = list(labels) if labels is not None else [f"Y{q}" for q in range(Y.shape[1])]
     if len(names) != Y.shape[1]:
         raise ValueError("labels must have one name per outcome column of Y.")
@@ -671,6 +699,7 @@ def _stratified_design(
     share = np.asarray(stratum_share, dtype=float).ravel()
     n, Q = Y.shape
     A = share.shape[0]
+    _check_binary_outcomes(Y)
     if lab.shape[0] != n:
         raise ValueError("strata must have one label per row of Y.")
     if within.shape != (A, Q):

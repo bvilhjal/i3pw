@@ -25,6 +25,12 @@ def weighted_prevalence(weights: np.ndarray, y: np.ndarray) -> float:
         raise ValueError(
             f"weights and y must have the same length; got "
             f"{weights.shape} and {y.shape}")
+    # Checked inline rather than via calibration._require_finite: calibration
+    # imports this module, so the dependency has to point this way.
+    if not (np.all(np.isfinite(weights)) and np.all(np.isfinite(y))):
+        raise ValueError(
+            "weights and y must not contain NaN or infinite values; drop or "
+            "impute them first (missing values cannot be reweighted).")
     total = weights.sum()
     if total == 0:
         raise ValueError("Weights sum to zero; cannot compute weighted prevalence.")

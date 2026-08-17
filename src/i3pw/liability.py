@@ -77,7 +77,13 @@ def lee_transform(r2_obs_ascertained: float, K: float, P: float) -> float:
 
 
 def similarity_matrix(X: np.ndarray) -> np.ndarray:
-    """Predictor similarity matrix ``X X^T / M`` for standardized predictors ``X``."""
+    """Predictor similarity matrix ``X X^T / M`` for standardized predictors ``X``.
+
+    Dense and O(n^2) in memory and time: intended for the package's simulation
+    studies (``n`` in the thousands). At biobank scale the matrix alone is
+    prohibitive (~80 GB at ``n = 100,000`` in float64) — use a block-wise or
+    randomized estimator there instead.
+    """
     X = np.asarray(X, dtype=float)
     return (X @ X.T) / X.shape[1]
 

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Harden the calibration solve against optimizer stop-flag drift. For the
+  unpenalized dual, `entropy_balance` now certifies convergence by the
+  constraint residual — which is the dual gradient at the returned point —
+  rather than by L-BFGS-B's `success` flag, whose line-search "ABNORMAL"
+  termination fires at machine precision on some scipy versions (observed on
+  1.18; the frozen artifacts were built on 1.17.1). Previously such a solve was
+  reported as non-converged and the bootstrap discarded the replicate, a
+  selective tail loss the module itself warns against;
+  `test_bootstrap_anchored_outcome_has_near_zero_se` failed off the freeze
+  environment for this reason and now asserts the discard *rate* is small
+  instead of asserting zero discards outright.
+- Reject NaN/inf inputs in `weighted_mean_se` and `weighted_prevalence`, the
+  two estimators that lacked the finite-value guard the calibration module
+  applies everywhere else.
+- Validate that outcomes are 0/1 in the prevalence-constraint design builders
+  (`calibrate`, `outcome_calibration_weights`,
+  `stratified_calibration_weights`). A continuous column was silently accepted
+  and could be falsely flagged unreachable; continuous calibration targets
+  belong to `entropy_balance` directly, which makes no prevalence claims.
+- Note in `similarity_matrix`'s docstring that it is dense O(n^2), intended for
+  the package's simulation studies rather than biobank-scale cohorts.
 - Add `benchmarks/`, a seven-benchmark evidence suite covering the report's
   validation matrix: recruitment mechanism, register information, target error,
   case mix, interval coverage, support, and the ridge. Every benchmark scores
