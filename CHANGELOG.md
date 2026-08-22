@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- `liability_threshold` computes `t` as `-ppf(K)` rather than `ppf(1 - K)`. The
+  identity is exact, so no realistic prevalence changes by even one bit; the old
+  spelling lost digits below `K ~ 1e-9` and returned `+inf` for `K <= 1.1e-16`,
+  which would have propagated through `z = 0` to an infinite factor in
+  `lee_transform` with nothing in between checking finiteness.
+- `lee_transform` documents that it is the Lee et al. (2011) leading factor and
+  not the (2012) ascertainment-corrected form, gives the size of the gap
+  (about 15% at `K=0.01, P=0.5, R2=0.2`), and points at
+  `multipgs.metrics.liability_r2` for the 2012 transform. Behaviour is
+  unchanged: the published benchmark comparison was run under the 2011 form.
 - Harden the calibration solve against optimizer stop-flag drift. For the
   unpenalized dual, `entropy_balance` now certifies convergence by the
   constraint residual — which is the dual gradient at the returned point —

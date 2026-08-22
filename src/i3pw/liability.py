@@ -52,7 +52,12 @@ from scipy.stats import norm
 
 def liability_threshold(K: float) -> tuple[float, float]:
     """Return ``(t, z)``: the liability threshold and the normal density there."""
-    t = norm.ppf(1.0 - K)
+    # -ppf(K), not ppf(1 - K): the subtraction discards K below the float64
+    # spacing of 1.0, so ppf(1 - K) loses digits from about K = 1e-9 (4.6e-9
+    # absolute) and returns +inf for K <= 1.1e-16 -- which would propagate
+    # silently through z = 0 to an infinite factor in lee_transform below.
+    # Phi^-1(1 - K) = -Phi^-1(K) holds exactly, so this costs nothing.
+    t = -norm.ppf(K)
     return float(t), float(norm.pdf(t))
 
 
@@ -71,6 +76,22 @@ def lee_transform(r2_obs_ascertained: float, K: float, P: float) -> float:
 
     ``R2_L = r2_obs * [K(1-K)/z^2] * [K(1-K)/(P(1-P))]`` where ``P`` is the case
     proportion in the sample. Reduces to :func:`observed_to_liability` when ``P == K``.
+
+    This is the leading factor only. Lee et al. (2012) add an ascertainment term
+    ``theta`` and make the transform non-linear in ``R2``::
+
+        i = z / K;  u = i * (P - K) / (1 - K)
+        theta = u * (u - t)
+        R2_L(2012) = C * R2 / (1 + C * theta * R2)
+
+    The two agree exactly when ``P == K`` and diverge as ``R2`` grows: at
+    ``K = 0.05, P = 0.5, R2 = 0.1`` the 2011 form gives 0.0848 against 0.0898,
+    and at ``K = 0.01, P = 0.5, R2 = 0.2`` it gives 0.1104 against 0.1294 -- a
+    15% gap. The 2011 linearisation is kept deliberately: this module is the
+    benchmark harness that puts the Lee transform *against* the IPW estimators
+    as competing corrections, and the published comparison was run under it.
+    Anyone converting a large ascertained ``R2`` for its own sake wants the 2012
+    form, implemented as ``multipgs.metrics.liability_r2``.
     """
     _, z = liability_threshold(K)
     return r2_obs_ascertained * (K * (1.0 - K) / z**2) * (K * (1.0 - K) / (P * (1.0 - P)))
