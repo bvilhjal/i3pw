@@ -237,7 +237,7 @@ of them — and each one is the answer to one of the
 | [**docs/theory.md**](docs/theory.md) | *question 2.* [notation](docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
 | [**docs/guide.md**](docs/guide.md) | *how to run it.* [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
 | [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [what breaks and when](docs/studies.md#the-benchmark-suite-what-breaks-and-when) and [the honest benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy). Numbers are copied from [`report/validation_results.tsv`](report/validation_results.tsv) and [`report/benchmark_results.tsv`](report/benchmark_results.tsv) | read if you doubt a claim |
-| [**benchmarks/**](benchmarks/README.md) | *when does it fail?* seven benchmarks over the recruitment mechanism, the register information, the target error, the case mix, the support and the ridge — every one scored on estimands nobody was given, against oracle weights | read if you are judging the method |
+| [**benchmarks/**](benchmarks/README.md) | *when does it fail?* nine benchmarks over the recruitment mechanism, the register information, the target error, the case mix, the support, the ridge, register error under richer anchors, and wall-clock cost — every one scored on estimands nobody was given, against oracle weights | read if you are judging the method |
 | [**report PDF**](output/pdf/i3pw_report.pdf) ([LaTeX source](report/i3pw_report.tex)) | methods note: estimand, identification, and both layers of simulation evidence in full | read before quoting a number in a paper |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
@@ -388,7 +388,7 @@ docs/               # theory.md, guide.md, studies.md
 tests/              # pytest suite
 examples/           # real_cohort_workflow.py if you have a cohort;
                     #   honest_benchmark.py if you are judging the method
-benchmarks/         # the evidence base: seven benchmarks over the report's
+benchmarks/         # the evidence base: nine benchmarks over the report's
                     #   validation matrix, plus the generator for the report's
                     #   tables and figures. Not part of the installed package.
 report/             # cited LaTeX methods note + both frozen results artifacts

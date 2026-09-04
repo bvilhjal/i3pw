@@ -21,15 +21,15 @@
   x tick label style={font=\scriptsize, rotate=20, anchor=east},
   legend style={at={(0.5,-0.34)}, anchor=north, legend columns=3},
 ]
-\addplot[viz naive, only marks] coordinates {(-0.31,0.388831) (0.69,0.301473) (1.69,0.479315) (2.69,0.557753) (3.69,0.547168)};
+\addplot[viz naive, only marks] coordinates {(-0.31,0.385187) (0.69,0.298148) (1.69,0.479256) (2.69,0.558208) (3.69,0.547727)};
 \addlegendentry{no correction}
-\addplot[viz ipw, only marks] coordinates {(-0.155,0.00188796) (0.845,0.150335) (1.845,0.11955) (2.845,0.0745614) (3.845,0.157648)};
+\addplot[viz ipw, only marks] coordinates {(-0.155,0.00262204) (0.845,0.149963) (1.845,0.12) (2.845,0.0742888) (3.845,0.158807)};
 \addlegendentry{ipw}
-\addplot[viz cal, only marks] coordinates {(0,0.382853) (1,0.00584304) (2,0.291855) (3,0.310141) (4,0.297625)};
+\addplot[viz cal, only marks] coordinates {(0,0.381051) (1,0.00339985) (2,0.292967) (3,0.310944) (4,0.297238)};
 \addlegendentry{cal}
-\addplot[viz ipwcal, only marks] coordinates {(0.155,0.00265645) (1.155,0.0651874) (2.155,0.0355462) (3.155,0.0832301) (4.155,0.0404063)};
+\addplot[viz ipwcal, only marks] coordinates {(0.155,0.00530739) (1.155,0.064916) (2.155,0.03402) (3.155,0.08281) (4.155,0.0400601)};
 \addlegendentry{ipw{+}cal}
-\addplot[viz oracle, only marks] coordinates {(0.31,0.00240471) (1.31,0.00609021) (2.31,0.00173186) (3.31,0.001769) (4.31,0.00230324)};
+\addplot[viz oracle, only marks] coordinates {(0.31,0.0056183) (1.31,0.00310861) (2.31,0.0012867) (3.31,0.000602464) (4.31,7.68161e-05)};
 \addlegendentry{oracle $1/\pi$}
 \end{axis}
 \end{tikzpicture}
@@ -52,11 +52,11 @@
   xticklabels={{X only},{Y only},{X + Y},{X x Y},{severity}},
   x tick label style={font=\scriptsize, rotate=20, anchor=east},
 ]
-\addplot[viz naive, only marks, forget plot, viz bars] coordinates {(-0.31,2511.43) +- (0,48.7131) (0.69,2508.9) +- (0,52.5376) (1.69,2511.3) +- (0,45.4263) (2.69,2512.75) +- (0,49.716) (3.69,2511.9) +- (0,48.4693)};
-\addplot[viz ipw, only marks, forget plot, viz bars] coordinates {(-0.155,1370.21) +- (0,90.0868) (0.845,2223.92) +- (0,63.0472) (1.845,1755.2) +- (0,160.351) (2.845,1450.54) +- (0,249.752) (3.845,1700.63) +- (0,223.275)};
-\addplot[viz cal, only marks, forget plot, viz bars] coordinates {(0,2492.68) +- (0,50.539) (1,1906.28) +- (0,53.6971) (2,2147.08) +- (0,92.3028) (3,2072.5) +- (0,172.945) (4,1982.28) +- (0,99.6755)};
-\addplot[viz ipwcal, only marks, forget plot, viz bars] coordinates {(0.155,1370.57) +- (0,89.9873) (1.155,1733.05) +- (0,59.0183) (2.155,1516.9) +- (0,187.827) (3.155,1237.62) +- (0,274.765) (4.155,1366.27) +- (0,226.934)};
-\addplot[viz oracle, only marks, forget plot, viz bars] coordinates {(0.31,1355.85) +- (0,69.6454) (1.31,1907.45) +- (0,46.4257) (2.31,1542.6) +- (0,79.1499) (3.31,1411.31) +- (0,141.817) (4.31,1414.72) +- (0,82.8352)};
+\addplot[viz naive, only marks, forget plot, viz bars] coordinates {(-0.31,2506.2) +- (0,43.2329) (0.69,2510.07) +- (0,53.0565) (1.69,2507.42) +- (0,45.9386) (2.69,2507.75) +- (0,45.6928) (3.69,2510.6) +- (0,49.0828)};
+\addplot[viz ipw, only marks, forget plot, viz bars] coordinates {(-0.155,1377.77) +- (0,101.326) (0.845,2223.16) +- (0,62.4492) (1.845,1755.35) +- (0,164.472) (2.845,1450.79) +- (0,249.881) (3.845,1706.18) +- (0,223.325)};
+\addplot[viz cal, only marks, forget plot, viz bars] coordinates {(0,2488) +- (0,46.9977) (1,1910.78) +- (0,53.8673) (2,2147.07) +- (0,94.3881) (3,2070.91) +- (0,173.323) (4,1980.85) +- (0,99.7508)};
+\addplot[viz ipwcal, only marks, forget plot, viz bars] coordinates {(0.155,1377.11) +- (0,99.9128) (1.155,1735.67) +- (0,60.2418) (2.155,1518.32) +- (0,191.029) (3.155,1239.12) +- (0,274.833) (4.155,1369.77) +- (0,226.195)};
+\addplot[viz oracle, only marks, forget plot, viz bars] coordinates {(0.31,1353.17) +- (0,82.5747) (1.31,1910.32) +- (0,46.5356) (2.31,1538.77) +- (0,81.2106) (3.31,1408.18) +- (0,132.254) (4.31,1409.48) +- (0,86.4242)};
 \end{axis}
 \end{tikzpicture}
 \end{minipage}

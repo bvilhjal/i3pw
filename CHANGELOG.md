@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## 0.3.2 — 2026-09-04
+
+- Single-source the version from `i3pw.__version__` (`dynamic = ["version"]` in
+  `pyproject.toml`), removing the second copy that let the artifact's
+  `i3pw_version` stamp drift from the changelog. Bump to 0.3.2.
+- Recreate the evidence environment as `.condaenv` on Python 3.14.7, with the
+  pinned freeze dependencies (NumPy 2.4.6, SciPy 1.17.1, scikit-learn 1.9.0)
+  unchanged so the existing B1–B7 rows reproduce byte-exactly. Extend the
+  classifiers and CI matrix to 3.13 and 3.14.
+- Add `target_scale=` to `benchmarks/estimators.fit_weighting`: a common relative
+  error on every prevalence-type target, leaving stratum shares and other
+  demographic margins alone. It and `targets=` are mutually exclusive.
+- Add benchmark B8 (`b8_k_error.py`): register error crossed with the anchor
+  scenarios of B2/B4, sweeping a common relative error of ±20% through seven
+  anchor-by-law combinations with the across-replication SD and Monte Carlo SE
+  reported for every cell. The figure draws the 95% Monte Carlo interval of the
+  mean and a ±1 SD envelope, so the anchor recommendations are read as
+  differences with uncertainty, not point wins.
+- Add benchmark B9 (`b9_wall_clock.py`): measured wall-clock seconds for one
+  `calibration_ipw` fit, one B=200 bootstrap with the base held fixed, and one
+  LASSO base fit, across N = 5k/20k/80k. It writes its own artifact,
+  `report/timing_results.tsv`, because timings are not seed-reproducible, and it
+  refuses to run on battery or in macOS Low Power Mode. The measured profile:
+  the entropy dual is effectively free and nearly the entire cost of a fit is
+  the LASSO base; 200 bootstrap re-solves add about half a second.
+- `run_all.py` now runs B8 and B9 in every full and quick pass; B9 writes its own
+  quick artifact. `harness.environment` names its artifact and records the
+  reproducibility claim appropriate to it.
+- `make_figures.py` gains `fig-k-error`, `tab-k-error`, and `tab-wall-clock`;
+  the report's validation matrix and limits reflect B8 and B9.
+
+
 - `liability_threshold` computes `t` as `-ppf(K)` rather than `ppf(1 - K)`. The
   identity is exact, so no realistic prevalence changes by even one bit; the old
   spelling lost digits below `K ~ 1e-9` and returned `+inf` for `K <= 1.1e-16`,

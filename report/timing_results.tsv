@@ -1,0 +1,10 @@
+benchmark	condition	estimator	metric	mean	sd	mcse	n_reps	notes
+B9_wall_clock	N=5000, n=1000	calibration_ipw	seconds	7.00358	2.80115	1.61724	3	one fit: LASSO base plus the dual solve
+B9_wall_clock	N=5000, n=1000	bootstrap_calibration_ipw B=200	seconds	7.36439	3.22666	1.86291	3	base weights held fixed (the default)
+B9_wall_clock	N=5000, n=1000	compute_base_weights	seconds	6.91286	2.74344	1.58392	3	one LASSO base fit: the per-replicate premium when refit_base=True
+B9_wall_clock	N=20000, n=4000	calibration_ipw	seconds	52.608	2.62487	1.51547	3	one fit: LASSO base plus the dual solve
+B9_wall_clock	N=20000, n=4000	bootstrap_calibration_ipw B=200	seconds	54.8184	3.58631	2.07055	3	base weights held fixed (the default)
+B9_wall_clock	N=20000, n=4000	compute_base_weights	seconds	54.0677	8.78984	5.07482	3	one LASSO base fit: the per-replicate premium when refit_base=True
+B9_wall_clock	N=80000, n=16000	calibration_ipw	seconds	157.163	33.2354	19.1885	3	one fit: LASSO base plus the dual solve
+B9_wall_clock	N=80000, n=16000	bootstrap_calibration_ipw B=200	seconds	155.462	40.6461	23.467	3	base weights held fixed (the default)
+B9_wall_clock	N=80000, n=16000	compute_base_weights	seconds	157.388	44.9859	25.9726	3	one LASSO base fit: the per-replicate premium when refit_base=True

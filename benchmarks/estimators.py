@@ -91,6 +91,7 @@ def fit_weighting(
     anchors: tuple[int, ...] = (0,),
     targets: np.ndarray | None = None,
     shrinkage: float = 0.0,
+    target_scale: float = 1.0,
 ) -> Weighting:
     """Weights for one method on one population.
 
@@ -100,10 +101,17 @@ def fit_weighting(
     alone rather than by two independent LASSO fits.
 
     ``targets`` overrides the register prevalences of the anchored outcomes, which is
-    how the target-error benchmark perturbs them.
+    how the target-error benchmark perturbs them. ``target_scale`` is the other way:
+    a common relative error ``s`` on every *prevalence-type* target (pooled margins,
+    mild/severe shares, within-stratum prevalences), leaving stratum shares and other
+    demographic margins alone. The two are two ways to mis-state the register, so
+    passing both is refused.
     """
     if method not in WEIGHTING_METHODS:
         raise ValueError(f"unknown method {method!r}; expected one of {WEIGHTING_METHODS}")
+    if targets is not None and target_scale != 1.0:
+        raise ValueError("pass targets= or target_scale=, not both: two ways to mis-state "
+                         "the register would compose into a third nobody asked for.")
     mask = pop.mask
     n = int(mask.sum())
     Y_sel = pop.Y[mask]
@@ -128,7 +136,7 @@ def fit_weighting(
         warnings.simplefilter("always", CalibrationWarning)
         if method == "ipw+cal/s":
             anchored = Y_sel[:, list(anchors)]
-            within = pop.within_stratum_prevalence()[:, list(anchors)]
+            within = pop.within_stratum_prevalence()[:, list(anchors)] * target_scale
             w, diag = stratified_calibration_weights(
                 anchored, pop.stratum[mask], within, pop.stratum_share,
                 base_weights=base, shrinkage=shrinkage, warn=False, return_diagnostics=True,
@@ -140,10 +148,10 @@ def fit_weighting(
             if method == "ipw+cal/v":
                 columns = pop.severity_columns()
                 features = columns[mask]
-                cons_targets = columns.mean(axis=0)
+                cons_targets = columns.mean(axis=0) * target_scale
             else:
                 features = Y_sel[:, list(anchors)]
-                cons_targets = pop.population_prevalence[list(anchors)]
+                cons_targets = pop.population_prevalence[list(anchors)] * target_scale
             if targets is not None:
                 cons_targets = np.asarray(targets, dtype=float)
             w, diag = entropy_balance(

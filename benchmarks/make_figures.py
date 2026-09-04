@@ -31,7 +31,7 @@ from pathlib import Path
 
 import numpy as np
 
-from benchmarks.harness import REPO_ROOT, RESULTS_TSV, read_tsv
+from benchmarks.harness import REPO_ROOT, RESULTS_TSV, TIMING_TSV, read_tsv
 
 FIGURE_DIR = REPO_ROOT / "report" / "figures"
 FROZEN_TSV = REPO_ROOT / "report" / "validation_results.tsv"
@@ -898,6 +898,129 @@ def tab_shrinkage(res: Results) -> str:
     return tabular("l" + "r" * len(ridges), rows)
 
 
+def fig_k_error(res: Results) -> str:
+    """B8: register error crossed with the anchor scenarios, with both uncertainties.
+
+    Each curve is the mean bias over replications at one relative register error;
+    the whiskers are the 95% Monte Carlo interval of that mean (a point win is
+    not evidence), and the dotted envelope is
+    +-1 across-replication SD, the spread an analyst rerunning the study would
+    see. Two panels split by whether the tilt family contains the recruitment
+    law; hue is the anchor, as in every other figure.
+    """
+    panel_a = (
+        ("pooled / X + Y", "viz ipwcal", "", "pooled, X{+}Y"),
+        ("stratified / X + Y", "viz strat", "", "stratified, X{+}Y"),
+        ("pooled / stratum-differential", "viz ipwcal", "densely dashed",
+         "pooled, stratum-diff."),
+        ("stratified / stratum-differential", "viz strat", "densely dashed",
+         "stratified, stratum-diff."),
+    )
+    panel_b = (
+        ("pooled / severity", "viz ipwcal", "", "pooled, severity"),
+        ("severity / severity", "viz severity", "", "severity anchors, severity"),
+        ("pooled / X x Y", "viz ipwcal", "densely dashed", "pooled, X$\\times$Y"),
+    )
+    common = {
+        "xlabel": "{error in the register prevalences (\\%)}",
+        "ylabel": "{bias (population SD)}",
+        "xmin": "-25", "xmax": "25", "xtick": "{-20,-10,0,10,20}",
+        "ymin": "-0.19", "ymax": "0.07",
+        "ytick": "{-0.15,-0.1,-0.05,0,0.05}",
+        "yticklabels": "{$-$0.15,$-$0.10,$-$0.05,0,0.05}",
+    }
+    out = []
+    for title, series_spec in (
+        ("{\\textbf{A}\\quad tilt family contains the law}", panel_a),
+        ("{\\textbf{B}\\quad out of span, or repaired by the register}", panel_b),
+    ):
+        body = zero_line(-25, 25)
+        for prefix, style, dash, label in series_spec:
+            conds = [c for c in res.conditions("B8_k_error")
+                     if c.startswith(f"{prefix} | delta=")]
+            x = [float(c.split("delta=")[1]) * 100 for c in conds]
+            mean = [res.mean("B8_k_error", c, "ipw+cal", "trait_bias_sd") for c in conds]
+            sd = [res.sd("B8_k_error", c, "ipw+cal", "trait_bias_sd") for c in conds]
+            mcse = [res.mcse("B8_k_error", c, "ipw+cal", "trait_bias_sd") for c in conds]
+            envelope = "" if not dash else f",{dash}"
+            body += series(style, list(zip(x, [m + s for m, s in zip(mean, sd, strict=True)],
+                                           strict=True)),
+                           marks_only=False, extra=f"mark=none, densely dotted{envelope}")
+            body += series(style, list(zip(x, [m - s for m, s in zip(mean, sd, strict=True)],
+                                           strict=True)),
+                           marks_only=False, extra=f"mark=none, densely dotted{envelope}")
+            body += series(style,
+                           [(xi, m, 1.96 * e) for xi, m, e
+                            in zip(x, mean, mcse, strict=True)],
+                           errors=True, marks_only=False, extra=dash, label=label)
+        out.append(axis({
+            "width": "0.86\\linewidth", "height": "5.6cm", "viz axis": None,
+            "title": title,
+            "legend style": "{at={(0.5,-0.30)}, anchor=north, legend columns=2}",
+            **common,
+        }, body))
+    return (panel("0.485\\textwidth", picture(out[0])) + "\\hfill%\n"
+            + panel("0.485\\textwidth", picture(out[1])) + "\n")
+
+
+def tab_k_error(res: Results) -> str:
+    """B8: bias vs register error per scenario, each cell with its 95% MC interval."""
+    scenarios = []
+    for c in res.conditions("B8_k_error"):
+        if " | delta=" not in c:
+            continue
+        name = c.split(" | delta=")[0]
+        if name not in scenarios:
+            scenarios.append(name)
+    deltas = (-0.20, -0.10, 0.0, 0.10, 0.20)
+    # The % must be escaped: a literal percent in a table cell comments out the
+    # trailing \\ and \midrule lands mid-row as a misplaced \noalign.
+    header = " & ".join(("$-$" + f"{abs(d):.0%}".replace("%", "\\%"))
+                        if d < 0 else (f"+{d:.0%}".replace("%", "\\%") if d else "0")
+                        for d in deltas)
+    rows = [f"Anchor / recruitment & {header} \\\\\n\\midrule"]
+    for name in scenarios:
+        cells = []
+        for d in deltas:
+            key = f"{name} | delta={d:+.2f}"
+            mean = res.mean("B8_k_error", key, "ipw+cal", "trait_bias_sd")
+            mcse = res.mcse("B8_k_error", key, "ipw+cal", "trait_bias_sd")
+            cells.append(f"{mean:+.3f} $\\pm$ {1.96 * mcse:.3f}")
+        rows.append(name.replace(" x ", " $\\times$ ") + " & " + " & ".join(cells) + " \\\\")
+    return tabular("l" + "c" * len(deltas), rows)
+
+
+def tab_wall_clock(_: Results) -> str:
+    """B9: measured seconds for the shipped calls; ratios, not reruns, are quotable."""
+    rows_tsv = read_tsv(TIMING_TSV)
+    conditions = []
+    for r in rows_tsv:
+        if r["condition"] not in conditions:
+            conditions.append(r["condition"])
+    columns = [
+        ("calibration_ipw", "one fit"),
+        ("bootstrap_calibration_ipw B=200", "bootstrap $B{=}200$"),
+        ("compute_base_weights", "LASSO base fit"),
+    ]
+    index = {(r["condition"], r["estimator"]): r for r in rows_tsv}
+    rows = ["Population / sample & " + " & ".join(label for _, label in columns)
+            + " \\\\\n\\midrule"]
+    for condition in conditions:
+        cells = []
+        for estimator, _ in columns:
+            r = index.get((condition, estimator))
+            if r is None:
+                cells.append("---")
+                continue
+            cell = f"{r['mean']:.1f}"
+            if r["sd"] is not None:
+                cell += f" $\\pm$ {r['sd']:.1f}"
+            cells.append(cell)
+        n = condition.replace("N=", "").replace(", n=", " / ")
+        rows.append(f"{n} & " + " & ".join(cells) + " \\\\")
+    return tabular("l" + "r" * len(columns), rows)
+
+
 FIGURES = {   # name -> builder; tables first so the report can \input either
     "tab-selection-laws.tex": tab_selection_laws,
     "tab-anchor-ladder.tex": tab_anchor_ladder,
@@ -905,6 +1028,8 @@ FIGURES = {   # name -> builder; tables first so the report can \input either
     "tab-coverage.tex": tab_coverage,
     "tab-support.tex": tab_support,
     "tab-shrinkage.tex": tab_shrinkage,
+    "tab-k-error.tex": tab_k_error,
+    "tab-wall-clock.tex": tab_wall_clock,
     "fig-selection-laws.tex": fig_selection_laws,
     "fig-anchor-ladder.tex": fig_anchor_ladder,
     "fig-target-error.tex": fig_target_error,
@@ -912,6 +1037,7 @@ FIGURES = {   # name -> builder; tables first so the report can \input either
     "fig-coverage.tex": fig_coverage,
     "fig-support.tex": fig_support,
     "fig-shrinkage.tex": fig_shrinkage,
+    "fig-k-error.tex": fig_k_error,
     "fig-frozen-examples.tex": fig_frozen,
 }
 

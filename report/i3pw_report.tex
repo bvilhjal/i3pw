@@ -55,8 +55,8 @@
   {\large Estimand, identification, and evidence in \texttt{i3pw}}}
 \author{Others (TBD) and Bjarni J\'ohann Vilhj\'almsson\\[0.35em]
   {\small Aarhus University and SMARTbiomed}\\[0.35em]
-  {\small\texttt{https://github.com/bvilhjal/i3pw}\quad$\cdot$\quad v0.3.1}}
-\date{13 August 2026}
+  {\small\texttt{https://github.com/bvilhjal/i3pw}\quad$\cdot$\quad v0.3.2}}
+\date{4 September 2026}
 
 \begin{document}
 \maketitle
@@ -80,7 +80,7 @@ introduces bias when recruitment acts through the diagnosis alone, and interval
 coverage falls from nominal to \(0.64\) under the mild misspecification of ordinary
 applied use.  Numeric claims below are copied from two fixed-seed artifacts,
 \path{report/validation_results.tsv} (i3pw 0.3.0) and
-\path{report/benchmark_results.tsv} (i3pw 0.3.1); the tables and figures reporting
+\path{report/benchmark_results.tsv} (i3pw 0.3.2); the tables and figures reporting
 the latter are generated from it.  None of it is external-cohort validation.
 \end{abstract}
 
@@ -134,7 +134,7 @@ No.  A held-out margin can diagnose failure, but its standardized mean differenc
 a heuristic discrepancy, not a formal Sargan--Hansen \(J\)-test. \\
 How strong is the present evidence? &
 Theoretical links, unit tests, the 0.3.0 example freeze in
-\path{report/validation_results.tsv}, and the 0.3.1 benchmark suite in
+\path{report/validation_results.tsv}, and the 0.3.2 benchmark suite in
 \path{report/benchmark_results.tsv}, which measures held-out bias, coverage and
 failure rates against oracle weights across six axes of the specification.  All of
 it is simulation; there is no reported external-cohort validation. \\
@@ -830,12 +830,13 @@ follows from the repository alone. \\
 \end{table}
 
 \subsection{The 0.3.0 example freeze}
+\label{sec:frozen}
 
 Every number in Table~\ref{tab:fresh-results} and Figure~\ref{fig:fresh-benchmarks}
 is copied from \path{report/validation_results.tsv}.  That freeze was produced
 on 11 August 2026 with i3pw 0.3.0, Python 3.11.15, NumPy 2.4.6, SciPy 1.17.1,
 and scikit-learn 1.9.0; the runtime is recorded in
-\path{report/validation_environment.txt}.  The present package version is 0.3.1;
+\path{report/validation_environment.txt}.  The present package version is 0.3.2;
 the numeric artifact was not regenerated.  Replicated scripts use seeds
 \(0,\ldots,R-1\).  These are regression checks, not a substitute for an
 independently designed validation study.
@@ -900,7 +901,7 @@ an unknown selection law.  Earlier editions of this note listed what stronger
 evidence would require; \S\ref{sec:benchmarks} is the attempt to supply it, and
 \S\ref{sec:benchmark-limits} states what is still missing afterwards.
 
-\subsection{The 0.3.1 benchmark suite}
+\subsection{The 0.3.2 benchmark suite}
 \label{sec:benchmarks}
 
 The freeze above illustrates the estimator.  It does not test it: every experiment
@@ -915,7 +916,18 @@ Its numbers are the artifact \path{report/benchmark_results.tsv}, produced by
 reproduces exactly.  The tables and figures that follow are \emph{generated} from
 that artifact by \code{benchmarks/make\_figures.py}: no number in this section was
 retyped, and a figure that could not find its row would have stopped the build
-rather than leave a gap.
+rather than leave a gap.  One further artifact, \path{report/timing_results.tsv}
+(the B9 wall-clock benchmark), is deliberately separate: timings never reproduce
+bit-exactly, and it is presented with the computational orders in
+\S\ref{sec:computational} rather than as simulation evidence.
+
+One provenance note.  This freeze was generated under Python 3.14, whose random
+streams differ from the Python 3.11 environment of the previous edition.  Every
+seed is unchanged, so the draws are different: each figure in this section has
+moved within its Monte Carlo error, and no qualitative finding has changed.  The
+0.3.0 example freeze of \S\ref{sec:frozen} was produced under 3.11 and is quoted
+unchanged; the two artifacts are not on the same random stream, which is one
+reason they are kept as separate files.
 
 \paragraph{The common design.}
 A population of 20{,}000 carries eight correlated Gaussian frame covariates, a
@@ -966,15 +978,15 @@ Four things follow from Table~\ref{tab:b1}, and only the first is already in the
 documentation.
 
 \emph{Neither ingredient suffices alone, and each fails completely in the other's
-regime.}  Against a naive bias of \(+0.389\) SD under covariate-only recruitment,
-calibration alone leaves \(+0.383\); against \(+0.302\) under outcome-only
+regime.}  Against a naive bias of \(+0.385\) SD under covariate-only recruitment,
+calibration alone leaves \(+0.381\); against \(+0.298\) under outcome-only
 recruitment, the participation model alone leaves \(+0.150\).  These are not
 partial corrections.  The complementarity claim of \code{docs/studies.md} survives
 a harder test than the one that produced it.
 
 \emph{The base model is not free.}  Under outcome-only recruitment, calibration from
-a uniform base is at \(+0.006\) --- indistinguishable from the oracle's \(+0.006\)
---- while adding the participation model as a base moves it to \(-0.065\), eleven
+a uniform base is at \(+0.003\) --- indistinguishable from the oracle's \(+0.003\)
+--- while adding the participation model as a base moves it to \(-0.065\), twenty
 times worse.  The reason is structural, not statistical: \(\Prb(S=1\mid X)\) does
 vary with \(X\) here, because \(X\) predicts \(Y\) and \(Y\) drives participation,
 so \(1/\hat{P}(S\mid X)\) imports a covariate tilt that the outcome constraint has
@@ -984,7 +996,7 @@ sample.  Where recruitment is believed to act through the diagnosis alone, the
 uniform base is the specification, not the lazy default.
 
 \emph{The residuals are misspecification, not noise.}  The oracle sits within
-\(0.003\) SD of zero in every law, so the \(0.036\)--\(0.083\) left by
+\(0.001\) SD of zero in every law, so the \(0.034\)--\(0.083\) left by
 \code{ipw+cal} in the three mixed laws is the part of the density ratio outside the
 tilt family, measured rather than argued.  Note that even the additive law leaves
 a residual: a participation logit that is additive in \(X\) and \(Y\) does not have
@@ -993,7 +1005,7 @@ already slightly outside base-plus-marginal.
 
 \emph{Augmentation is the most robust deployable choice here, within limits.}
 \code{aipw} has the lowest or near-lowest RMSE in four of the five laws and halves
-the interaction law's bias, \(-0.083\) to \(+0.033\).  It is not a repair for a
+the interaction law's bias, \(-0.083\) to \(+0.036\).  It is not a repair for a
 misspecified tilt in general --- under severity-dependent recruitment it is no
 better than the weights it augments --- and it buys its accuracy with an outcome
 model that must itself be right.
@@ -1001,10 +1013,10 @@ model that must itself be right.
 One diagnostic result deserves separate statement, because it qualifies a
 recommendation the README makes without qualification.  The worst held-out
 standardized mean difference \emph{did} detect the base-model harm under
-outcome-only recruitment, \(0.146\) for \code{ipw+cal} against \(0.034\) for
+outcome-only recruitment, \(0.146\) for \code{ipw+cal} against \(0.035\) for
 \code{cal}, ranking them as their biases do.  Under additive recruitment it ranked
-them backwards: \(0.024\) for \code{ipw}, whose bias is \(+0.120\), against
-\(0.106\) for \code{ipw+cal}, whose bias is \(-0.036\).  A held-out margin is an
+them backwards: \(0.023\) for \code{ipw}, whose bias is \(+0.120\), against
+\(0.106\) for \code{ipw+cal}, whose bias is \(-0.034\).  A held-out margin is an
 alarm --- a large discrepancy is evidence of misspecification --- and it is not a
 model-selection criterion.  Choosing between two weightings by comparing their
 held-out balance can select the worse one.
@@ -1032,12 +1044,12 @@ to stop adding constraints is support (\S\ref{sec:b6}) rather than variance.}
 \label{fig:b2}
 \end{figure}
 
-The first prevalence takes the bias from \(+0.125\) to \(-0.037\).  A second
+The first prevalence takes the bias from \(+0.126\) to \(-0.034\).  A second
 prevalence and a co-occurrence target then buy almost nothing on this estimand
-(\(-0.036\) both), even though the co-occurrence constraint drives its own moment
+(\(-0.034\) both), even though the co-occurrence constraint drives its own moment
 from \(+0.019\) to zero --- a clean instance of the general rule that a constraint
 fixes what it constrains and its neighbourhood, and nothing further.  Per-stratum
-prevalences are the one rung that helps, \(-0.026\).
+prevalences are the one rung that helps, \(-0.023\).
 
 The effective sample size is nearly flat across the ladder, \(1500\)--\(1520\)
 against \(1756\) for the participation model alone.  Constraints in this design are
@@ -1061,11 +1073,11 @@ exactly and is not plotted.}
 \label{fig:b3}
 \end{figure}
 
-Over a \(\pm30\%\) sweep the held-out trait bias moves from \(-0.067\) to
-\(-0.004\) SD --- about \(0.011\) SD per ten percentage points of relative register
+Over a \(\pm30\%\) sweep the held-out trait bias moves from \(-0.066\) to
+\(-0.002\) SD --- about \(0.011\) SD per ten percentage points of relative register
 error, against a naive bias of \(+0.479\).  The unanchored disease moves from
-\(+2.83\%\) to \(+2.39\%\) relative error, and the effective sample size from
-\(1444\) to \(1585\).  On this design the method is robust to the size of error a
+\(+1.65\%\) to \(+1.16\%\) relative error, and the effective sample size from
+\(1446\) to \(1586\).  On this design the method is robust to the size of error a
 register plausibly carries: a diagnostic threshold that has drifted by a tenth costs
 roughly a fortieth of the bias it removes.
 
@@ -1106,15 +1118,15 @@ most important step for psychiatric cohorts'' --- has had no number behind it.  
 now has one, and it comes with a correction to how the advice is stated.
 
 Under stratum-differential ascertainment, a pooled calibration leaves the worst
-within-stratum prevalence in error by \(0.169\): larger than the population
+within-stratum prevalence in error by \(0.172\): larger than the population
 prevalence being estimated.  Stratifying removes that by construction, and --- the
 part that is evidence rather than algebra --- improves the held-out trait from
-\(-0.044\) to \(-0.016\), most of the remaining distance to the oracle's
-\(+0.002\).
+\(-0.045\) to \(-0.014\), most of the remaining distance to the oracle's
+\(-0.001\).
 
 Under within-case severity selection, stratifying on sex and birth year does
-\emph{not} help: the case-mix error is \(+0.056\) pooled and \(+0.063\) stratified,
-against an oracle at \(-0.001\).  What helps is anchoring the register's mild- and
+\emph{not} help: the case-mix error is \(+0.060\) pooled and \(+0.067\) stratified,
+against an oracle at \(+0.001\).  What helps is anchoring the register's mild- and
 severe-case prevalences separately, which brings it to \(+0.016\).  The general
 statement is therefore not ``stratify'' but \emph{stratify along the axis
 recruitment acts on}, and which axis that is, is a claim about the recruitment
@@ -1151,15 +1163,15 @@ here is the specification, not the variance formula.}
 This is the item the previous edition of this note listed as absent from the
 evidence base, and the answer is sharp.  Where the tilt family contains the truth
 --- outcome-only recruitment, uniform base, calibrated on the outcome --- all three
-procedures are at nominal: \(0.960\), \(0.953\) and \(0.940\), each within Monte
+procedures are at nominal: \(0.943\), \(0.940\) and \(0.933\), each within Monte
 Carlo error of \(0.95\).  The variance machinery is correct.
 
-Where it does not, coverage collapses: \(0.64\) under the ordinary applied
-combination of a fitted base and a marginal constraint, and \(0.34\)--\(0.37\) when
+Where it does not, coverage collapses: \(0.62\)--\(0.64\) under the ordinary applied
+combination of a fitted base and a marginal constraint, and \(0.36\)--\(0.41\) when
 recruitment carries a covariate-by-outcome interaction.  The interval widths across
-those three regimes are \(0.085\), \(0.105\) and \(0.122\) SD --- they barely move.
+those three regimes are \(0.085\), \(0.105\) and \(0.121\) SD --- they barely move.
 The collapse is entirely bias.  The calibration-aware half-widths are \(0.043\),
-\(0.053\) and \(0.061\) SD, so the biases are \(1\%\), \(68\%\) and \(135\%\) of the
+\(0.052\) and \(0.061\) SD, so the biases are \(3\%\), \(67\%\) and \(135\%\) of the
 half-width they would have to fit inside; an estimator displaced by more than its own
 half-width cannot cover at any nominal level.
 
@@ -1258,16 +1270,17 @@ misspecification it is not.}
 The natural reading of \code{shrinkage=} --- exactness traded for stability --- is
 right in one of the three arms and wrong in the other two.
 
-Where the tilt family contains the truth, the exact solve is the minimum and every
-unit of ridge is a pure loss: RMSE climbs from \(0.0222\) to \(0.2496\), and it climbs
-because the \emph{bias} grows from \(0.006\) to \(0.247\) while the
-across-replication spread barely moves, \(0.0217\) to \(0.0369\).  There is no
-variance being bought.  Under a correct specification the constraint is not costing
-precision, so relaxing it purchases nothing and gives up consistency.
+Where the tilt family contains the truth, the exact solve is within Monte Carlo
+error of the minimum and every larger ridge is a pure loss: RMSE climbs from
+\(0.0232\) to \(0.246\), and it climbs because the \emph{bias} grows from \(0.003\)
+to \(0.244\) while the across-replication spread barely moves, \(0.023\) to
+\(0.035\).  There is no variance being bought.  Under a correct specification the
+constraint is not costing precision, so relaxing it purchases nothing and gives up
+consistency.
 
 Under both misspecified arms the minimum is at a positive ridge, and by a wide
-margin: \(0.0426\) at \(\rho=0.03\) against \(0.0569\) exact for the applied
-combination, and \(0.0534\) at \(\rho=0.3\) against \(0.1055\) exact for the
+margin: \(0.041\) at \(\rho=0.03\) against \(0.054\) exact for the applied
+combination, and \(0.055\) at \(\rho=0.3\) against \(0.106\) exact for the
 interaction law --- a halving of RMSE.  Again the movement is in the bias
 (\(0.083\to0.020\)), not the spread.  The exact constraint is being met in a
 direction the tilt family cannot support, and relaxing it lets the weights stay
@@ -1283,15 +1296,78 @@ quantity to select against.
 
 One diagnostic warning falls out of the same table, and it repeats the pattern of
 \S\ref{sec:benchmarks}, B1.  In the correctly specified arm the effective sample size
-\emph{rises} monotonically with the ridge, \(1906\) to \(2482\), while the estimate
-gets eleven times worse.  A healthier-looking ESS is not evidence of a better
+\emph{rises} monotonically with the ridge, \(1911\) to \(2484\), while the estimate
+gets ten times worse.  A healthier-looking ESS is not evidence of a better
 weighting; here it is produced by the same mechanism that destroys the estimate.
 
 \FloatBarrier
-\subsubsection{What the suite still does not establish}
-\label{sec:benchmark-limits}
+\subsubsection{A wrong register under richer anchors (B8)}
+\label{sec:b8}
 
-The suite is simulation.  Everything above is a statement about a data-generating
+B3 sweeps a mis-stated prevalence through one recruitment law and the simplest
+anchor; B2 and B4 compare anchors at a \emph{correct} register.  What the
+identification condition requires in practice is the crossing of the two: every
+quantity a stratified or severity calibration constrains is itself a register
+estimate, so if per-stratum or per-severity prevalences carry more error than the
+pooled figure, the repairs of \S\ref{sec:b4} could import damage they never
+repay.  B8 applies the same common relative error as B3 --- every
+prevalence-type target scaled by \(1+\delta\), demographic shares left alone ---
+through seven anchor-by-law scenarios, and reports the held-out trait bias with
+both uncertainties attached.
+
+\begin{table}[htbp]
+\centering
+\caption{B8.  Held-out trait bias (population SD) as every prevalence-type target
+is scaled by \(1+\delta\), 40 replications.  Each cell is mean \(\pm\) 1.96 Monte
+Carlo standard errors --- the precision of the reported mean, so that a
+difference between cells can be read as a difference, not as a point win.}
+\label{tab:b8}
+\footnotesize
+\input{figures/tab-k-error}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\input{figures/fig-k-error}
+\caption{B8.  Held-out trait bias against the register error, split by whether
+the tilt family contains the recruitment law (A) or is out of span / repaired by
+the register (B).  Whiskers are the 95\% Monte Carlo interval of the mean; the
+dotted envelope is \(\pm1\) across-replication SD.  Hue is the anchor, as in the
+other figures; a dashed curve is a misspecified anchor for its law.}
+\label{fig:b8}
+\end{figure}
+
+The sweep answers the practical question the anchor ladder leaves open, and the
+answer is quantitative.  In every scenario the bias falls by about \(0.10\) SD per
+\(+10\%\) of register error --- the slopes of Table~\ref{tab:b8} are \(+0.096\) to
+\(+0.133\) across all seven rows, rich anchors and poor ones alike.  A wrong
+register moves every anchor by the same slope; what the richer anchors change is
+the intercept.  Under stratum-differential ascertainment the stratified repair
+holds its B4 advantage across the whole sweep (\(-0.014\) against \(-0.045\) at
+\(\delta=0\), and it never catches up to the pooled anchor's bias at any
+\(\delta\)), so the recommendation to stratify along the axis recruitment acts on
+is not reversed by a wrong register.  Anchoring to a wrong register is not a
+reason to retreat to the pooled margin, because the error is in the register, not
+in the anchor.
+
+Where the tilt family does not contain the law (panel B), the register error
+compounds a structural bias rather than replacing it.  The pooled anchor under the
+\(X\times Y\) interaction law sits at \(-0.083\) even at \(\delta=0\) --- the B1
+misspecification --- and a wrong register slides it along the same slope from
+there.  The \(\pm1\) SD envelope is the quantity to watch: at roughly \(\pm0.02\)
+it is far narrower than the slopes being estimated, so the curves' positions are
+structural statements about the tilt family, not sampling accidents.
+
+Two limits deserve explicit statement.  First, the error model is a single
+hypothesis --- a common relative scale on every prevalence target --- not a
+distribution over ways a register can be wrong; an over-count in one stratum and
+an under-count in another would look different, and only the register can say
+which.  Second, all seven curves are one data-generating process, so the ordering
+of anchors under register error is established here, not claimed as universal.
+
+\FloatBarrier
+\subsubsection{What the suite still does not establish}
+\label{sec:benchmark-limits}  Everything above is a statement about a data-generating
 process chosen by the author of the method, and the honest reading of it is that the
 estimator behaves as the theory says it should in cases where the theory can be
 checked --- not that a biobank will.  Specifically:
@@ -1304,8 +1380,10 @@ the milestone named in \S\ref{sec:limits}.
 single Bernoulli-logistic model over Gaussian covariates and a threshold liability.
 A real recruitment process need not be in that family at all, and the misspecified
 arms explore departures the author thought of.
-\item \textbf{The register is exact except in B3.}  Elsewhere the targets are the
-realized population values, which no register supplies.
+\item \textbf{The register is exact except in B3 and B8.}  Elsewhere the targets are the
+realized population values, which no register supplies.  B8 sweeps a common
+relative error through richer anchors, but a common scale is one error model, not
+all of them.
 \item \textbf{The participation model is well specified as a model class.}  It is a
 LASSO logistic on the true frame covariates.  A real frame is coarser than the
 variables that drive participation, and none of these numbers price that in.
@@ -1329,7 +1407,7 @@ and what this repository currently has is a table entry rather than a judgement.
 \begin{table}[H]
 \centering
 \caption{Minimum simulation and empirical validation matrix for a methods paper, and
-what the 0.3.1 benchmark suite covers.  ``Partly'' means the axis is exercised but
+what the 0.3.2 benchmark suite covers.  ``Partly'' means the axis is exercised but
 not at every level the first column asks for.}
 \label{tab:validation-matrix}
 \footnotesize
@@ -1351,7 +1429,8 @@ Anchor information &
 Correct pooled prevalence; stratum-specific prevalence; joint comorbidity; perturbed
 targets; partial anchors. &
 Anchor residual and transfer error on held-out outcomes and margins. &
-B2, B3, B4.  All five levels. \\
+B2, B3, B4, B8.  All five levels; B8 crosses perturbed targets with the
+anchor scenarios under richer anchors, with Monte Carlo intervals attached. \\
 Support &
 Common, rare, and extremely rare disease; sparse ancestry/sex/age cells. &
 Failure probability, convergence, weight concentration, bootstrap discard rate. &
@@ -1395,7 +1474,7 @@ The numeric evidence in \S\ref{sec:evidence} has two layers.  The 0.3.0
 freeze in \path{report/validation_results.tsv} supports the narrow
 messages already in the documentation: transfer across unanchored
 diseases is weak, the covariate base matters when selection has a
-covariate channel, and anchored zeros are identities.  The 0.3.1
+covariate channel, and anchored zeros are identities.  The 0.3.2
 benchmark suite in \path{report/benchmark_results.tsv} adds four
 statements that change how the estimator should be used rather than
 how it should be described.
@@ -1404,7 +1483,7 @@ how it should be described.
 \item \textbf{The base weights are part of the specification, not a free
 improvement.}  Where recruitment acts through the diagnosis alone, a
 covariate participation model used as a base makes the estimate
-eleven times worse than a uniform base, because it imports a covariate
+an order of magnitude worse than a uniform base, because it imports a covariate
 tilt the outcome constraint cannot remove (\S\ref{sec:benchmarks}, B1).
 \item \textbf{Reported intervals are conditional on the tilt family.}
 They are at nominal when it contains the truth and at \(0.64\) under
@@ -1431,10 +1510,10 @@ later-wave study.
 
 \subsection{Architecture and public contract}
 
-The source declares version 0.3.1 and an alpha development status.  Its
+The source declares version 0.3.2 and an alpha development status.  Its
 design has a sensible separation between a real-cohort interface and simulation
 machinery.  The example freeze cited in \S\ref{sec:evidence} is still 0.3.0; the
-benchmark artifact is 0.3.1 and is regenerated by \code{python -m
+benchmark artifact is 0.3.2 and is regenerated by \code{python -m
 benchmarks.run\_all}.
 
 \begin{table}[htbp]
@@ -1529,6 +1608,7 @@ probability-proportional-to-size sampling. \\
 \end{table}
 
 \subsection{Computational properties}
+\label{sec:computational}
 
 Let \(n\) be the number of participants with positive base weight, \(k\) the number
 of constraints, \(p\) the number of frame covariates, \(I\) optimizer iterations,
@@ -1581,6 +1661,27 @@ reasonable.  The main practical failure is statistical rather than computational
 adding many sparse stratum-by-disease constraints can exhaust support before it
 exhausts RAM.  The liability module is the exception; materializing \(n^2\) pairwise
 similarities is untenable at modern biobank scale.
+
+Table~\ref{tab:wall-clock} replaces the orders with measured seconds (B9,
+\code{python -m benchmarks.run\_all} on the freeze machine; the artifact is
+\path{report/timing_results.tsv}).  They confirm what the orders imply: the
+entropy dual is effectively free, and nearly the entire cost of a fit is the
+LASSO base.  Because the dual solve is the only per-replicate work of the
+default bootstrap, 200 bootstrap re-solves add about half a second.  The third
+column is the per-replicate premium of \code{refit\_base=True}: a base fit costs
+orders of magnitude more than a re-solve, so a refit bootstrap is dominated by
+the LASSO, not the calibration.
+
+\begin{table}[htbp]
+\centering
+\caption{B9.  Wall-clock seconds on the freeze machine, 2--3 timed repetitions
+(mean \(\pm\) SD).  The sample is 20\% of the population, split 75/25 inside the
+generator.  Timings do not reproduce bit-exactly and are quoted for orders and
+ratios, not for reruns.}
+\label{tab:wall-clock}
+\footnotesize
+\input{figures/tab-wall-clock}
+\end{table}
 
 \subsection{Remaining release gaps}
 

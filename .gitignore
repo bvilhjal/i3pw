@@ -37,6 +37,8 @@ tmp/
 # Benchmark smoke runs. The freeze is report/benchmark_results.tsv and is tracked;
 # --quick output is too noisy to quote and must never be mistaken for it.
 report/benchmark_results_quick.tsv
+report/timing_results_quick.tsv
+report/timing_environment_quick.txt
 
 # LaTeX build products (the PDF itself is tracked)
 report/*.aux

@@ -17,8 +17,8 @@ import re
 import numpy as np
 import pytest
 
+from benchmarks import b8_k_error, b9_wall_clock, make_figures
 from benchmarks import estimators as E
-from benchmarks import make_figures
 from benchmarks.harness import Row, environment, proportion, read_tsv, rmse, summarize, write_tsv
 from benchmarks.simulate import SELECTION_LAWS, Design, simulate
 
@@ -111,6 +111,42 @@ def test_a_perturbed_target_is_the_one_that_is_matched():
     wrong = np.array([pop.population_prevalence[0] * 1.2])
     wt = E.fit_weighting(pop, "ipw+cal", targets=wrong)
     assert E.weighted_mean(pop.Y[pop.mask, 0], wt.weights) == pytest.approx(wrong[0], abs=1e-8)
+
+
+def test_target_scale_multiplies_prevalence_targets_only():
+    """B8's error model: a common relative error on every prevalence-type target.
+
+    The pooled margin, the within-stratum prevalences and the mild/severe shares
+    all move by the factor; the stratum shares, which are demographic rather than
+    disease figures, must not.
+    """
+    pop = simulate(Design(seed=13, delta_y=1.7, **SMALL))
+    scale = 1.2
+    mask = pop.mask
+
+    pooled = E.fit_weighting(pop, "ipw+cal", target_scale=scale)
+    assert E.weighted_mean(pop.Y[mask, 0], pooled.weights) == pytest.approx(
+        pop.population_prevalence[0] * scale, abs=1e-8)
+
+    stratified = E.fit_weighting(pop, "ipw+cal/s", target_scale=scale)
+    levels = len(pop.stratum_share)
+    dummies = (pop.stratum[mask][:, None] == np.arange(levels)[None, :]).astype(float)
+    w = stratified.weights[:, None]
+    achieved = (w * dummies * pop.Y[mask, 0][:, None]).sum(0) / (w * dummies).sum(0)
+    assert np.allclose(achieved, pop.within_stratum_prevalence()[:, 0] * scale, atol=1e-6)
+    assert np.allclose((w * dummies).sum(0), pop.stratum_share, atol=1e-6)
+
+    severity = E.fit_weighting(pop, "ipw+cal/v", target_scale=scale)
+    population_columns = pop.severity_columns()
+    assert np.allclose(
+        E.weighted_mean(population_columns[mask, 1], severity.weights),
+        population_columns[:, 1].mean() * scale, atol=1e-8)
+
+
+def test_targets_and_target_scale_are_mutually_exclusive():
+    pop = simulate(Design(seed=14, **SMALL))
+    with pytest.raises(ValueError, match="not both"):
+        E.fit_weighting(pop, "ipw+cal", targets=np.array([0.1]), target_scale=1.1)
 
 
 def test_unreachable_target_is_reported_as_a_failed_solve():
@@ -221,6 +257,56 @@ def test_emitted_plots_carry_their_style_and_coordinates():
 def test_non_finite_coordinates_are_refused():
     with pytest.raises(ValueError, match="non-finite"):
         make_figures.series("viz ipw", [(0, float("nan"))])
+
+
+# --------------------------------------------------------------------------------
+# B8 and B9: the register-error crossing and the wall-clock table
+# --------------------------------------------------------------------------------
+
+def test_b8_rows_cover_every_scenario_and_delta_and_the_displays_build(tmp_path):
+    """B8's contract: 7 scenarios x 5 deltas x 4 metrics, plus per-law references,
+    all finite; and both displays build from freshly written rows, so a renamed
+    condition fails here rather than in a LaTeX run."""
+    rows = b8_k_error.run(n_reps=2)
+    assert len(rows) == 7 * 5 * 4 + 4 * 3
+    conditions = {r["condition"] for r in read_tsv(write_tsv(rows, tmp_path / "b8.tsv"))}
+    assert f"pooled / X + Y | delta={0.0:+.2f}" in conditions
+    assert "reference | severity" in conditions
+    for r in rows:
+        assert np.isfinite(r.mean), r.condition
+
+    res = make_figures.Results(tmp_path / "b8.tsv")
+    assert "\\begin{tikzpicture}" in make_figures.fig_k_error(res)
+    table = make_figures.tab_k_error(res)
+    assert "\\begin{tabular}" in table and "$\\pm$" in table
+
+
+def test_b9_refuses_to_time_on_battery_and_rows_shape(monkeypatch, tmp_path):
+    monkeypatch.setattr(b9_wall_clock, "power_state", lambda: (False, "drawing from battery"))
+    with pytest.raises(RuntimeError, match="refuses to time"):
+        b9_wall_clock.run(power="check")
+
+    rows = b9_wall_clock.run(sizes=(4_000,), n_reps=1, n_boot=2, power="skip")
+    conditions = {r.condition for r in rows}
+    assert conditions == {"N=4000, n=800"}
+    estimators = {r.estimator for r in rows}
+    assert estimators == {"calibration_ipw", "bootstrap_calibration_ipw B=2",
+                          "compute_base_weights"}
+    assert all(r.metric == "seconds" and np.isfinite(r.mean) for r in rows)
+
+    tsv = write_tsv(rows, tmp_path / "b9.tsv")
+    monkeypatch.setattr(make_figures, "TIMING_TSV", tsv)
+    table = make_figures.tab_wall_clock(None)
+    assert "\\begin{tabular}" in table and "LASSO base fit" in table
+
+
+def test_b9_env_names_its_own_artifact(tmp_path):
+    text = environment(quick=False, wall_seconds=1.0, n_rows=3,
+                       artifact="report/timing_results.tsv")
+    assert "artifact=report/timing_results.tsv" in text
+    assert "do not reproduce exactly" in text
+    stats = environment(quick=False, wall_seconds=1.0, n_rows=3)
+    assert "reproduces the table exactly" in stats
 
 
 @pytest.mark.skipif(not make_figures.RESULTS_TSV.exists(),

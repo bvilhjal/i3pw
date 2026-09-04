@@ -1,24 +1,29 @@
 # Benchmark suite
 
-The evidence base for [the report](../report/i3pw_report.pdf). Seven benchmarks,
-one per axis of the validation matrix the report asks for, all writing rows into
-one artifact — [`report/benchmark_results.tsv`](../report/benchmark_results.tsv) —
-which the report's tables and figures both read. Nothing in the PDF is retyped from
-a terminal.
+The evidence base for [the report](../report/i3pw_report.pdf). Nine benchmarks,
+one per axis of the validation matrix the report asks for. Eight write statistical
+rows into one artifact —
+[`report/benchmark_results.tsv`](../report/benchmark_results.tsv) — which the
+report's tables and figures both read; the ninth (B9) writes wall-clock timings to
+[`report/timing_results.tsv`](../report/timing_results.tsv). Nothing in the PDF is
+retyped from a terminal.
 
 This is **not part of the installed package**. `i3pw` ships the estimator; this
 directory is the machinery that tries to break it.
 
 ```bash
-python -m benchmarks.run_all          # the full freeze (~20 min)
+python -m benchmarks.run_all          # the full freeze (~45 min, incl. timings)
 python -m benchmarks.run_all --quick  # smoke test; too noisy to quote
 python -m benchmarks.run_all B5 B7    # just those two
 python -m benchmarks.make_figures     # regenerate report/figures/fig-*.tex
 ```
 
-Seeds are fixed throughout, so a full run on the environment recorded in
-[`report/benchmark_environment.txt`](../report/benchmark_environment.txt)
-reproduces the artifact exactly.
+Seeds are fixed throughout the statistical suite, so a full run on the environment
+recorded in [`report/benchmark_environment.txt`](../report/benchmark_environment.txt)
+reproduces that artifact exactly. The timing artifact carries its own
+[`timing_environment.txt`](../report/timing_environment.txt) and no such promise:
+it is read for orders and ratios, not reruns, and B9 refuses to run on battery or
+in Low Power Mode.
 
 ## What each one asks
 
@@ -31,6 +36,8 @@ reproduces the artifact exactly.
 | **B5** `interval_coverage` | do the intervals cover — fixed-weight, calibration-aware, and bootstrap, under three specifications | coverage against nominal 0.95, with binomial Monte Carlo error |
 | **B6** `support` | how rare the anchored disease can be before the solve, then the bootstrap, give out | solve failure, replicate discards, weight concentration |
 | **B7** `shrinkage` | whether relaxing an exact constraint ever pays | RMSE against the exact solve, bias and spread separately |
+| **B8** `k_error` | whether a wrong register reverses the anchor recommendations of B2/B4 | held-out trait bias under a common relative register error, with MC intervals |
+| **B9** `wall_clock` | what the shipped calls cost, in seconds, as a function of size | nothing statistical — it prices the fit, the bootstrap, and the LASSO base |
 
 ## How it is put together
 
@@ -44,10 +51,11 @@ estimators.py  the estimator zoo and the metrics, defined once so that a row
 harness.py     the nine-column row, the two summary rules (continuous quantities
                get an across-replication SD; indicators get a binomial Monte Carlo
                error), the TSV writer and the provenance record.
-b1..b7         one file per benchmark, each with a module docstring stating what
-               it is asking and why the answer is not already known.
-make_figures.py  reads the artifact, writes report/figures/fig-*.tex.
-run_all.py     runs everything and writes the artifact and its environment file.
+b1..b8         one file per statistical benchmark, each with a module docstring
+               stating what it is asking and why the answer is not already known.
+b9_wall_clock.py  timings, on a power-guarded machine, to their own artifact.
+make_figures.py  reads the artifacts, writes report/figures/fig-*.tex.
+run_all.py     runs everything and writes the artifacts and their environment files.
 ```
 
 Two rules hold everywhere, and they are the reason the numbers are worth reading:

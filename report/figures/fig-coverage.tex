@@ -22,11 +22,11 @@
 ]
 \draw[vizInk!55, line width=0.7pt] (axis cs:-0.45,0.95) -- (axis cs:2.45,0.95);
 \node[font=\tiny, text=vizInk!70, anchor=south east, inner sep=2pt] at (axis cs:2.45,0.95) {nominal 0.95};
-\addplot[viz ipw, only marks, viz bars] coordinates {(-0.22,0.96) +- (0,0.0221749) (0.78,0.653333) +- (0,0.0538541) (1.78,0.373333) +- (0,0.0547346)};
+\addplot[viz ipw, only marks, viz bars] coordinates {(-0.22,0.943333) +- (0,0.0261633) (0.78,0.643333) +- (0,0.0542058) (1.78,0.413333) +- (0,0.055724)};
 \addlegendentry{fixed-weight}
-\addplot[viz cal, only marks, viz bars] coordinates {(0,0.953333) +- (0,0.0238683) (1,0.643333) +- (0,0.0542058) (2,0.356667) +- (0,0.0542058)};
+\addplot[viz cal, only marks, viz bars] coordinates {(0,0.94) +- (0,0.0268741) (1,0.62) +- (0,0.0549266) (2,0.376667) +- (0,0.054832)};
 \addlegendentry{calibration-aware}
-\addplot[viz ipwcal, only marks, viz bars] coordinates {(0.22,0.94) +- (0,0.0268741) (1.22,0.64) +- (0,0.0543171) (2.22,0.343333) +- (0,0.053731)};
+\addplot[viz ipwcal, only marks, viz bars] coordinates {(0.22,0.933333) +- (0,0.0282271) (1.22,0.616667) +- (0,0.0550186) (2.22,0.363333) +- (0,0.0544257)};
 \addlegendentry{bootstrap}
 \end{axis}
 \end{tikzpicture}
@@ -50,9 +50,9 @@
   xticklabels={{correct},{base + margin},{misspecified}},
   x tick label style={font=\scriptsize, rotate=14, anchor=east},
 ]
-\addplot[viz ipw, only marks, forget plot, viz bars] coordinates {(-0.22,0.0868502) +- (0,0.00193367) (0.78,0.10995) +- (0,0.0129325) (1.78,0.130378) +- (0,0.0257096)};
-\addplot[viz cal, only marks, forget plot, viz bars] coordinates {(0,0.0853276) +- (0,0.00215402) (1,0.105131) +- (0,0.0114059) (2,0.122171) +- (0,0.0231556)};
-\addplot[viz ipwcal, only marks, forget plot, viz bars] coordinates {(0.22,0.0838847) +- (0,0.00429911) (1.22,0.10422) +- (0,0.0120899) (2.22,0.119776) +- (0,0.0227919)};
+\addplot[viz ipw, only marks, forget plot, viz bars] coordinates {(-0.22,0.0867984) +- (0,0.00197874) (0.78,0.109301) +- (0,0.0133253) (1.78,0.129411) +- (0,0.026731)};
+\addplot[viz cal, only marks, forget plot, viz bars] coordinates {(0,0.0852768) +- (0,0.00221695) (1,0.104516) +- (0,0.0118661) (2,0.12129) +- (0,0.0242347)};
+\addplot[viz ipwcal, only marks, forget plot, viz bars] coordinates {(0.22,0.0842868) +- (0,0.00476691) (1.22,0.103619) +- (0,0.0120197) (2.22,0.120256) +- (0,0.0242418)};
 \end{axis}
 \end{tikzpicture}
 \end{minipage}\hfill%
@@ -76,9 +76,9 @@
   xticklabels={{correct},{base + margin},{misspecified}},
   x tick label style={font=\scriptsize, rotate=14, anchor=east},
 ]
-\addplot[viz ipwcal, only marks] coordinates {(0,0.000364447) (1,0.0359311) (2,0.0826299)};
+\addplot[viz ipwcal, only marks] coordinates {(0,0.00119961) (1,0.0348868) (2,0.0820194)};
 \addlegendentry{$|$bias$|$}
-\addplot[viz oracle, only marks] coordinates {(0,0.0426638) (1,0.0525655) (2,0.0610855)};
+\addplot[viz oracle, only marks] coordinates {(0,0.0426384) (1,0.052258) (2,0.060645)};
 \addlegendentry{half-width}
 \end{axis}
 \end{tikzpicture}

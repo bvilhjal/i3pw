@@ -4,18 +4,22 @@
 estimand, identifying density-ratio family, and the simulation claims
 that survive their design.
 
-## The two numeric artifacts
+## The three numeric artifacts
 
 | file | what it holds | frozen at |
 | --- | --- | --- |
 | `validation_results.tsv` | the `examples/` scripts — the illustrations the README and `docs/studies.md` quote | i3pw 0.3.0, 11 August 2026 |
-| `benchmark_results.tsv` | the `benchmarks/` suite — seven benchmarks over the report's validation matrix | i3pw 0.3.1, `benchmark_environment.txt` |
+| `benchmark_results.tsv` | the `benchmarks/` suite — nine benchmarks over the report's validation matrix | i3pw 0.3.2, `benchmark_environment.txt` |
+| `timing_results.tsv` | B9 wall-clock seconds for the shipped calls | i3pw 0.3.2, `timing_environment.txt` |
 
 Every numeric display in the PDF is copied from one of them. Regenerate the
-artifact, or keep citing its freeze, before changing a reported number.
+artifact, or keep citing its freeze, before changing a reported number. The
+timing file is separate on purpose: the statistical artifact reproduces
+bit-exactly on its recorded environment, wall-clock seconds never do, and the
+two claims do not share a file.
 
 ```bash
-python -m benchmarks.run_all        # rewrites benchmark_results.tsv (~20 min)
+python -m benchmarks.run_all        # rewrites benchmark_results.tsv + timing_results.tsv
 python -m benchmarks.make_figures   # rewrites report/figures/fig-*.tex
 ```
 

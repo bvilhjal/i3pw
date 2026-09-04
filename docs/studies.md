@@ -39,7 +39,7 @@ and it is the right information for prevalences, means and variance components, 
 
 Seven benchmarks in [`benchmarks/`](../benchmarks/README.md), one per axis of the
 report's validation matrix. Numbers below are copied from
-[`report/benchmark_results.tsv`](../report/benchmark_results.tsv) (i3pw 0.3.1;
+[`report/benchmark_results.tsv`](../report/benchmark_results.tsv) (i3pw 0.3.2;
 environment in [`report/benchmark_environment.txt`](../report/benchmark_environment.txt)),
 and the full tables, figures and caveats are in
 [the report](../report/i3pw_report.pdf).

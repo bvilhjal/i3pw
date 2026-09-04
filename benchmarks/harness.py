@@ -30,6 +30,11 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RESULTS_TSV = REPO_ROOT / "report" / "benchmark_results.tsv"
 ENVIRONMENT_TXT = REPO_ROOT / "report" / "benchmark_environment.txt"
+TIMING_TSV = REPO_ROOT / "report" / "timing_results.tsv"
+TIMING_ENV_TXT = REPO_ROOT / "report" / "timing_environment.txt"
+"""The wall-clock artifact is deliberately separate: statistical rows reproduce
+bit-exactly on the recorded environment, timings never do, so one file claims
+exact reproduction and the other does not."""
 
 COLUMNS = (
     "benchmark", "condition", "estimator", "metric",
@@ -126,7 +131,8 @@ def read_tsv(path: Path = RESULTS_TSV) -> list[dict]:
     return out
 
 
-def environment(*, quick: bool, wall_seconds: float, n_rows: int) -> str:
+def environment(*, quick: bool, wall_seconds: float, n_rows: int,
+                artifact: str = "report/benchmark_results.tsv") -> str:
     """Provenance for the artifact: versions, platform, and how it was produced."""
     import scipy
     import sklearn
@@ -134,8 +140,15 @@ def environment(*, quick: bool, wall_seconds: float, n_rows: int) -> str:
     import i3pw
 
     stamp = time.strftime("%Y-%m-%d")
+    reproducible = (
+        "every seed is fixed; rerunning the generator on this environment "
+        "reproduces the table exactly"
+        if artifact == "report/benchmark_results.tsv" else
+        "wall-clock seconds do not reproduce exactly and must not be quoted to "
+        "more digits than the table shows; compare orders and ratios, not reruns"
+    )
     return "\n".join([
-        "artifact=report/benchmark_results.tsv",
+        f"artifact={artifact}",
         "generator=benchmarks/run_all.py",
         f"run_date={stamp}",
         f"mode={'quick' if quick else 'full'}",
@@ -148,8 +161,7 @@ def environment(*, quick: bool, wall_seconds: float, n_rows: int) -> str:
         f"scikit_learn_version={sklearn.__version__}",
         f"platform={platform.platform()}",
         f"machine={platform.machine()}",
-        "note=every seed is fixed; rerunning the generator on this environment "
-        "reproduces the table exactly",
+        f"note={reproducible}",
     ]) + "\n"
 
 
