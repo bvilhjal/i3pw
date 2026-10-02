@@ -111,21 +111,22 @@ def run(n_reps: int = 40) -> list[Row]:
             progress.step()
     progress.close()
 
-    for label, _, _ in SCENARIOS:
+    for label, anchor, _law in SCENARIOS:
+        est = ANCHOR_METHOD[anchor]
         for d in DELTAS:
             condition = f"{label} | delta={d:+.2f}"
             a = acc[condition]
-            rows.append(summarize(BENCHMARK, condition, "ipw+cal", "trait_bias_sd",
+            rows.append(summarize(BENCHMARK, condition, est, "trait_bias_sd",
                                   a["trait"],
                                   notes="held-out trait mean; sd and mcse give the "
                                         "SD envelope and the 95% MC interval"))
-            rows.append(Row(BENCHMARK, condition, "ipw+cal", "trait_rmse_sd",
+            rows.append(Row(BENCHMARK, condition, est, "trait_rmse_sd",
                             rmse(a["trait"]), None, None, len(a["trait"]),
                             "root mean square of the per-replication signed error"))
-            rows.append(summarize(BENCHMARK, condition, "ipw+cal",
+            rows.append(summarize(BENCHMARK, condition, est,
                                   "unanchored_prevalence_error_pct", a["prev2"],
                                   notes="disease 2, never supplied"))
-            rows.append(summarize(BENCHMARK, condition, "ipw+cal", "kish_ess", a["ess"]))
+            rows.append(summarize(BENCHMARK, condition, est, "kish_ess", a["ess"]))
 
     for law, values in reference.items():
         for name, vals in values.items():

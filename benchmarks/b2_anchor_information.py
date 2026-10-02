@@ -36,6 +36,19 @@ LAW = dict(delta_x=0.65, delta_y=1.70, delta_comorbid=1.40)
 
 LADDER = ("none", "K(Y1)", "K(Y1), K(Y2)", "+ co-occurrence", "per stratum")
 
+ESTIMATOR_FOR_RUNG = {
+    "none": "ipw",
+    "K(Y1)": "ipw+cal",
+    "K(Y1), K(Y2)": "ipw+cal",
+    "+ co-occurrence": "ipw+cal",
+    "per stratum": "ipw+cal/s",
+    "oracle": "oracle",
+}
+"""The estimator each rung actually fits. Written into the artifact's estimator
+column so slicing the TSV by estimator groups the right rows together: the
+"none" rung is pure covariate IPW and the top rung is the stratified solve, and
+labelling everything "ipw+cal" (as an earlier freeze did) misdescribes both."""
+
 
 def _weights_for(rung: str, pop, base: np.ndarray) -> E.Weighting:
     """Weights under one rung of the information ladder, sharing one base model."""
@@ -97,19 +110,20 @@ def run(n_reps: int = 40) -> list[Row]:
 
     for rung in (*LADDER, "oracle"):
         a = acc[rung]
-        rows.append(summarize(BENCHMARK, rung, "ipw+cal", "trait_bias_sd", a["trait"],
+        est = ESTIMATOR_FOR_RUNG[rung]
+        rows.append(summarize(BENCHMARK, rung, est, "trait_bias_sd", a["trait"],
                               notes="held-out trait mean, population SD units"))
-        rows.append(Row(BENCHMARK, rung, "ipw+cal", "trait_rmse_sd", rmse(a["trait"]),
+        rows.append(Row(BENCHMARK, rung, est, "trait_rmse_sd", rmse(a["trait"]),
                         None, None, len(a["trait"]),
                         "root mean square of the per-replication signed error"))
-        rows.append(summarize(BENCHMARK, rung, "ipw+cal", "kish_ess", a["ess"],
+        rows.append(summarize(BENCHMARK, rung, est, "kish_ess", a["ess"],
                               notes="cost of each extra constraint"))
-        rows.append(summarize(BENCHMARK, rung, "ipw+cal", "max_weight_share", a["share"]))
-        rows.append(summarize(BENCHMARK, rung, "ipw+cal", "worst_held_out_smd", a["smd"],
+        rows.append(summarize(BENCHMARK, rung, est, "max_weight_share", a["share"]))
+        rows.append(summarize(BENCHMARK, rung, est, "worst_held_out_smd", a["smd"],
                               notes="four covariate margins excluded from every rung"))
         note = ("constrained at this rung: an identity, not a finding"
                 if rung == "+ co-occurrence" else "held out at this rung")
-        rows.append(summarize(BENCHMARK, rung, "ipw+cal", "comorbidity_error", a["comorbid"],
+        rows.append(summarize(BENCHMARK, rung, est, "comorbidity_error", a["comorbid"],
                               notes=note))
     return rows
 

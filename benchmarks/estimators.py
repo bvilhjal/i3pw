@@ -26,14 +26,12 @@ probabilities and exists to bound what any weighting could achieve.
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from benchmarks.simulate import Population
 from i3pw import (
-    CalibrationWarning,
     balance_report,
     effective_sample_size,
     entropy_balance,
@@ -112,6 +110,12 @@ def fit_weighting(
     if targets is not None and target_scale != 1.0:
         raise ValueError("pass targets= or target_scale=, not both: two ways to mis-state "
                          "the register would compose into a third nobody asked for.")
+    if targets is not None and method == "ipw+cal/s":
+        raise ValueError(
+            "targets= does not reach the stratified arm: ipw+cal/s takes its targets "
+            "from the population's within-stratum design, not from a pooled-margin "
+            "vector. Use target_scale= to mis-state the register for it (as B8 does)."
+        )
     mask = pop.mask
     n = int(mask.sum())
     Y_sel = pop.Y[mask]
@@ -132,37 +136,39 @@ def fit_weighting(
     if method == "ipw":
         return Weighting(method, base / base.sum())
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always", CalibrationWarning)
-        if method == "ipw+cal/s":
-            anchored = Y_sel[:, list(anchors)]
-            within = pop.within_stratum_prevalence()[:, list(anchors)] * target_scale
-            w, diag = stratified_calibration_weights(
-                anchored, pop.stratum[mask], within, pop.stratum_share,
-                base_weights=base, shrinkage=shrinkage, warn=False, return_diagnostics=True,
-            )
-            features = stratified_features(anchored, pop.stratum[mask],
-                                            len(pop.stratum_share))
-            cons_targets = None
+    # No warning-capture here: every solve below runs with warn=False, so
+    # diag.converged (the residual certificate entropy_balance computes) is the
+    # only convergence signal there is.
+    if method == "ipw+cal/s":
+        anchored = Y_sel[:, list(anchors)]
+        within = pop.within_stratum_prevalence()[:, list(anchors)] * target_scale
+        w, diag = stratified_calibration_weights(
+            anchored, pop.stratum[mask], within, pop.stratum_share,
+            base_weights=base, shrinkage=shrinkage, warn=False, return_diagnostics=True,
+        )
+        features = stratified_features(anchored, pop.stratum[mask],
+                                        len(pop.stratum_share))
+        # The stratified solve's targets are its flattened within-stratum design;
+        # there is no pooled-margin vector to store, so targets stays None (the
+        # guard above refuses a caller-supplied one).
+        cons_targets = None
+    else:
+        if method == "ipw+cal/v":
+            columns = pop.severity_columns()
+            features = columns[mask]
+            cons_targets = columns.mean(axis=0) * target_scale
         else:
-            if method == "ipw+cal/v":
-                columns = pop.severity_columns()
-                features = columns[mask]
-                cons_targets = columns.mean(axis=0) * target_scale
-            else:
-                features = Y_sel[:, list(anchors)]
-                cons_targets = pop.population_prevalence[list(anchors)] * target_scale
-            if targets is not None:
-                cons_targets = np.asarray(targets, dtype=float)
-            w, diag = entropy_balance(
-                features, cons_targets, base_weights=base,
-                ridge=shrinkage, warn=False, return_diagnostics=True,
-            )
-    converged = bool(diag.converged) and not any(
-        issubclass(c.category, CalibrationWarning) for c in caught
-    )
+            features = Y_sel[:, list(anchors)]
+            cons_targets = pop.population_prevalence[list(anchors)] * target_scale
+        if targets is not None:
+            cons_targets = np.asarray(targets, dtype=float)
+        w, diag = entropy_balance(
+            features, cons_targets, base_weights=base,
+            ridge=shrinkage, warn=False, return_diagnostics=True,
+        )
     return Weighting(
-        method, w, features=features, targets=cons_targets, converged=converged,
+        method, w, features=features, targets=cons_targets,
+        converged=bool(diag.converged),
         extra={"diagnostics": diag, "max_abs_residual": float(diag.max_abs_residual)},
     )
 

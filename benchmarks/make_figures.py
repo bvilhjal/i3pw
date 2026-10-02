@@ -108,6 +108,28 @@ class Results:
                 seen.append(row["condition"])
         return seen
 
+    def estimator_of(self, benchmark: str, condition: str) -> str:
+        """The estimator label the artifact records under one condition.
+
+        Read from the artifact rather than hardcoded, because the label is a
+        property of the freeze being displayed: the committed 0.3.2 artifact
+        records every B2 rung and B8 scenario under ``"ipw+cal"``, while current
+        writers record the accurate per-arm label (``"ipw"`` for B2's no-register
+        rung, ``"ipw+cal/s"`` for a stratified anchor, and so on). Displays must
+        resolve rows under both labelings, so they ask the artifact which one it
+        carries. A condition mixing several estimators has no single answer and
+        raises.
+        """
+        found = {r["estimator"] for r in self.rows
+                 if r["benchmark"] == benchmark and r["condition"] == condition}
+        if len(found) != 1:
+            raise KeyError(
+                f"{self.path.name}: condition ({benchmark}, {condition!r}) carries "
+                f"{len(found)} estimator labels {sorted(found)}; a per-condition "
+                "display needs exactly one"
+            )
+        return found.pop()
+
 
 # --------------------------------------------------------------------------------
 # pgfplots emitters
@@ -266,7 +288,9 @@ def fig_anchor_ladder(res: Results) -> str:
     ylabels = ",".join(f"{{{r}}}" for r in order)
     yticks = ",".join(str(i) for i in range(len(order)))
 
-    bias = [(abs(res.mean("B2_anchor_information", r, "ipw+cal", "trait_bias_sd")), i)
+    bias = [(abs(res.mean("B2_anchor_information", r,
+                          res.estimator_of("B2_anchor_information", r),
+                          "trait_bias_sd")), i)
             for i, r in enumerate(order)]
     body_a = hbars("fill=vizAqua", [p for p in bias if p[1] != len(order) - 1])
     body_a += hbars("fill=vizInk!35", [p for p in bias if p[1] == len(order) - 1])
@@ -284,7 +308,8 @@ def fig_anchor_ladder(res: Results) -> str:
         "y tick label style": "{font=\\scriptsize}",
     }, body_a)
 
-    ess = [(res.mean("B2_anchor_information", r, "ipw+cal", "kish_ess"), i)
+    ess = [(res.mean("B2_anchor_information", r,
+                     res.estimator_of("B2_anchor_information", r), "kish_ess"), i)
            for i, r in enumerate(order)]
     body_b = hbars("fill=vizAqua", [p for p in ess if p[1] != len(order) - 1])
     body_b += hbars("fill=vizInk!35", [p for p in ess if p[1] == len(order) - 1])
@@ -797,13 +822,14 @@ def tab_anchor_ladder(res: Results) -> str:
             "comorbidity \\\\\n\\midrule"]
     for rung in rungs:
         note = DAGGER if rung == "+ co-occurrence" else ""
+        est = res.estimator_of("B2_anchor_information", rung)
         rows.append(
             f"{rung} & "
-            f"{res.mean('B2_anchor_information', rung, 'ipw+cal', 'trait_bias_sd'):+.3f} & "
-            f"{res.mean('B2_anchor_information', rung, 'ipw+cal', 'trait_rmse_sd'):.3f} & "
-            f"{res.mean('B2_anchor_information', rung, 'ipw+cal', 'kish_ess'):.0f} & "
-            f"{res.mean('B2_anchor_information', rung, 'ipw+cal', 'worst_held_out_smd'):.3f} & "
-            f"{res.mean('B2_anchor_information', rung, 'ipw+cal', 'comorbidity_error'):+.4f}"
+            f"{res.mean('B2_anchor_information', rung, est, 'trait_bias_sd'):+.3f} & "
+            f"{res.mean('B2_anchor_information', rung, est, 'trait_rmse_sd'):.3f} & "
+            f"{res.mean('B2_anchor_information', rung, est, 'kish_ess'):.0f} & "
+            f"{res.mean('B2_anchor_information', rung, est, 'worst_held_out_smd'):.3f} & "
+            f"{res.mean('B2_anchor_information', rung, est, 'comorbidity_error'):+.4f}"
             f"{note} \\\\"
         )
     return tabular("lrrrrr", rows)
@@ -939,9 +965,10 @@ def fig_k_error(res: Results) -> str:
             conds = [c for c in res.conditions("B8_k_error")
                      if c.startswith(f"{prefix} | delta=")]
             x = [float(c.split("delta=")[1]) * 100 for c in conds]
-            mean = [res.mean("B8_k_error", c, "ipw+cal", "trait_bias_sd") for c in conds]
-            sd = [res.sd("B8_k_error", c, "ipw+cal", "trait_bias_sd") for c in conds]
-            mcse = [res.mcse("B8_k_error", c, "ipw+cal", "trait_bias_sd") for c in conds]
+            est = res.estimator_of("B8_k_error", conds[0])
+            mean = [res.mean("B8_k_error", c, est, "trait_bias_sd") for c in conds]
+            sd = [res.sd("B8_k_error", c, est, "trait_bias_sd") for c in conds]
+            mcse = [res.mcse("B8_k_error", c, est, "trait_bias_sd") for c in conds]
             envelope = "" if not dash else f",{dash}"
             body += series(style, list(zip(x, [m + s for m, s in zip(mean, sd, strict=True)],
                                            strict=True)),
@@ -983,8 +1010,9 @@ def tab_k_error(res: Results) -> str:
         cells = []
         for d in deltas:
             key = f"{name} | delta={d:+.2f}"
-            mean = res.mean("B8_k_error", key, "ipw+cal", "trait_bias_sd")
-            mcse = res.mcse("B8_k_error", key, "ipw+cal", "trait_bias_sd")
+            est = res.estimator_of("B8_k_error", key)
+            mean = res.mean("B8_k_error", key, est, "trait_bias_sd")
+            mcse = res.mcse("B8_k_error", key, est, "trait_bias_sd")
             cells.append(f"{mean:+.3f} $\\pm$ {1.96 * mcse:.3f}")
         rows.append(name.replace(" x ", " $\\times$ ") + " & " + " & ".join(cells) + " \\\\")
     return tabular("l" + "c" * len(deltas), rows)
