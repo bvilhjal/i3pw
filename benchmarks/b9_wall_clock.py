@@ -53,8 +53,9 @@ N_BOOT = 200
 
 REPS: dict[int, int] = {5_000: 3, 20_000: 2, 80_000: 2}
 """Timed repetitions per size; fewer where one LASSO fit costs tens of seconds
-(measured: ~65 s at N=20k, ~155 s at N=80k on the freeze environment, against
-~0.2 s for all 200 bootstrap dual solves together)."""
+(the freeze's measured seconds live in ``report/timing_results.tsv`` — the base
+fit dominates everything else, while all 200 bootstrap dual solves together add
+seconds, not minutes)."""
 
 CONFIG = dict(n_outcomes=2, predictors_per_outcome=10,
               target_population_prevalence=(0.10, 0.05))

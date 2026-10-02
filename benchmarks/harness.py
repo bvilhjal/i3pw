@@ -141,12 +141,22 @@ def environment(*, quick: bool, wall_seconds: float, n_rows: int,
 
     stamp = time.strftime("%Y-%m-%d")
     reproducible = (
-        "every seed is fixed; rerunning the generator on this environment "
-        "reproduces the table exactly"
+        "every seed is fixed, and on this exact environment — the recorded OS build "
+        "included — rerunning the generator reproduces the table exactly; a different "
+        "BLAS/OS perturbs the simulator's LAPACK-dependent normal draws enough to flip "
+        "fragile discrete events (observed: macOS 26.6.2 -> 27.0.1 with identical "
+        "package versions moved 845 of 894 rows and nearly doubled a B6 tail solve "
+        "rate), so re-freezing is a deliberate act that must resync every quoted number"
         if artifact == "report/benchmark_results.tsv" else
         "wall-clock seconds do not reproduce exactly and must not be quoted to "
         "more digits than the table shows; compare orders and ratios, not reruns"
     )
+    try:
+        build = np.show_config(mode="dicts")["Build Dependencies"]
+        blas = build.get("blas", {}).get("name", "unknown")
+        lapack = build.get("lapack", {}).get("name", "unknown")
+    except Exception:  # older numpy without the dicts mode
+        blas = lapack = "unknown"
     return "\n".join([
         f"artifact={artifact}",
         "generator=benchmarks/run_all.py",
@@ -159,6 +169,8 @@ def environment(*, quick: bool, wall_seconds: float, n_rows: int,
         f"numpy_version={np.__version__}",
         f"scipy_version={scipy.__version__}",
         f"scikit_learn_version={sklearn.__version__}",
+        f"blas={blas}",
+        f"lapack={lapack}",
         f"platform={platform.platform()}",
         f"machine={platform.machine()}",
         f"note={reproducible}",

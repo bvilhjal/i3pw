@@ -12,7 +12,7 @@ This is **not part of the installed package**. `i3pw` ships the estimator; this
 directory is the machinery that tries to break it.
 
 ```bash
-python -m benchmarks.run_all          # the full freeze (~45 min, incl. timings)
+python -m benchmarks.run_all          # the full freeze (~1 hour, incl. timings)
 python -m benchmarks.run_all --quick  # smoke test; too noisy to quote
 python -m benchmarks.run_all B5 B7    # just those two
 python -m benchmarks.make_figures     # regenerate report/figures/fig-*.tex
@@ -20,10 +20,23 @@ python -m benchmarks.make_figures     # regenerate report/figures/fig-*.tex
 
 Seeds are fixed throughout the statistical suite, so a full run on the environment
 recorded in [`report/benchmark_environment.txt`](../report/benchmark_environment.txt)
-reproduces that artifact exactly. The timing artifact carries its own
-[`timing_environment.txt`](../report/timing_environment.txt) and no such promise:
-it is read for orders and ratios, not reruns, and B9 refuses to run on battery or
-in Low Power Mode.
+reproduces that artifact exactly — and "that environment" includes the OS build.
+The simulator's covariate draws run through LAPACK (`multivariate_normal`), and on
+the Accelerate-backed macOS build of the evidence env, an OS upgrade perturbs those
+draws enough to flip fragile discrete events: regenerating under macOS 27.0.1 with
+identical package versions (2026-10-02) moved 845 of 894 rows in the third decimal
+and nearly doubled a B6 tail solve rate. **Re-freezing is therefore a deliberate
+act, not a side effect of running the suite**: it replaces the numbers the report
+and docs cite, so it must be followed by regenerating the figures and resyncing
+every quoted number (`tests/test_doc_numbers.py` fails until that is done). The
+committed artifact also predates one schema fix: its B2 and B8 rows all carry the
+estimator label `ipw+cal`, where the writers now record the accurate per-arm label
+(`ipw`, `ipw+cal/s`, `ipw+cal/v`, `oracle`); `make_figures.py` reads whichever
+labeling the artifact carries, and the next deliberate re-freeze picks the fix up.
+The timing artifact carries its own
+[`timing_environment.txt`](../report/timing_environment.txt) and no reproduction
+promise at all: it is read for orders and ratios, not reruns, and B9 refuses to run
+on battery or in Low Power Mode.
 
 ## What each one asks
 
