@@ -377,11 +377,11 @@ comorbidity stays biased. The fixes climb the ladder:
   psychiatric cohorts;
 - but **stratify along the axis recruitment acts on**, which is a claim about the
   mechanism that the calibration cannot supply. Measured on two mechanisms that both
-  leave the pooled prevalence matched: where cases are recruited unevenly *across
-  strata*, stratifying takes a held-out estimand from −0.044 to −0.016 SD (oracle
-  +0.002); where recruitment depends on severity *within* case status, demographic
-  strata leave the case mix marginally worse than the pooled margin (+0.063 against
-  +0.056) and only separate mild- and severe-case prevalences repair it (+0.016).
+  leave the pooled prevalence matched: where cases are recruited unevenly *across*
+  strata, stratifying takes a held-out estimand from −0.045 to −0.014 SD (oracle
+  −0.001); where recruitment depends on severity *within* case status, demographic
+  strata leave the case mix marginally worse than the pooled margin (+0.067 against
+  +0.060) and only separate mild- and severe-case prevalences repair it (+0.016).
   ([evidence](studies.md#prevalence-fixes-the-case-count-not-the-case-mix--and-strata-are-not-a-cure-all));
 - past that, within-case selection on things you *cannot* stratify on (unmeasured
   severity, differential survival) is the residual risk that prevalence cannot fix.
@@ -400,12 +400,25 @@ structure of selection needs richer constraints or a selection model that captur
 - Schoeler, T. et al. (2023). Participation bias in the UK Biobank distorts genetic
   associations and downstream analyses. *Nature Human Behaviour* 7, 1216–1227.
   [doi:10.1038/s41562-023-01579-9](https://doi.org/10.1038/s41562-023-01579-9)
+- Pirastu, N. et al. (2021). Genetic analyses identify widespread sex-differential
+  participation bias. *Nature Genetics* 53, 663–671.
+  [doi:10.1038/s41588-021-00846-7](https://doi.org/10.1038/s41588-021-00846-7)
+  *(participation bias measured genetically, corrected with register-based IPW)*
 - van Alten, S., Domingue, B. W., Faul, J., Galama, T., Marees, A. T. (2024).
   Reweighting UK Biobank corrects for pervasive selection bias due to volunteering.
   *International Journal of Epidemiology* 53(3), dyae054.
 - van Alten, S. et al. (2025). Correcting for volunteer bias in GWAS increases SNP
   effect sizes and heritability estimates. *Nature Communications* 16, 3578.
   [doi:10.1038/s41467-025-58684-8](https://doi.org/10.1038/s41467-025-58684-8)
+- Salvatore, M. et al. (2024). To weight or not to weight? The effect of selection
+  bias in 3 large electronic health record-linked biobanks. *JAMIA* 31(7),
+  1479–1492. [doi:10.1093/jamia/ocae098](https://doi.org/10.1093/jamia/ocae098)
+  *(weighting strategies benchmarked against national registry estimates — the
+  held-out-margin logic in an EHR setting)*
+- Kundu, R., Shi, X., Morrison, J., Barrett, J., Mukherjee, B. (2024). A framework
+  for understanding selection bias in real-world healthcare data. *JRSS Series A*
+  187(3), 606–635.
+  [doi:10.1093/jrsssa/qnae039](https://doi.org/10.1093/jrsssa/qnae039)
 - Munafò, M. R. et al. (2018). Collider scope: when selection bias can substantially
   influence observed associations. *Int. J. Epidemiol.* 47(1), 226–235.
 - Elliott, M. R. & Valliant, R. (2017). Inference for nonprobability samples.
@@ -420,6 +433,11 @@ structure of selection needs richer constraints or a selection model that captur
   *(the self-normalized ratio estimator)*
 - Deville, J.-C. & Särndal, C.-E. (1992). Calibration estimators in survey sampling.
   *JASA* 87(418), 376–382.
+- Isaki, C. T. & Fuller, W. A. (1982). Survey design under the regression
+  superpopulation model. *JASA* 77(377), 89–96.
+  [doi:10.1080/01621459.1982.10477770](https://doi.org/10.1080/01621459.1982.10477770)
+  *(asymptotic theory of calibrated estimators behind the regression-linearization
+  variance)*
 - Hainmueller, J. (2012). Entropy balancing for causal effects. *Political Analysis*
   20(1), 25–46. *(the exact form `entropy_balance` solves)*
 - Kott, P. S. & Chang, T. (2010). Using calibration weighting to adjust for
@@ -487,6 +505,9 @@ machine learning):**
   probability and non-probability samples with high-dimensional data. *JRSS-B* 82(2),
   445–465. *(data integration: a non-probability sample anchored to population
   quantities)*
+- Kundu, R. et al. (2026). A doubly robust framework for addressing outcome-dependent
+  selection bias in multi-cohort EHR studies. *Biostatistics* 27(1), kxag001.
+  [doi:10.1093/biostatistics/kxag001](https://doi.org/10.1093/biostatistics/kxag001)
 - Chernozhukov, V. et al. (2018). Double/debiased machine learning for treatment and
   structural parameters. *Econometrics Journal* 21(1), C1–C68. *(cross-fitting)*
 
@@ -503,6 +524,12 @@ machine learning):**
   heritability for disease from genome-wide association studies. *AJHG* 88(3), 294–305.
 - Golan, D., Lander, E. S., Rosset, S. (2014). Measuring missing heritability:
   inferring the contribution of common variants. *PNAS* 111(49), E5272–E5281 (PCGC).
+- Weissbrod, O., Flint, J., Rosset, S. (2018). Estimating SNP-based heritability and
+  genetic correlation in case-control studies directly and with summary statistics.
+  *AJHG* 103(1), 89–99.
+  [doi:10.1016/j.ajhg.2018.06.002](https://doi.org/10.1016/j.ajhg.2018.06.002)
+  *(direct liability-scale estimation under case-control ascertainment — the
+  alternative route to the reweighting one)*
 
 **Software:**
 

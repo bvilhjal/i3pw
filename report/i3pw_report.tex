@@ -55,8 +55,8 @@
   {\large Estimand, identification, and evidence in \texttt{i3pw}}}
 \author{Others (TBD) and Bjarni J\'ohann Vilhj\'almsson\\[0.35em]
   {\small Aarhus University and SMARTbiomed}\\[0.35em]
-  {\small\texttt{https://github.com/bvilhjal/i3pw}\quad$\cdot$\quad v0.3.2}}
-\date{4 September 2026}
+  {\small\texttt{https://github.com/bvilhjal/i3pw}\quad$\cdot$\quad v0.3.3}}
+\date{2 October 2026}
 
 \begin{document}
 \maketitle
@@ -77,8 +77,8 @@ margins can refute the tilt; they do not prove it.  A benchmark suite over six
 axes of that specification puts numbers on the consequences: the two ingredients
 fail completely in each other's regime, a participation model used as a base
 introduces bias when recruitment acts through the diagnosis alone, and interval
-coverage falls from nominal to \(0.64\) under the mild misspecification of ordinary
-applied use.  Numeric claims below are copied from two fixed-seed artifacts,
+coverage falls from nominal to \(0.62\)--\(0.64\) under the mild misspecification of
+ordinary applied use.  Numeric claims below are copied from two fixed-seed artifacts,
 \path{report/validation_results.tsv} (i3pw 0.3.0) and
 \path{report/benchmark_results.tsv} (i3pw 0.3.2); the tables and figures reporting
 the latter are generated from it.  None of it is external-cohort validation.
@@ -581,8 +581,9 @@ also influences participation.  Conditioning on volunteers opens a path between 
 causes of \(S\), potentially distorting \(G\)--\(Y\) or \(E\)--\(Y\) associations.
 This is not repaired merely by restoring \(\Prb(Y=1)=K\), because infinitely many
 joint laws \(\Prb_T(G,Y)\) share the same marginal \(K\).  Volunteer-weighting studies
-in UK Biobank illustrate both the importance and the difficulty of modelling this
-selection \cite{schoeler2023,vanalten2024,vanalten2025}.
+in UK Biobank and other biobanks illustrate both the importance and the difficulty of
+modelling this selection
+\cite{pirastu2021,schoeler2023,vanalten2024,vanalten2025}.
 
 The distinction from Prentice--Pyke invariance is useful:
 \begin{itemize}
@@ -617,7 +618,10 @@ Alternatively, one may first use equation~\eqref{eq:class-weights} to estimate t
 population-standardized observed-scale moment and then apply
 equation~\eqref{eq:obs-liability}.  Their agreement is expected under pure
 case/control ascertainment.  Neither route protects against recruitment depending on
-latent liability within case status unless that dependence is modelled.
+latent liability within case status unless that dependence is modelled.  Direct
+liability-scale estimators for ascertained samples, which bypass the observed-scale
+moment entirely, are an active alternative
+\cite{weissbrod2018}.
 
 \section{Uncertainty: what is random?}
 
@@ -636,7 +640,9 @@ For normalized weights \(\widetilde w_i=w_i/\sum_jw_j\), the fixed-weight varian
 \label{eq:fixed-var}
 \end{equation}
 This ignores that the tilt was re-estimated to meet the constraints.  The
-calibration-aware linearization implemented in \pkg\ instead uses
+calibration-aware linearization implemented in \pkg\ instead uses the classical
+asymptotic equivalence between calibration and regression estimators
+\cite{deville1992,isaki1982}:
 \begin{align}
 \widehat\beta_\rho
 &=\{\widehat{\Cov}_w(g)+\rho I\}^{-1}
@@ -776,7 +782,12 @@ possible; and
 \end{enumerate}
 Selecting constraints after inspecting held-out failures converts validation into
 training.  Reporting only anchored prevalence error produces impressive zeros and no
-evidence whatsoever.
+evidence whatsoever.  The same logic is now appearing in the EHR-biobank literature,
+where weighted estimates are benchmarked against national registry figures
+\cite{salvatore2024}, selection-bias frameworks for real-world healthcare data make
+the transport assumptions explicit \cite{kundu2024}, and doubly robust combinations
+of probability and nonprobability data are an active research direction
+\cite{kundu2026,elliott2017}.
 
 \section{Simulation evidence}
 \label{sec:evidence}
@@ -836,7 +847,7 @@ Every number in Table~\ref{tab:fresh-results} and Figure~\ref{fig:fresh-benchmar
 is copied from \path{report/validation_results.tsv}.  That freeze was produced
 on 11 August 2026 with i3pw 0.3.0, Python 3.11.15, NumPy 2.4.6, SciPy 1.17.1,
 and scikit-learn 1.9.0; the runtime is recorded in
-\path{report/validation_environment.txt}.  The present package version is 0.3.2;
+\path{report/validation_environment.txt}.  The present package version is 0.3.3;
 the numeric artifact was not regenerated.  Replicated scripts use seeds
 \(0,\ldots,R-1\).  These are regression checks, not a substitute for an
 independently designed validation study.
@@ -913,7 +924,9 @@ reports quantities the estimators were never given.
 Its numbers are the artifact \path{report/benchmark_results.tsv}, produced by
 \code{python -m benchmarks.run\_all} with the environment recorded in
 \path{report/benchmark_environment.txt}.  Every seed is fixed, so the run
-reproduces exactly.  The tables and figures that follow are \emph{generated} from
+reproduces exactly --- on that recorded environment, which the second provenance
+note below shows includes the OS build.  The tables and figures that follow are
+\emph{generated} from
 that artifact by \code{benchmarks/make\_figures.py}: no number in this section was
 retyped, and a figure that could not find its row would have stopped the build
 rather than leave a gap.  One further artifact, \path{report/timing_results.tsv}
@@ -928,6 +941,20 @@ moved within its Monte Carlo error, and no qualitative finding has changed.  The
 0.3.0 example freeze of \S\ref{sec:frozen} was produced under 3.11 and is quoted
 unchanged; the two artifacts are not on the same random stream, which is one
 reason they are kept as separate files.
+
+A second provenance note, and a warning.  Exact reproduction is platform-bound in
+a way the first note understates: the simulator's normal draws run through LAPACK,
+and regenerating under an upgraded macOS (26.6.2 to 27.0.1) with identical package
+versions moved 845 of the 894 rows in their third decimal and nearly doubled a B6
+tail solve rate, because ulp-level changes in the factorizations flip the discrete
+draws built on top of them.  The committed artifact therefore stands as the
+evidence of record even on the machine that produced it; re-freezing is a
+deliberate act that must resync every number this report and the docs quote, which
+is what \path{benchmarks/README.md} now says and \path{tests/test_doc_numbers.py}
+enforces.  One schema fix awaits that next freeze: the artifact's B2 and B8 rows
+all carry the estimator label \code{ipw+cal}, where the writers now record the
+accurate per-arm label and the figure generator reads whichever labeling the
+artifact carries.
 
 \paragraph{The common design.}
 A population of 20{,}000 carries eight correlated Gaussian frame covariates, a
@@ -986,7 +1013,7 @@ a harder test than the one that produced it.
 
 \emph{The base model is not free.}  Under outcome-only recruitment, calibration from
 a uniform base is at \(+0.003\) --- indistinguishable from the oracle's \(+0.003\)
---- while adding the participation model as a base moves it to \(-0.065\), twenty
+--- while adding the participation model as a base moves it to \(-0.065\), nineteen
 times worse.  The reason is structural, not statistical: \(\Prb(S=1\mid X)\) does
 vary with \(X\) here, because \(X\) predicts \(Y\) and \(Y\) drives participation,
 so \(1/\hat{P}(S\mid X)\) imports a covariate tilt that the outcome constraint has
@@ -996,7 +1023,7 @@ sample.  Where recruitment is believed to act through the diagnosis alone, the
 uniform base is the specification, not the lazy default.
 
 \emph{The residuals are misspecification, not noise.}  The oracle sits within
-\(0.001\) SD of zero in every law, so the \(0.034\)--\(0.083\) left by
+\(0.006\) SD of zero in every law, so the \(0.034\)--\(0.083\) left by
 \code{ipw+cal} in the three mixed laws is the part of the density ratio outside the
 tilt family, measured rather than argued.  Note that even the additive law leaves
 a residual: a participation logit that is additive in \(X\) and \(Y\) does not have
@@ -1225,22 +1252,24 @@ answering an invitation harder --- the sample must carry the population's diseas
 few shoulders, and the failures arrive in a fixed order:
 
 \begin{itemize}
-\item at roughly five sampled cases (\(K=0.01\)) the point estimate still solves in
-every replication, and \(3.4\%\) of bootstrap resamples are already being discarded;
-\item at three (\(K=0.005\)) the solve fails in \(7\%\) of replications and \(10\%\)
-of resamples are discarded;
-\item at one (\(K=0.002\)) the solve fails in \(27\%\) and \(27\%\) of resamples are
-discarded.
+\item at roughly ten sampled cases (\(K=0.02\)) every solve still succeeds, and
+\(0.4\%\) of bootstrap resamples are already being discarded;
+\item at roughly five (\(K=0.01\)) the discard rate reaches \(7.9\%\) and the solve
+itself has just begun to fail, in one replication in thirty;
+\item at two to three (\(K=0.005\)) the solve fails in \(17\%\) of replications and
+\(13\%\) of resamples are discarded;
+\item at one (\(K=0.002\)) the solve fails in \(47\%\) of replications and a quarter
+of resamples are discarded.
 \end{itemize}
 
-The ordering is the warning.  The interval degrades roughly an order of magnitude in
-prevalence before the point estimate does, and it degrades silently: discarded
+The ordering is the warning.  The interval begins degrading a prevalence step before
+the point estimate does, and it degrades silently: discarded
 resamples are exactly the ones poorest in cases, so what remains is a truncated
 sampling distribution and a percentile interval that is too narrow.  A calibration
 that solves cleanly can still be carrying an interval that does not mean what it
 says, and \code{BootstrapResult.failure\_rate} is the only thing that reveals it.
-Weight concentration is also worse in this direction, peaking at \(18.4\) times an
-equal share against \(12.2\) when cases are over-recruited.
+Weight concentration is also worse in this direction, peaking at \(21.5\) times an
+equal share against \(11.5\) when cases are over-recruited.
 
 \FloatBarrier
 \subsubsection{The ridge (B7)}
@@ -1354,9 +1383,9 @@ Where the tilt family does not contain the law (panel B), the register error
 compounds a structural bias rather than replacing it.  The pooled anchor under the
 \(X\times Y\) interaction law sits at \(-0.083\) even at \(\delta=0\) --- the B1
 misspecification --- and a wrong register slides it along the same slope from
-there.  The \(\pm1\) SD envelope is the quantity to watch: at roughly \(\pm0.02\)
-it is far narrower than the slopes being estimated, so the curves' positions are
-structural statements about the tilt family, not sampling accidents.
+there.  The Monte Carlo intervals are the quantity to watch: at roughly
+\(\pm0.02\) they are far narrower than the slopes being estimated, so the curves'
+positions are structural statements about the tilt family, not sampling accidents.
 
 Two limits deserve explicit statement.  First, the error model is a single
 hypothesis --- a common relative scale on every prevalence target --- not a
@@ -1486,7 +1515,7 @@ covariate participation model used as a base makes the estimate
 an order of magnitude worse than a uniform base, because it imports a covariate
 tilt the outcome constraint cannot remove (\S\ref{sec:benchmarks}, B1).
 \item \textbf{Reported intervals are conditional on the tilt family.}
-They are at nominal when it contains the truth and at \(0.64\) under
+They are at nominal when it contains the truth and at \(0.62\)--\(0.64\) under
 the ordinary combination of a fitted base and a marginal constraint,
 with almost no change in width: the loss is bias, and no variance
 formula covers it (B5).
@@ -1496,9 +1525,9 @@ severity-grade prevalences do.  Which axis is right is a claim about the
 mechanism, and the calibration cannot supply it (B4).
 \item \textbf{The interval fails before the point estimate does.}  Under
 the realistic direction --- cases participating less --- bootstrap
-replicates start being discarded around five sampled cases, roughly an
-order of magnitude in prevalence before the solve itself fails, and the
-discards are silent (B6).
+replicates start being discarded around ten sampled cases and are
+substantial by five, where the solve itself has only just begun to fail,
+and the discards are silent (B6).
 \end{enumerate}
 
 None of this establishes bias reduction in a real cohort.  The next
@@ -1510,11 +1539,12 @@ later-wave study.
 
 \subsection{Architecture and public contract}
 
-The source declares version 0.3.2 and an alpha development status.  Its
+The source declares version 0.3.3 and an alpha development status.  Its
 design has a sensible separation between a real-cohort interface and simulation
 machinery.  The example freeze cited in \S\ref{sec:evidence} is still 0.3.0; the
 benchmark artifact is 0.3.2 and is regenerated by \code{python -m
-benchmarks.run\_all}.
+benchmarks.run\_all} --- deliberately, per the provenance note above, since a
+re-freeze replaces every number this report cites.
 
 \begin{table}[htbp]
 \centering
@@ -1667,7 +1697,7 @@ Table~\ref{tab:wall-clock} replaces the orders with measured seconds (B9,
 \path{report/timing_results.tsv}).  They confirm what the orders imply: the
 entropy dual is effectively free, and nearly the entire cost of a fit is the
 LASSO base.  Because the dual solve is the only per-replicate work of the
-default bootstrap, 200 bootstrap re-solves add about half a second.  The third
+default bootstrap, 200 bootstrap re-solves add seconds, not minutes.  The third
 column is the per-replicate premium of \code{refit\_base=True}: a base fit costs
 orders of magnitude more than a re-solve, so a refit bootstrap is dominated by
 the LASSO, not the calibration.
@@ -1848,6 +1878,11 @@ Calibration estimators in survey sampling.
 \href{https://doi.org/10.1080/01621459.1992.10475217}
 {doi:10.1080/01621459.1992.10475217}.
 
+\bibitem{elliott2017}
+Elliott, M. R., and Valliant, R. (2017).
+Inference for nonprobability samples.
+\emph{Statistical Science}, 32(2), 249--264.
+
 \bibitem{hainmueller2012}
 Hainmueller, J. (2012).
 Entropy balancing for causal effects: A multivariate reweighting method to produce
@@ -1875,6 +1910,13 @@ A generalization of sampling without replacement from a finite universe.
 \href{https://doi.org/10.1080/01621459.1952.10483446}
 {doi:10.1080/01621459.1952.10483446}.
 
+\bibitem{isaki1982}
+Isaki, C. T., and Fuller, W. A. (1982).
+Survey design under the regression superpopulation model.
+\emph{Journal of the American Statistical Association}, 77(377), 89--96.
+\href{https://doi.org/10.1080/01621459.1982.10477770}
+{doi:10.1080/01621459.1982.10477770}.
+
 \bibitem{kott2010}
 Kott, P. S., and Chang, T. (2010).
 Using calibration weighting to adjust for nonignorable unit nonresponse.
@@ -1886,6 +1928,20 @@ Using calibration weighting to adjust for nonignorable unit nonresponse.
 Kish, L. (1965).
 \emph{Survey Sampling}.
 Wiley.
+
+\bibitem{kundu2024}
+Kundu, R., Shi, X., Morrison, J., Barrett, J., and Mukherjee, B. (2024).
+A framework for understanding selection bias in real-world healthcare data.
+\emph{Journal of the Royal Statistical Society Series A}, 187(3), 606--635.
+\href{https://doi.org/10.1093/jrsssa/qnae039}{doi:10.1093/jrsssa/qnae039}.
+
+\bibitem{kundu2026}
+Kundu, R., Shi, X., Kleinsasser, M., Fritsche, L. G., et al. (2026).
+A doubly robust framework for addressing outcome-dependent selection bias in
+multi-cohort EHR studies.
+\emph{Biostatistics}, 27(1), kxag001.
+\href{https://doi.org/10.1093/biostatistics/kxag001}
+{doi:10.1093/biostatistics/kxag001}.
 
 \bibitem{lee2011}
 Lee, S. H., Wray, N. R., Goddard, M. E., and Visscher, P. M. (2011).
@@ -1914,6 +1970,14 @@ Collider scope: When selection bias can substantially influence observed
 associations.
 \emph{International Journal of Epidemiology}, 47(1), 226--235.
 \href{https://doi.org/10.1093/ije/dyx206}{doi:10.1093/ije/dyx206}.
+
+\bibitem{pirastu2021}
+Pirastu, N., Cordioli, M., Nandakumar, P., Mignogna, G., Abdellaoui, A., Hollis, B.,
+et al. (2021).
+Genetic analyses identify widespread sex-differential participation bias.
+\emph{Nature Genetics}, 53(5), 663--671.
+\href{https://doi.org/10.1038/s41588-021-00846-7}
+{doi:10.1038/s41588-021-00846-7}.
 
 \bibitem{prentice1979}
 Prentice, R. L., and Pyke, R. (1979).
@@ -1951,6 +2015,14 @@ procedure.
 \href{https://doi.org/10.1162/089976602753284446}
 {doi:10.1162/089976602753284446}.
 
+\bibitem{salvatore2024}
+Salvatore, M., Kundu, R., Shi, X., Friese, C. R., Lee, S. J., Fritsche, L. G.,
+et al. (2024).
+To weight or not to weight? The effect of selection bias in 3 large electronic
+health record-linked biobanks.
+\emph{Journal of the American Medical Informatics Association}, 31(7), 1479--1492.
+\href{https://doi.org/10.1093/jamia/ocae098}{doi:10.1093/jamia/ocae098}.
+
 \bibitem{sargan1958}
 Sargan, J. D. (1958).
 The estimation of economic relationships using instrumental variables.
@@ -1978,6 +2050,14 @@ estimates.
 \emph{Nature Communications}, 16, article 3578.
 \href{https://doi.org/10.1038/s41467-025-58684-8}
 {doi:10.1038/s41467-025-58684-8}.
+
+\bibitem{weissbrod2018}
+Weissbrod, O., Flint, J., and Rosset, S. (2018).
+Estimating SNP-based heritability and genetic correlation in case-control studies
+directly and with summary statistics.
+\emph{The American Journal of Human Genetics}, 103(1), 89--99.
+\href{https://doi.org/10.1016/j.ajhg.2018.06.002}
+{doi:10.1016/j.ajhg.2018.06.002}.
 
 \bibitem{zhao2017}
 Zhao, Q., and Percival, D. (2017).

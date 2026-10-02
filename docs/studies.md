@@ -37,8 +37,9 @@ and it is the right information for prevalences, means and variance components, 
 
 ## The benchmark suite: what breaks, and when
 
-Seven benchmarks in [`benchmarks/`](../benchmarks/README.md), one per axis of the
-report's validation matrix. Numbers below are copied from
+Nine benchmarks in [`benchmarks/`](../benchmarks/README.md) — one per axis of the
+report's validation matrix, plus the register-error crossing (B8) and the
+wall-clock pricing (B9). Numbers below are copied from
 [`report/benchmark_results.tsv`](../report/benchmark_results.tsv) (i3pw 0.3.2;
 environment in [`report/benchmark_environment.txt`](../report/benchmark_environment.txt)),
 and the full tables, figures and caveats are in
@@ -59,23 +60,23 @@ Bias in `E[Z]`, population SD units, 40 replications:
 
 | recruitment | naive | ipw | cal | ipw+cal | aipw | oracle |
 | --- | --- | --- | --- | --- | --- | --- |
-| X only | +0.389 | **+0.002** | +0.383 | +0.003 | −0.002 | −0.002 |
-| Y only | +0.302 | +0.150 | **+0.006** | −0.065 | +0.046 | +0.006 |
-| X + Y | +0.479 | +0.120 | +0.292 | **−0.036** | +0.029 | +0.002 |
-| X × Y | +0.558 | +0.075 | +0.310 | −0.083 | **+0.033** | +0.002 |
-| severity | +0.547 | +0.158 | +0.298 | **−0.040** | +0.050 | +0.002 |
+| X only | +0.385 | **+0.003** | +0.381 | +0.005 | +0.001 | −0.006 |
+| Y only | +0.298 | +0.150 | **+0.003** | −0.065 | +0.048 | +0.003 |
+| X + Y | +0.479 | +0.120 | +0.293 | **−0.034** | +0.031 | +0.001 |
+| X × Y | +0.558 | +0.074 | +0.311 | −0.083 | **+0.036** | +0.001 |
+| severity | +0.548 | +0.159 | +0.297 | **−0.040** | +0.052 | −0.000 |
 
 - **Each ingredient fails completely in the other's regime.** Calibration alone
-  removes 1.5% of a covariate-driven bias; the participation model alone removes half
+  removes about 1% of a covariate-driven bias; the participation model alone removes half
   of an outcome-driven one.
 - **A participation model used as a base can make things worse.** Under
-  outcome-only recruitment `cal` is at the oracle and `ipw+cal` is 11× worse. This is
+  outcome-only recruitment `cal` is at the oracle and `ipw+cal` is 19× worse. This is
   not noise: `P(S|X)` genuinely varies here (X → Y → S), so `1/P̂(S|X)` imports a
   covariate tilt that an outcome constraint cannot remove. Where you believe
   recruitment acts through the diagnosis alone, **a uniform base is the
   specification, not laziness.**
-- **The residuals are real.** The oracle is within 0.007 of zero in every law, so the
-  0.036–0.083 left by `ipw+cal` is the part of the density ratio outside the tilt
+- **The residuals are real.** The oracle is within 0.006 of zero in every law, so the
+  0.034–0.083 left by `ipw+cal` is the part of the density ratio outside the tilt
   family. Even "additive" selection leaves a residual: an additive participation
   *logit* does not give an additive log density ratio.
 - **AIPW is the most robust deployable choice** here — lowest or near-lowest RMSE in
@@ -83,9 +84,9 @@ Bias in `E[Z]`, population SD units, 40 replications:
   repair for a misspecified tilt, and it needs its own outcome model to be right.
 
 **The held-out balance check is an alarm, not a ranking device.** It caught the
-base-model harm above (worst |SMD| 0.146 for `ipw+cal` vs 0.034 for `cal`, matching
-the biases) and got the additive law backwards (0.024 for `ipw`, whose bias is
-+0.120, against 0.106 for `ipw+cal`, whose bias is −0.036). Use it to detect
+base-model harm above (worst |SMD| 0.146 for `ipw+cal` vs 0.035 for `cal`, matching
+the biases) and got the additive law backwards (0.023 for `ipw`, whose bias is
++0.120, against 0.106 for `ipw+cal`, whose bias is −0.034). Use it to detect
 misspecification; do not use it to choose between two weightings.
 
 ### The intervals cover only when the tilt family is right
@@ -94,14 +95,14 @@ Coverage of a nominal 95% interval for `E[Z]`, 300 replications:
 
 | specification | fixed-weight | calibration-aware | bootstrap | width | bias |
 | --- | --- | --- | --- | --- | --- |
-| correct (Y only, uniform base) | 0.960 | 0.953 | 0.940 | 0.085 | +0.000 |
-| base + margin (X + Y) | 0.653 | 0.643 | 0.640 | 0.105 | −0.036 |
-| misspecified (X × Y) | 0.373 | 0.357 | 0.343 | 0.122 | −0.083 |
+| correct (Y only, uniform base) | 0.943 | 0.940 | 0.933 | 0.085 | +0.001 |
+| base + margin (X + Y) | 0.643 | 0.620 | 0.617 | 0.105 | −0.035 |
+| misspecified (X × Y) | 0.413 | 0.377 | 0.363 | 0.121 | −0.082 |
 
 Monte Carlo error is about ±0.025 on the first row and ±0.055 on the others. The
 widths barely change across the three regimes, so **the collapse is entirely bias**:
-the calibration-aware half-widths are 0.043, 0.053 and 0.061 SD, so the biases are 1%,
-68% and 135% of the half-width they would have to fit inside.
+the calibration-aware half-widths are 0.043, 0.052 and 0.061 SD, so the biases are 3%,
+67% and 135% of the half-width they would have to fit inside.
 An interval from this package quantifies sampling variability and says nothing about
 the specification, so report it with the held-out diagnostic and the `K` sensitivity
 sweep, never alone.
@@ -112,24 +113,24 @@ Errors under two mechanisms that both leave the pooled prevalence matched:
 
 | | pooled `ipw+cal` | + demographic strata | + severity prevalences | oracle |
 | --- | --- | --- | --- | --- |
-| **stratum-differential**: worst within-stratum `K` error | 0.169 | 0† | 0.170 | 0.011 |
-| **stratum-differential**: bias in `E[Z]` | −0.044 | **−0.016** | −0.043 | +0.002 |
-| **within-case severity**: case-mix error | +0.056 | +0.063 | **+0.016** | −0.001 |
-| **within-case severity**: bias in `E[Z]` | −0.040 | −0.026 | −0.042 | +0.002 |
+| **stratum-differential**: worst within-stratum `K` error | 0.172 | 0† | 0.172 | 0.012 |
+| **stratum-differential**: bias in `E[Z]` | −0.045 | **−0.014** | −0.044 | −0.001 |
+| **within-case severity**: case-mix error | +0.060 | +0.067 | **+0.016** | +0.001 |
+| **within-case severity**: bias in `E[Z]` | −0.040 | −0.025 | −0.042 | −0.000 |
 
 † constrained: an identity, not a result.
 
 So the README's "calibrate within strata" needs a sharper statement: **stratify along
 the axis recruitment acts on.** Demographic strata do nothing for severity-dependent
 recruitment — they are marginally *worse* than the pooled margin on case mix —
-while separate mild- and severe-case prevalences cut that error by 3.5×. Which axis
+while separate mild- and severe-case prevalences cut that error by 3.6×. Which axis
 is right is a claim about the recruitment mechanism, and the calibration cannot
 supply it.
 
 ### A wrong register prevalence is survivable; a rare disease under-recruited is not
 
 - **Target error (B3).** Scaling the anchored `K` by `1 + δ` over ±30% moves the
-  held-out bias from −0.067 to −0.004 — about **0.011 SD per 10 percentage points of
+  held-out bias from −0.066 to −0.002 — about **0.011 SD per 10 percentage points of
   relative register error**, against a naive bias of 0.479. Plausible register error
   is cheap. But the bias is *smallest* at δ = +30%, where the target error happens to
   offset the estimator's own: a sensitivity sweep bounds the estimate, it does not
@@ -137,15 +138,16 @@ supply it.
 - **Support (B6).** The direction of the disease channel matters more than the
   rarity. With cases over-recruited the solve survives to nine sampled cases. With
   cases **under**-recruited — the realistic direction for severe illness — failures
-  arrive in a fixed order: at ~5 sampled cases every solve still succeeds while 3.4%
-  of bootstrap replicates are already being discarded; at 3 cases, 7% of solves fail
-  and 10% of replicates are discarded; at 1 case, 27% and 27%. **The interval fails
-  about an order of magnitude in prevalence before the point estimate does, and it
-  fails silently** — read `BootstrapResult.failure_rate`.
+  arrive in a fixed order: at ~10 sampled cases every solve still succeeds while the
+  first bootstrap replicates (0.4%) are being discarded; at ~5 cases, 8% of replicates
+  are discarded and the solve itself has just begun to fail (1 rep in 30); at ~2–3
+  cases, 17% of solves fail and 13% of replicates are discarded; at ~1 case, 47% and
+  25%. **The interval fails before the point estimate does, and it fails silently** —
+  read `BootstrapResult.failure_rate`.
 - **Extra constraints are nearly free (B2).** Going from the participation model
-  alone to a pooled prevalence takes the bias from +0.125 to −0.037; a second
+  alone to a pooled prevalence takes the bias from +0.126 to −0.034; a second
   prevalence and a co-occurrence target buy almost nothing further on this estimand,
-  per-stratum prevalences take it to −0.026, and the effective sample size is flat at
+  per-stratum prevalences take it to −0.023, and the effective sample size is flat at
   ≈1500 across every rung (against 1756 unconstrained). Almost the whole variance
   cost is paid by the first constraint. Cheapness is not a reason to add more: each
   one still has to be something the register actually knows.

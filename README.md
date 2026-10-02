@@ -237,7 +237,7 @@ of them — and each one is the answer to one of the
 | [**docs/theory.md**](docs/theory.md) | *question 2.* [notation](docs/theory.md#notation), what the method identifies, where the construction comes from, why the standard errors behave as they do, [what could prove it wrong](docs/theory.md#what-makes-this-falsifiable), and the [bibliography](docs/theory.md#references) | read before quoting a number in a paper |
 | [**docs/guide.md**](docs/guide.md) | *how to run it.* [`calibrate`, start to finish](docs/guide.md#if-you-have-a-cohort-start-here-calibrate), the estimators, how to [check a weighting](docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic), how to [put error bars on it](docs/guide.md#uncertainty) | read if you have a cohort |
 | [**docs/studies.md**](docs/studies.md) | *questions 1 and 3.* the simulations behind every number claimed here, starting with [what breaks and when](docs/studies.md#the-benchmark-suite-what-breaks-and-when) and [the honest benchmark](docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy). Numbers are copied from [`report/validation_results.tsv`](report/validation_results.tsv) and [`report/benchmark_results.tsv`](report/benchmark_results.tsv) | read if you doubt a claim |
-| [**benchmarks/**](benchmarks/README.md) | *when does it fail?* nine benchmarks over the recruitment mechanism, the register information, the target error, the case mix, the support, the ridge, register error under richer anchors, and wall-clock cost — every one scored on estimands nobody was given, against oracle weights | read if you are judging the method |
+| [**benchmarks/**](benchmarks/README.md) | *when does it fail?* nine benchmarks over the recruitment mechanism, the register information, the target error, the case mix, interval coverage, the support, the ridge, register error under richer anchors, and wall-clock cost — every one scored on estimands nobody was given, against oracle weights | read if you are judging the method |
 | [**report PDF**](output/pdf/i3pw_report.pdf) ([LaTeX source](report/i3pw_report.tex)) | methods note: estimand, identification, and both layers of simulation evidence in full | read before quoting a number in a paper |
 
 **In a hurry?** [Conclusions and recommendations](#conclusions-and-recommendations), just
@@ -268,7 +268,7 @@ for each argument. Steps 5 and 6 are what to report afterwards.
    covariate, dropping this step costs a factor of 2.3 in held-out balance
    ([benchmark](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#what-the-headline-benchmark-does-not-show-exampleshonest_benchmarkpy)).
    *But it is not free.* Where recruitment acts through the diagnosis alone, a
-   covariate base makes the estimate **11× worse** than a uniform one, because
+   covariate base makes the estimate **19× worse** than a uniform one, because
    `1/P̂(S|X)` still varies with `X` — through `X → Y → S` — and imports a covariate
    tilt the outcome constraint cannot remove. The base weights are part of the
    specification, so omit them when you believe selection is outcome-driven
@@ -287,10 +287,10 @@ for each argument. Steps 5 and 6 are what to report afterwards.
    sampled cases are milder than the population's, matching the margin leaves that
    uncorrected ([case mix](https://github.com/bvilhjal/i3pw/blob/main/docs/theory.md#prevalence-sets-the-scale-not-the-case-mix)). Where cases are recruited
    unevenly *across strata*, a pooled margin leaves a within-stratum prevalence wrong by
-   more than the prevalence itself (0.169 against `K = 0.10`) and stratifying nearly
+   more than the prevalence itself (0.172 against `K = 0.10`) and stratifying nearly
    closes the held-out gap to the oracle. But **the wrong axis does not help**:
    demographic strata do nothing for severity-dependent recruitment, where separate
-   mild- and severe-case prevalences cut the case-mix error 3.5×
+   mild- and severe-case prevalences cut the case-mix error 3.6×
    ([evidence](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#prevalence-fixes-the-case-count-not-the-case-mix--and-strata-are-not-a-cure-all)).
    Which axis is right is a claim about the recruitment mechanism, and the calibration
    cannot supply it. Watch the constraint count as the strata get finer — `A` strata by
@@ -305,7 +305,7 @@ for each argument. Steps 5 and 6 are what to report afterwards.
    ([demonstration](https://github.com/bvilhjal/i3pw/blob/main/docs/guide.md#checking-the-weights-a-held-out-balance-diagnostic)).
    *Read it as an alarm, not a ranking.* Across the benchmark suite the held-out
    `|SMD|` correctly flagged one broken weighting and ranked two others backwards —
-   preferring an estimator with 3× the bias — so a large discrepancy is evidence of
+   preferring an estimator with 3.5× the bias — so a large discrepancy is evidence of
    misspecification, and a small one is not a reason to choose one weighting over
    another ([evidence](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#neither-ingredient-is-enough-and-the-base-model-is-not-free)).
 5. **Report the effective sample size, a sensitivity sweep over `K`, and an interval that
@@ -318,12 +318,12 @@ for each argument. Steps 5 and 6 are what to report afterwards.
    the smallest error in that sweep occurred at a 30% wrong target.
    If you bootstrap, read its `failure_rate` first: discarded replicates are dropped
    selectively from the tail, so a non-zero rate means the interval is too narrow. That
-   begins at about **five sampled cases** — roughly an order of magnitude in prevalence
-   before the point estimate stops solving
+   begins at about **ten sampled cases** and is substantial by five — a prevalence step
+   before the solve itself begins to fail
    ([support](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#a-wrong-register-prevalence-is-survivable-a-rare-disease-under-recruited-is-not)).
 6. **Do not read the interval as evidence that the weighting is right.** At nominal 95%
-   it covered 0.95 when the tilt family contained the truth and **0.64** under the
-   ordinary combination of a fitted base and a marginal constraint — with almost no
+   it covered 0.93–0.94 when the tilt family contained the truth and **0.62–0.64** under
+   the ordinary combination of a fitted base and a marginal constraint — with almost no
    change in width, because the loss is bias and no variance formula covers a bias
    ([coverage](https://github.com/bvilhjal/i3pw/blob/main/docs/studies.md#the-intervals-cover-only-when-the-tilt-family-is-right)).
    An interval belongs next to the held-out check of step 4 and the sweep of step 5,
@@ -408,13 +408,14 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 
 ## Benchmarks
 
-The evidence base. Seven benchmarks over the recruitment mechanism, the register
-information, the target error, the case mix, interval coverage, support and the ridge
-— all seeds fixed, all scored on estimands the estimators were never given. See
+The evidence base. Nine benchmarks over the recruitment mechanism, the register
+information, the target error, the case mix, interval coverage, support, the ridge,
+register error under richer anchors, and wall-clock cost — all seeds fixed, all
+scored on estimands the estimators were never given. See
 [benchmarks/README.md](benchmarks/README.md).
 
 ```bash
-python -m benchmarks.run_all          # rewrites report/benchmark_results.tsv (~17 min)
+python -m benchmarks.run_all          # rewrites report/benchmark_results.tsv (~1 hour)
 python -m benchmarks.make_figures     # rewrites the report's tables and figures
 ```
 

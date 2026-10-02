@@ -192,9 +192,9 @@ held-out covariate separates them.
 **Read it as an alarm, not as a ranking.** The benchmark suite ran the same diagnostic
 across five recruitment mechanisms and it went both ways. Under outcome-only
 recruitment it correctly flagged the worse weighting (worst held-out `|SMD|` 0.146
-against 0.034, matching the biases 0.065 against 0.006). Under additive recruitment it
-ranked two weightings backwards, preferring the one with 3× the bias (`|SMD|` 0.024 at
-a bias of 0.120, against 0.106 at a bias of 0.036). The reason is structural: the
+against 0.035, matching the biases 0.065 against 0.003). Under additive recruitment it
+ranked two weightings backwards, preferring the one with 3.5× the bias (`|SMD|` 0.023 at
+a bias of 0.120, against 0.106 at a bias of 0.034). The reason is structural: the
 diagnostic measures balance on the margins you happened to hold out, and an estimator
 can buy balance on those while moving the estimand the wrong way. Use a large
 discrepancy as evidence against the specification; do not use a small one to pick
@@ -203,7 +203,9 @@ between two candidate weightings
 
 ## Uncertainty
 
-Point estimates and the ESS are not enough. `i3pw.uncertainty` adds three pieces:
+Point estimates and the ESS are not enough. The package adds five pieces of
+uncertainty machinery — three in `i3pw.uncertainty`, plus the calibration-aware SE
+and the tilt reuse below from `i3pw.calibration`:
 
 - `weighted_mean_se(values, weights)` — the design-based linearization (sandwich) SE of a
   Hájek weighted mean or prevalence,
@@ -277,13 +279,13 @@ nominal 95% interval for a held-out trait mean, 300 replications:
 
 | specification | fixed-weight | calibration-aware | bootstrap | mean width |
 | --- | --- | --- | --- | --- |
-| tilt family contains the truth | 0.960 | 0.953 | 0.940 | 0.085 |
-| fitted base + marginal constraint | 0.653 | 0.643 | 0.640 | 0.105 |
-| covariate × outcome recruitment | 0.373 | 0.357 | 0.343 | 0.122 |
+| tilt family contains the truth | 0.943 | 0.940 | 0.933 | 0.085 |
+| fitted base + marginal constraint | 0.643 | 0.620 | 0.617 | 0.105 |
+| covariate × outcome recruitment | 0.413 | 0.377 | 0.363 | 0.121 |
 
 The widths barely move; the coverage collapses. The calibration-aware half-widths are
-0.043, 0.053 and 0.061 SD, so the middle row's 0.036 SD bias is 68% of the half-width
-it would have to fit inside, and the last row's 0.083 SD is 135% of it. The middle row is not a
+0.043, 0.052 and 0.061 SD, so the middle row's 0.035 SD bias is 67% of the half-width
+it would have to fit inside, and the last row's 0.082 SD is 135% of it. The middle row is not a
 pathological design — it is a fitted participation model plus one known prevalence,
 which is what this package recommends. So report an interval next to the held-out
 diagnostic and the `K` sweep, and never as evidence that the weighting is right
@@ -372,10 +374,10 @@ base weights exactly like the other calibrators.
 
 **Choose the strata to match the mechanism, not the metadata you happen to have.**
 Where cases were recruited unevenly *across* strata, a pooled margin left a
-within-stratum prevalence wrong by 0.169 against a population `K` of 0.10, and
-stratifying took a held-out trait mean from −0.044 to −0.016 SD (oracle +0.002). Where
+within-stratum prevalence wrong by 0.172 against a population `K` of 0.10, and
+stratifying took a held-out trait mean from −0.045 to −0.014 SD (oracle −0.001). Where
 recruitment instead depended on severity *within* case status, the same demographic
-strata did nothing — the case-mix error went from +0.056 pooled to +0.063 stratified —
+strata did nothing — the case-mix error went from +0.060 pooled to +0.067 stratified —
 and what worked was anchoring the register's mild- and severe-case prevalences as two
 outcome columns, which brought it to +0.016. Stratifying on the wrong axis costs
 effective sample size and buys nothing
