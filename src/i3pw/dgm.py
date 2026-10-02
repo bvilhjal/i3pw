@@ -1,7 +1,8 @@
 """Data-generating mechanism for the selection-bias simulations.
 
-This reproduces the simulation used in the R scripts (``generalised_form.R`` and
-``differing_dgms.R``):
+This reproduces the simulation used in the historical R prototypes
+(``generalised_form.R`` and ``differing_dgms.R``, which predate this package and
+are not shipped with it):
 
 1. Draw ``n`` correlated covariates ``X`` from a multivariate normal whose
    correlation matrix has low-to-moderate off-diagonal entries.
@@ -78,9 +79,10 @@ def _default_prevalence(base: tuple[float, ...], q: int) -> tuple[float, ...]:
 class SimConfig:
     """Configuration for :func:`make_dataset`.
 
-    The default prevalences follow the five-outcome scenario in ``generalised_form.R``
-    and adapt to ``n_outcomes`` when it is overridden (so ``SimConfig(n_outcomes=2)``
-    just uses the first two). Pass explicit tuples to control them. Population targets
+    The default prevalences follow the five-outcome scenario of the historical R
+    prototype and adapt to ``n_outcomes`` when it is overridden (so
+    ``SimConfig(n_outcomes=2)`` just uses the first two). Pass explicit tuples to
+    control them. Population targets
     calibrate the mean outcome probabilities over the realized covariates; binary
     outcomes then fluctuate around those targets. Likewise, ``sample_size`` and
     ``target_sample_prevalence`` are expectations under independent Bernoulli
@@ -208,10 +210,15 @@ def make_dataset(config: SimConfig | None = None, **overrides) -> Dataset:
         coefs[i, start:end] = rng.uniform(config.coef_low, config.coef_high, size=end - start)
 
     linear_predictors = X @ coefs.T
+    # SimConfig.__post_init__ fills both prevalence defaults, so neither field is
+    # None by the time a Dataset is built; the assert is for the type checker, which
+    # cannot see through __post_init__.
+    pop_prev = config.target_population_prevalence
+    assert pop_prev is not None
     intercepts = np.array(
         [
             _solve_logistic_intercept(linear_predictors[:, j], target)
-            for j, target in enumerate(config.target_population_prevalence)
+            for j, target in enumerate(pop_prev)
         ]
     )
     logits = intercepts[None, :] + linear_predictors  # (n, Q)
@@ -331,6 +338,9 @@ def _selection_probabilities(
     if not 0 < sample_size < n:
         raise ValueError("sample_size must lie strictly between 0 and len(Y).")
 
+    # Annotated because np.zeros and np.asarray carry differently-shaped static
+    # types under shape-typed numpy stubs, which a bare inferred binding rejects.
+    offset: np.ndarray
     if covariate_score is None:
         offset = np.zeros(n)
     else:

@@ -291,7 +291,9 @@ def entropy_balance(
     _require_finite(t, "targets")
 
     if base_weights is None:
-        d = np.ones(n)
+        # Annotated because the two branches carry differently-shaped static types
+        # under shape-typed numpy stubs.
+        d: np.ndarray = np.ones(n)
     else:
         d = np.asarray(base_weights, dtype=float)
         if d.ndim != 1 or d.shape[0] != n:
@@ -489,7 +491,7 @@ def apply_tilt(
 
     n = F.shape[0]
     if base_weights is None:
-        d = np.ones(n)
+        d: np.ndarray = np.ones(n)
     else:
         d = np.asarray(base_weights, dtype=float)
         if d.ndim != 1 or d.shape[0] != n:
