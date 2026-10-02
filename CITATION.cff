@@ -5,7 +5,8 @@ type: software
 authors:
   - family-names: Vilhjalmsson
     given-names: Bjarni
-version: 0.3.2
+version: 0.3.3
+date-released: 2026-10-02
 license: MIT
 repository-code: "https://github.com/bvilhjal/i3pw"
 url: "https://github.com/bvilhjal/i3pw"
