@@ -677,3 +677,57 @@ def test_single_outcome_tilt_matches_the_documented_closed_form():
     assert w[Y[:, 0] == 1][0] * n == pytest.approx(K / P, rel=1e-6)
     assert w[Y[:, 0] == 0][0] * n == pytest.approx((1 - K) / (1 - P), rel=1e-6)
     assert float((w * Y[:, 0]).sum()) == pytest.approx(K, abs=1e-9)
+
+
+def test_duplicate_constraints_are_redundant_not_broken():
+    """Rank-deficient designs: the same column constrained twice.
+
+    A consistent duplicate must return the single-column solve's weights — the
+    dual coefficient is non-unique along the redundant direction, but the
+    weights are not. A conflicting duplicate is infeasible for any weighting,
+    and the solve must say so rather than quietly settling on one target.
+    """
+    rng = np.random.default_rng(11)
+    Y = (rng.uniform(size=500) < 0.3).astype(float)
+    w_single = entropy_balance(Y[:, None], [0.4], warn=False)
+    w_dup, diag = entropy_balance(
+        np.column_stack([Y, Y]), [0.4, 0.4], return_diagnostics=True, warn=False,
+    )
+    assert diag.converged
+    assert diag.max_abs_residual < 1e-6
+    np.testing.assert_allclose(w_dup, w_single, atol=1e-7)
+
+    with pytest.warns(CalibrationWarning, match="not met"):
+        w_bad, bad = entropy_balance(
+            np.column_stack([Y, Y]), [0.4, 0.5], return_diagnostics=True, warn=True,
+        )
+    assert not bad.converged
+    assert bad.max_abs_residual > 0.05  # |0.4 - 0.5| / 2 is the best any weighting does
+    assert np.all(np.isfinite(w_bad))
+    assert w_bad.sum() == pytest.approx(1.0)
+
+
+def test_compute_base_weights_interactions_path():
+    """The ``interactions=True`` base-model path runs end to end.
+
+    The pairwise-interaction expansion of the participation design was never
+    exercised by the suite; this pins that it produces finite, positive
+    inverse-probability weights for the selected units.
+    """
+    from i3pw import compute_base_weights
+
+    ds = make_dataset(
+        seed=5, population_size=2500, n_features=5, n_outcomes=1,
+        predictors_per_outcome=3, sample_size=600,
+        target_population_prevalence=(0.3,), target_sample_prevalence=(0.15,),
+        selection_covariate_strength=1.0, n_selection_covariates=3,
+    )
+    X_train, _, s_train = ds.split("train")
+    X_test, _, s_test = ds.split("test")
+    sel = s_test == 1
+    bw = compute_base_weights(
+        "lasso", "inverse", X_train, s_train, X_test[sel], interactions=True,
+    )
+    assert bw.shape == (int(sel.sum()),)
+    assert np.all(np.isfinite(bw))
+    assert np.all(bw > 0)
